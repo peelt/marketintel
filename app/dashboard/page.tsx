@@ -65,6 +65,22 @@ export default async function DashboardPage() {
         </p>
       </section>
 
+      <section className="mt-10">
+        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Tools
+        </h2>
+        <ul className="mt-3 space-y-1 text-sm">
+          <li>
+            <Link
+              href="/dashboard/diagnostics"
+              className="text-accent hover:underline"
+            >
+              Diagnostics — adapter readiness, row counts, manual ingest
+            </Link>
+          </li>
+        </ul>
+      </section>
+
       <footer className="mt-16 text-xs text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
           ← back to landing

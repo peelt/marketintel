@@ -5,8 +5,10 @@ follow-up Q&A scoped to the evidence they cited.
 
 ## Status
 
-PR 1 — scaffold. Next.js 15, Supabase (schema + auth), Inngest (no functions
-yet), Anthropic SDK wired, agent registry declared with metadata only.
+PR 2 — data sources + seed universe. Next.js 15, Supabase (schema + auth),
+Inngest, Anthropic SDK, six free-tier data adapters, three paid stubs, ingest
+helpers for prices/dividends/financials/macro/news/filings, dev ingest route,
+and a diagnostics page.
 
 | Pole | Status | Cadence (UTC) |
 |---|---|---|
@@ -56,20 +58,26 @@ Anyone else hitting `/login` gets a pretend-success message but no email.
 
 ## Data sources (v1)
 
-Free tier only. Paid adapters (FMP, Polygon, Marketaux) will be scaffolded
-behind the same interfaces in PR 2 but unused in v1 — they slot in via env
-flags later without refactor.
+Free tier only. Paid adapters scaffolded behind the same interfaces in
+`lib/data-sources/{fmp,polygon,marketaux}.ts` — slot in via env flags later
+without refactor.
 
-- SEC EDGAR — S-1s, 10-Ks, full-text search
-- FRED — Fed and macro time series
-- yfinance (unofficial, prices and dividends)
-- LSE RNS feed — UK filings
-- Companies House — UK issuer detail
+| Adapter | Status | Provides |
+|---|---|---|
+| SEC EDGAR | active (UA required) | filings (S-1, 10-K, full-text search) |
+| FRED | active (API key) | macro time series |
+| yfinance | active | prices, dividends, fundamentals snapshot |
+| LSE RNS (via Investegate) | active | UK announcements |
+| Companies House | active (API key) | UK issuer detail |
+| RSS news | active | financial news from FT/MW/SA/Yahoo |
+| FMP | **stub** | clean quarterly financials, IPO calendar |
+| Polygon | **stub** | upgrade path for prices |
+| Marketaux | **stub** | tagged news with sentiment |
 
 ## Build plan
 
-1. **PR 1** — scaffold (this PR)
-2. **PR 2** — data source adapters with normalised return shapes + seed universe
+1. ~~**PR 1** — scaffold~~
+2. ~~**PR 2** — data source adapters with normalised return shapes + seed universe~~
 3. **PR 3** — agent base, scoring engine, evidence persistence, report rendering
 4. **PR 4** — Dividend agent (first concrete pole)
 5. **PR 5** — IPO agent
