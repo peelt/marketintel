@@ -5,10 +5,12 @@ follow-up Q&A scoped to the evidence they cited.
 
 ## Status
 
-PR 2 — data sources + seed universe. Next.js 15, Supabase (schema + auth),
-Inngest, Anthropic SDK, six free-tier data adapters, three paid stubs, ingest
-helpers for prices/dividends/financials/macro/news/filings, dev ingest route,
-and a diagnostics page.
+PR 3 — agent base + scoring engine + report rendering. The infrastructure
+all five agents will share: a generic scoring engine with declarative
+signal resolvers, evidence persistence, a versioned framework repository,
+the BaseAgent abstract class, and reports list + detail pages with markdown
+rendering. Default dividend framework seeded; other frameworks ship in PR 4–7
+alongside the agents that consume them.
 
 | Pole | Status | Cadence (UTC) |
 |---|---|---|
@@ -78,7 +80,7 @@ without refactor.
 
 1. ~~**PR 1** — scaffold~~
 2. ~~**PR 2** — data source adapters with normalised return shapes + seed universe~~
-3. **PR 3** — agent base, scoring engine, evidence persistence, report rendering
+3. ~~**PR 3** — agent base, scoring engine, evidence persistence, report rendering~~
 4. **PR 4** — Dividend agent (first concrete pole)
 5. **PR 5** — IPO agent
 6. **PR 6** — Energy + Metals agents
