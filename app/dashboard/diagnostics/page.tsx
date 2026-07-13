@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
@@ -19,9 +18,9 @@ export default async function DiagnosticsPage() {
   const stubbed = listStubbedAdapters();
   const seedCount = allSeedSecurities().length;
 
-  // Counts from Supabase — use the service client so RLS doesn't get in the way
-  // and we can show row counts even before any user-facing reads are wired.
-  const service = createServiceClient();
+  // Counts via the RLS-scoped client — the entitled-read policies cover these
+  // tables, and the service-role client must never run on a request-reachable
+  // path (see lib/supabase/service.ts).
   const counts = await Promise.all(
     [
       "securities",
@@ -32,7 +31,7 @@ export default async function DiagnosticsPage() {
       "news_articles",
       "filings",
     ].map(async (table) => {
-      const { count } = await service
+      const { count } = await supabase
         .from(table)
         .select("*", { count: "exact", head: true });
       return { table, count: count ?? 0 };
@@ -87,15 +86,16 @@ export default async function DiagnosticsPage() {
 
       <Section title="Manual ingest">
         <p className="mt-3 text-sm text-muted-foreground">
-          Hit these endpoints (auth-required) to manually trigger ingest tasks:
+          POST these endpoints (auth-required; in production also requires the
+          x-dev-ingest-secret header) to manually trigger ingest tasks:
         </p>
         <ul className="mt-2 space-y-1 font-mono text-xs">
-          <li>GET /api/dev/ingest?task=seed-universe</li>
-          <li>GET /api/dev/ingest?task=prices</li>
-          <li>GET /api/dev/ingest?task=dividends</li>
-          <li>GET /api/dev/ingest?task=fundamentals</li>
-          <li>GET /api/dev/ingest?task=macro</li>
-          <li>GET /api/dev/ingest?task=news</li>
+          <li>POST /api/dev/ingest?task=seed-universe</li>
+          <li>POST /api/dev/ingest?task=prices</li>
+          <li>POST /api/dev/ingest?task=dividends</li>
+          <li>POST /api/dev/ingest?task=fundamentals</li>
+          <li>POST /api/dev/ingest?task=macro</li>
+          <li>POST /api/dev/ingest?task=news</li>
         </ul>
       </Section>
     </main>
