@@ -47,6 +47,19 @@ export abstract class BaseAgent implements Agent {
     evidence: EvidenceItem[];
   }): Promise<{ summaryMarkdown: string; bodyMarkdown: string }>;
 
+  /**
+   * Optional verdict hook. Agents whose output is a labelled call — Metals'
+   * buy/hold/avoid, Reaction's overshoot bands — map a candidate's scores to
+   * `verdict` (free text) and/or `classification` (constrained vocabulary)
+   * here. Default: no verdict. Both flow through to `report_items`.
+   */
+  protected classify(_scored: CandidateScore): {
+    verdict?: string | null;
+    classification?: string | null;
+  } {
+    return {};
+  }
+
   async run(input: AgentRunInput): Promise<RankedReport> {
     const framework = await this.resolveFramework(input);
     if (!framework) {
@@ -83,18 +96,23 @@ export abstract class BaseAgent implements Agent {
       const evidenceStartIndex = scored
         .slice(0, idx)
         .reduce((sum, prev) => sum + prev.evidence.length, 0);
+      const { verdict, classification } = this.classify(s);
       return {
         securityId: s.securityId,
         composite: roundTo(s.composite, 1),
+        coverage: roundTo(s.coverage, 3),
+        verdict: verdict ?? null,
+        classification: classification ?? null,
         breakdown: Object.fromEntries(
           Object.entries(s.criteria).map(([k, v]) => [
             k,
             {
-              score: roundTo(v.score, 1),
+              // null stays null — "no data" must never render as "worst".
+              score: v.score === null ? null : roundTo(v.score, 1),
               signals: Object.fromEntries(
                 Object.entries(v.signals).map(([sk, sv]) => [
                   sk,
-                  sv.normalised ?? 0,
+                  sv.normalised === null ? null : roundTo(sv.normalised, 1),
                 ]),
               ),
             },

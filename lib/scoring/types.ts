@@ -26,8 +26,24 @@ export type SignalResolver = (params: {
   sourceQuery: string;
 }) => Promise<SignalValue>;
 
+/**
+ * Batch path: resolve one sub-signal for MANY candidates in a single call —
+ * typically one DB round-trip instead of N. Return a map keyed by securityId;
+ * omitted candidates are treated as null signals.
+ */
+export type BatchSignalResolver = (params: {
+  securityIds: string[];
+  sourceQuery: string;
+}) => Promise<Map<string, SignalValue>>;
+
 export interface SignalResolverRegistry {
   resolve: SignalResolver;
+  /**
+   * Optional. When present the engine prefers it — required in practice for
+   * large universes (the Reaction Analyser's ~500–800 names would otherwise
+   * make N sequential round-trips per sub-signal).
+   */
+  resolveBatch?: BatchSignalResolver;
 }
 
 /**
@@ -36,10 +52,17 @@ export interface SignalResolverRegistry {
 export interface CandidateScore {
   securityId: string;
   composite: number; // 0–100
+  /**
+   * 0–1: the share of framework weight that had data behind it
+   * (Σ criterionWeight × presentSubSignalWeight). A composite built from one
+   * signal out of ten is flagged, not silently confident.
+   */
+  coverage: number;
   criteria: Record<
     string,
     {
-      score: number;
+      /** null = no data for any sub-signal of this criterion (NOT zero). */
+      score: number | null;
       signals: Record<
         string,
         { raw: number | null; normalised: number | null; weight: number }
