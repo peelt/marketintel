@@ -84,6 +84,7 @@ export interface RankedReport {
   agentName: AgentName;
   generatedAt: string; // ISO
   summaryMarkdown: string;
+  bodyMarkdown: string;
   ranked: ScoredCandidate[];
   evidence: EvidenceItem[];
 }

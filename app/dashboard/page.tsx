@@ -60,8 +60,13 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Reports
         </h2>
-        <p className="mt-3 text-sm text-muted-foreground">
-          No reports yet. Agents will be wired up in subsequent PRs.
+        <p className="mt-3 text-sm">
+          <Link
+            href="/reports"
+            className="text-accent hover:underline"
+          >
+            View all reports →
+          </Link>
         </p>
       </section>
 
