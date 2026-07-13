@@ -1,0 +1,120 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
+import { allSeedSecurities } from "@/lib/data-sources/universes";
+
+export const dynamic = "force-dynamic";
+
+export default async function DiagnosticsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+
+  const ready = listReadyAdapters();
+  const stubbed = listStubbedAdapters();
+  const seedCount = allSeedSecurities().length;
+
+  // Counts from Supabase — use the service client so RLS doesn't get in the way
+  // and we can show row counts even before any user-facing reads are wired.
+  const service = createServiceClient();
+  const counts = await Promise.all(
+    [
+      "securities",
+      "price_snapshots",
+      "dividends",
+      "financials_snapshot",
+      "macro_indicators",
+      "news_articles",
+      "filings",
+    ].map(async (table) => {
+      const { count } = await service
+        .from(table)
+        .select("*", { count: "exact", head: true });
+      return { table, count: count ?? 0 };
+    }),
+  );
+
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-12">
+      <header className="flex items-baseline justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Diagnostics</h1>
+        <Link
+          href="/dashboard"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          ← dashboard
+        </Link>
+      </header>
+
+      <Section title="Adapter readiness">
+        <ul className="mt-3 space-y-1 text-sm">
+          {ready.map((a) => (
+            <li key={a.name} className="flex justify-between font-mono">
+              <span>{a.name}</span>
+              <span className="text-green-600 dark:text-green-400">ready</span>
+            </li>
+          ))}
+          {stubbed.map((s) => (
+            <li key={s.adapter.name} className="flex justify-between font-mono">
+              <span>{s.adapter.name}</span>
+              <span className="text-muted-foreground">{s.reason}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Seed universe">
+        <p className="mt-3 text-sm text-muted-foreground">
+          {seedCount} curated securities across metals, energy and dividend buckets.
+        </p>
+      </Section>
+
+      <Section title="Row counts">
+        <ul className="mt-3 space-y-1 text-sm font-mono">
+          {counts.map((c) => (
+            <li key={c.table} className="flex justify-between">
+              <span>{c.table}</span>
+              <span>{c.count.toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Manual ingest">
+        <p className="mt-3 text-sm text-muted-foreground">
+          Hit these endpoints (auth-required) to manually trigger ingest tasks:
+        </p>
+        <ul className="mt-2 space-y-1 font-mono text-xs">
+          <li>GET /api/dev/ingest?task=seed-universe</li>
+          <li>GET /api/dev/ingest?task=prices</li>
+          <li>GET /api/dev/ingest?task=dividends</li>
+          <li>GET /api/dev/ingest?task=fundamentals</li>
+          <li>GET /api/dev/ingest?task=macro</li>
+          <li>GET /api/dev/ingest?task=news</li>
+        </ul>
+      </Section>
+    </main>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-8">
+      <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}

@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "version": 1,
+    "last_reviewed": "2026-05-19",
+    "notes": "Curated starter set for the Energy Beneficiary screener. Tags drive bucket classification: 'energy_upstream', 'energy_midstream', 'energy_refining', 'energy_equipment', 'energy_lng', 'energy_intensive_industrial'."
+  },
+  "securities": [
+    { "ticker": "XOM", "exchange": "NYSE", "name": "Exxon Mobil Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "CVX", "exchange": "NYSE", "name": "Chevron Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "COP", "exchange": "NYSE", "name": "ConocoPhillips", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "EOG", "exchange": "NYSE", "name": "EOG Resources", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "OXY", "exchange": "NYSE", "name": "Occidental Petroleum", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "FANG", "exchange": "NASDAQ", "name": "Diamondback Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "DVN", "exchange": "NYSE", "name": "Devon Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "MRO", "exchange": "NYSE", "name": "Marathon Oil", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "APA", "exchange": "NASDAQ", "name": "APA Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "HES", "exchange": "NYSE", "name": "Hess Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+    { "ticker": "CTRA", "exchange": "NYSE", "name": "Coterra Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "E&P", "tags": ["energy_upstream"] },
+
+    { "ticker": "MPC", "exchange": "NYSE", "name": "Marathon Petroleum", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Refining", "tags": ["energy_refining"] },
+    { "ticker": "VLO", "exchange": "NYSE", "name": "Valero Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Refining", "tags": ["energy_refining"] },
+    { "ticker": "PSX", "exchange": "NYSE", "name": "Phillips 66", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Refining", "tags": ["energy_refining"] },
+
+    { "ticker": "ENB", "exchange": "NYSE", "name": "Enbridge Inc", "country": "CA", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "EPD", "exchange": "NYSE", "name": "Enterprise Products Partners", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "KMI", "exchange": "NYSE", "name": "Kinder Morgan", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "MPLX", "exchange": "NYSE", "name": "MPLX LP", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "OKE", "exchange": "NYSE", "name": "ONEOK Inc", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "TRGP", "exchange": "NYSE", "name": "Targa Resources", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "WMB", "exchange": "NYSE", "name": "Williams Companies", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+    { "ticker": "ET", "exchange": "NYSE", "name": "Energy Transfer LP", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Midstream", "tags": ["energy_midstream"] },
+
+    { "ticker": "SLB", "exchange": "NYSE", "name": "Schlumberger", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+    { "ticker": "BKR", "exchange": "NASDAQ", "name": "Baker Hughes", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+    { "ticker": "HAL", "exchange": "NYSE", "name": "Halliburton", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+    { "ticker": "FTI", "exchange": "NYSE", "name": "TechnipFMC", "country": "GB", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+    { "ticker": "NOV", "exchange": "NYSE", "name": "NOV Inc", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+    { "ticker": "CHX", "exchange": "NYSE", "name": "ChampionX Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Equipment & Services", "tags": ["energy_equipment"] },
+
+    { "ticker": "LNG", "exchange": "NYSE", "name": "Cheniere Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "LNG", "tags": ["energy_lng"] },
+    { "ticker": "NFE", "exchange": "NASDAQ", "name": "New Fortress Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "LNG", "tags": ["energy_lng"] },
+    { "ticker": "EQT", "exchange": "NYSE", "name": "EQT Corporation", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Natural Gas", "tags": ["energy_upstream", "energy_gas"] },
+    { "ticker": "CHK", "exchange": "NASDAQ", "name": "Chesapeake Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Natural Gas", "tags": ["energy_upstream", "energy_gas"] },
+    { "ticker": "AR", "exchange": "NYSE", "name": "Antero Resources", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Natural Gas", "tags": ["energy_upstream", "energy_gas"] },
+    { "ticker": "RRC", "exchange": "NYSE", "name": "Range Resources", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Natural Gas", "tags": ["energy_upstream", "energy_gas"] },
+    { "ticker": "SWN", "exchange": "NYSE", "name": "Southwestern Energy", "country": "US", "currency": "USD", "sector": "Energy", "sub_sector": "Natural Gas", "tags": ["energy_upstream", "energy_gas"] },
+
+    { "ticker": "BP", "exchange": "LSE", "name": "BP plc", "country": "GB", "currency": "GBP", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "SHEL", "exchange": "LSE", "name": "Shell plc", "country": "GB", "currency": "GBP", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "EQNR", "exchange": "NYSE", "name": "Equinor ASA", "country": "NO", "currency": "USD", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "TTE", "exchange": "NYSE", "name": "TotalEnergies SE", "country": "FR", "currency": "USD", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] },
+    { "ticker": "E", "exchange": "NYSE", "name": "Eni SpA", "country": "IT", "currency": "USD", "sector": "Energy", "sub_sector": "Integrated", "tags": ["energy_upstream", "energy_integrated"] }
+  ]
+}
