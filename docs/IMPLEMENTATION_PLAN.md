@@ -123,9 +123,9 @@ M3 is the thing that earns the first paying user.
   keys), `lib/data-sources/universes/*`.
 - **Key tasks:**
   - Define a callable **`PriceSource` interface** (canonical `from`/`to`, typed errors, honest
-    readiness = implemented **and** configured). Add **Twelve Data or Finnhub** as primary,
-    **yfinance as fallback** — this revives the dead fundamentals path (Yahoo `quoteSummary` 401s
-    without cookie+crumb).
+    readiness = implemented **and** configured). Add **Finnhub** as primary (settled, §5 —
+    confirm LSE coverage in the readiness check before lock-in), **yfinance as fallback** — this
+    revives the dead fundamentals path (Yahoo `quoteSummary` 401s without cookie+crumb).
   - **Zod-validate every network response**; throw typed errors (SchemaChanged / NotFound /
     RateLimited / Blocked) so schema drift is distinguishable from a delisting or a throttle.
   - Fix data-integrity keys: drop `amount` from the dividends unique key; give RNS filings a real
@@ -171,7 +171,7 @@ M3 is the thing that earns the first paying user.
   - **Disclaimer surface:** impersonal framing, "information/probability, not personal advice," per I2.
 - **DoD:** a scheduled Dividend report renders with a ranked table, each row's evidence viewable,
   one chart, and a visible disclaimer. Cron fires on schedule in a test trigger.
-- **Blocking input:** dividend weights + `eps_revision_trend` handling (see §5).
+- **Settled inputs (§5):** weights 25/40/15/20; `eps_revision_trend` dropped, cut-risk rebalanced 0.5/0.5.
 
 #### PR 5 — Reaction Analyser (the hero)
 - **Goal:** ship the differentiator — drop-detection fused with a fundamental overshoot-vs-earned
@@ -185,7 +185,7 @@ M3 is the thing that earns the first paying user.
   through the PR-4 dashboard + evidence viewer.
 - **DoD:** a scheduled run screens the universe for large drops, scores each on overshoot, emits a
   banded verdict with cited evidence, and renders in the dashboard. This is the demo.
-- **Blocking input:** inclusion threshold + schedule (§5).
+- **Settled inputs (§5):** threshold 5d ≥12% OR 1d ≥8% (as framework data); schedule Tue + Fri 17:00 UTC.
 
 #### PR 6 — Portfolio/watchlist anchoring + "what changed" alerting (table-stakes)
 - **Goal:** make it feel like *the user's* analyst without crossing into personal advice.
@@ -239,19 +239,24 @@ M3 is the thing that earns the first paying user.
 
 ---
 
-## 5. Inputs still required (blocking specific PRs)
+## 5. Decisions — settled and remaining
 
-These were opened at kickoff and never settled (the session pivoted to strategy). They **block the
-PRs noted** and should be answered before those start — do not guess them.
+The kickoff decisions were settled with the product owner on 13 July 2026. Treat as fixed unless
+explicitly revisited.
 
-| Input | Blocks | Note |
-|-------|--------|------|
-| Dividend framework weights (default 25/40/15/20?) | PR 4 | Keep or adjust. |
-| `eps_revision_trend` handling | PR 4 | yfinance has no revisions — drop & rebalance (recommended), proxy via price reaction, or LLM-grade via web search. |
-| Reaction inclusion threshold | PR 5 | Proposed: 5d drawdown ≥12% OR 1d drop ≥8%. |
-| Reaction schedule | PR 5 | Proposed: Tue + Fri 17:00 UTC. |
-| Primary price-source choice | PR 3.5b | Twelve Data vs Finnhub (need the API key). |
-| Paid geography + legal review | Paid gate | US-first vs UK-sophisticated-gated; FCA-competent advice before any UK paid launch. |
+| Input | Decision | Affects |
+|-------|----------|---------|
+| Dividend framework weights | **Keep 25/40/15/20** (yield / coverage / track record / cut-risk). Safety-first: a yield spike reads as cut risk, not a buy signal. Editable later via PR 7. | PR 4 |
+| `eps_revision_trend` handling | **Drop & rebalance** remaining cut-risk sub-signals to 0.5/0.5. Possibly reinstate later via Finnhub analyst-recommendation data — verify in 3.5b. | PR 4 |
+| Reaction inclusion threshold | **5d drawdown ≥12% OR 1d drop ≥8%**, stored as editable framework data (not code) so it can be tuned from observed weeks. | PR 5 |
+| Reaction schedule | **Tue + Fri 17:00 UTC.** | PR 5 |
+| Primary price source | **Finnhub** (provisional — ~60 calls/min free tier suits the 800-name refresh; carries analyst data). Confirm LSE coverage in 3.5b's readiness check before lock-in; yfinance covers LSE in the interim. Requires `FINNHUB_API_KEY` in env. | PR 3.5b |
+
+Still open (not blocking current work):
+
+| Input | When | Note |
+|-------|------|------|
+| Paid geography + legal review | Paid gate (post-M5) | US-first vs UK-sophisticated-gated; FCA-competent advice before any UK paid launch. |
 | Repo rename to `peelt/investorlogical` | any time | Optional; deferred by prior decision. |
 
 ---
