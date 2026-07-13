@@ -3,6 +3,7 @@ import type {
   CandidateScore,
   ScoringRunInput,
   SignalValue,
+  SignalResolverRegistry,
 } from "./types";
 import type { EvidenceItem } from "@/lib/agents/types";
 
@@ -10,13 +11,25 @@ import type { EvidenceItem } from "@/lib/agents/types";
  * Score a set of candidates against a framework.
  *
  * For each (criterion × sub-signal), the engine resolves the raw value for
- * every candidate, normalises across the candidate set, weights, and
- * aggregates. Evidence accumulates per candidate as resolvers return it.
+ * every candidate, normalises per the sub-signal's declared mode (rank /
+ * zscore / absolute), weights, and aggregates. Evidence accumulates per
+ * candidate as resolvers return it.
  *
- * Critically: no LLM calls happen here. Quantitative signals are resolver-
- * supplied numbers. The LLM scoring path lives in lib/scoring/llm-scorer.ts
- * and registers itself as a special resolver that an agent can plug in for
- * qualitative criteria.
+ * Null semantics — consistent at every level:
+ *   - a null SIGNAL redistributes its weight across the criterion's present
+ *     signals;
+ *   - a fully-null CRITERION redistributes its weight across the candidate's
+ *     present criteria (it is NOT scored as zero);
+ *   - per-candidate `coverage` records how much framework weight actually had
+ *     data, so a thin composite is visibly thin.
+ *
+ * Evidence weights are the resolver's own 0–1 confidence, clamped — they are
+ * NOT multiplied by framework weights (that crushed everything to ≤0.25 and
+ * made all evidence read as unimportant).
+ *
+ * No LLM calls happen here. Quantitative signals are resolver-supplied
+ * numbers. The LLM scoring path lives in lib/scoring/llm-scorer.ts and plugs
+ * in through an agent's resolver (with normalisation: "absolute").
  */
 export async function scoreCandidates(
   input: ScoringRunInput,
@@ -24,13 +37,19 @@ export async function scoreCandidates(
   const { framework, candidates, resolver } = input;
 
   const scores = new Map<string, CandidateScore>();
+  const acc = new Map<
+    string,
+    { weighted: number; weightAccounted: number; coverage: number }
+  >();
   for (const securityId of candidates) {
     scores.set(securityId, {
       securityId,
       composite: 0,
+      coverage: 0,
       criteria: {},
       evidence: [],
     });
+    acc.set(securityId, { weighted: 0, weightAccounted: 0, coverage: 0 });
   }
 
   for (const criterion of framework.criteria) {
@@ -39,18 +58,11 @@ export async function scoreCandidates(
       signalKey: string;
       weight: number;
       direction: "higher_better" | "lower_better";
-      values: { securityId: string; value: SignalValue }[];
+      values: Map<string, SignalValue>;
     }[] = [];
 
     for (const sub of criterion.subSignals) {
-      const values: { securityId: string; value: SignalValue }[] = [];
-      for (const securityId of candidates) {
-        const value = await resolver.resolve({
-          securityId,
-          sourceQuery: sub.sourceQuery,
-        });
-        values.push({ securityId, value });
-      }
+      const values = await resolveSignal(resolver, candidates, sub.sourceQuery);
       subResults.push({
         signalKey: sub.key,
         weight: sub.weight,
@@ -59,18 +71,24 @@ export async function scoreCandidates(
       });
     }
 
-    // Normalise each sub-signal across candidates, then aggregate per candidate.
+    // Normalise each sub-signal across candidates per its declared mode.
     const normalisedBySignal = new Map<string, Map<string, number | null>>();
-    for (const sub of subResults) {
-      const raws = sub.values.map((v) => v.value.raw);
-      const normalised = normaliseValues(raws, sub.direction);
+    for (let i = 0; i < criterion.subSignals.length; i++) {
+      const sub = subResults[i];
+      const raws = candidates.map((id) => sub.values.get(id)?.raw ?? null);
+      const normalised = normaliseValues(
+        raws,
+        sub.direction,
+        criterion.subSignals[i].normalisation ?? "rank",
+      );
       const m = new Map<string, number | null>();
-      sub.values.forEach((v, i) => m.set(v.securityId, normalised[i]));
+      candidates.forEach((id, idx) => m.set(id, normalised[idx]));
       normalisedBySignal.set(sub.signalKey, m);
     }
 
     for (const securityId of candidates) {
       const candidateScore = scores.get(securityId)!;
+      const candidateAcc = acc.get(securityId)!;
       const signalBreakdown: Record<
         string,
         { raw: number | null; normalised: number | null; weight: number }
@@ -79,8 +97,7 @@ export async function scoreCandidates(
       let weighted = 0;
       let weightAccountedFor = 0;
       for (const sub of subResults) {
-        const raw = sub.values.find((v) => v.securityId === securityId)?.value
-          .raw ?? null;
+        const raw = sub.values.get(securityId)?.raw ?? null;
         const normalised =
           normalisedBySignal.get(sub.signalKey)?.get(securityId) ?? null;
         signalBreakdown[sub.signalKey] = {
@@ -94,29 +111,75 @@ export async function scoreCandidates(
         }
       }
 
+      // null, not zero, when the criterion had no data at all.
       const criterionScore =
-        weightAccountedFor > 0 ? weighted / weightAccountedFor : 0;
+        weightAccountedFor > 0 ? weighted / weightAccountedFor : null;
 
       candidateScore.criteria[criterion.key] = {
         score: criterionScore,
         signals: signalBreakdown,
       };
-      candidateScore.composite += criterionScore * criterion.weight;
+      if (criterionScore !== null) {
+        candidateAcc.weighted += criterionScore * criterion.weight;
+        candidateAcc.weightAccounted += criterion.weight;
+      }
+      // Sub-signal weights sum to 1 within a criterion, so this is the share
+      // of this criterion's weight that had data.
+      candidateAcc.coverage += criterion.weight * weightAccountedFor;
 
-      // Collect evidence from every sub-signal we resolved for this candidate.
+      // Collect evidence from every sub-signal resolved for this candidate.
       for (const sub of subResults) {
-        const hit = sub.values.find((v) => v.securityId === securityId);
+        const hit = sub.values.get(securityId);
         if (!hit) continue;
-        for (const ev of hit.value.evidence) {
-          candidateScore.evidence.push(scaleEvidenceWeight(ev, sub.weight * criterion.weight));
+        for (const ev of hit.evidence) {
+          candidateScore.evidence.push(clampEvidenceWeight(ev));
         }
       }
     }
   }
 
+  for (const securityId of candidates) {
+    const s = scores.get(securityId)!;
+    const a = acc.get(securityId)!;
+    // Redistribute missing-criterion weight rather than scoring it as worst.
+    s.composite = a.weightAccounted > 0 ? a.weighted / a.weightAccounted : 0;
+    s.coverage = Math.min(1, Math.max(0, a.coverage));
+  }
+
   return Array.from(scores.values()).sort((a, b) => b.composite - a.composite);
 }
 
-function scaleEvidenceWeight(ev: EvidenceItem, scale: number): EvidenceItem {
-  return { ...ev, weight: Math.max(0, Math.min(1, ev.weight * scale)) };
+/** Prefer the batch path when the resolver provides one. */
+async function resolveSignal(
+  resolver: SignalResolverRegistry,
+  candidates: string[],
+  sourceQuery: string,
+): Promise<Map<string, SignalValue>> {
+  if (resolver.resolveBatch) {
+    const batch = await resolver.resolveBatch({
+      securityIds: candidates,
+      sourceQuery,
+    });
+    // Guarantee an entry per candidate so downstream lookups are total.
+    const out = new Map<string, SignalValue>();
+    for (const id of candidates) {
+      out.set(id, batch.get(id) ?? { raw: null, evidence: [] });
+    }
+    return out;
+  }
+
+  const out = new Map<string, SignalValue>();
+  for (const securityId of candidates) {
+    out.set(securityId, await resolver.resolve({ securityId, sourceQuery }));
+  }
+  return out;
+}
+
+/**
+ * Evidence weight is the resolver's own confidence in the source, clamped to
+ * the DB constraint. Framework importance-weighting stays in the score, where
+ * it belongs — multiplying it into evidence weight crushed every row to noise.
+ */
+function clampEvidenceWeight(ev: EvidenceItem): EvidenceItem {
+  return { ...ev, weight: Math.max(0, Math.min(1, ev.weight)) };
 }

@@ -22,10 +22,14 @@ interface ReportItemRow {
   id: string;
   rank: number;
   composite_score: number;
-  scoring_breakdown: Record<
-    string,
-    { score: number; signals: Record<string, number> }
-  >;
+  scoring_breakdown: {
+    /** 0–1 share of framework weight that had data behind it. */
+    coverage?: number;
+    criteria?: Record<
+      string,
+      { score: number | null; signals: Record<string, number | null> }
+    >;
+  };
   verdict: string | null;
   classification: string | null;
   security: { ticker: string; exchange: string; name: string } | null;
@@ -100,6 +104,13 @@ export default async function ReportDetailPage({
           </div>
         </div>
       </header>
+
+      {run && run.status !== "succeeded" && (
+        <p className="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
+          This run finished with status <strong>{run.status}</strong> — the
+          report below may be incomplete and is excluded from the reports list.
+        </p>
+      )}
 
       <article className="prose prose-sm mt-10 max-w-none dark:prose-invert">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>

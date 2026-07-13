@@ -63,7 +63,13 @@ async function sendMagicLink(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
 
   // Pretend-success on disallowed emails so we don't leak the allowlist.
+  // The disallowed branch previously returned instantly while the allowed
+  // branch waited on a Supabase round-trip — a timing oracle. Pad it into the
+  // same latency band. (Defence in depth: signups are also disabled
+  // server-side and RLS is entitlement-gated, so a probed address alone is
+  // worth little.)
   if (!isAllowedEmail(email)) {
+    await sleep(350 + Math.random() * 900);
     redirect("/login?sent=1");
   }
 
@@ -73,11 +79,21 @@ async function sendMagicLink(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      // The owner's auth.users row is provisioned once; never mint users from
+      // the login form. (Direct-to-Supabase signups are disabled in the
+      // dashboard — this keeps the app's own path consistent with that.)
+      shouldCreateUser: false,
+    },
   });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
   redirect("/login?sent=1");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -16,7 +16,7 @@ import { getErrorMessage } from "@/lib/errors";
 /**
  * Dev-only manual ingest endpoint.
  *
- * GET /api/dev/ingest?task=<task>
+ * POST /api/dev/ingest?task=<task>
  *
  *   task=seed-universe   — seed/refresh the curated tickers in `securities`
  *   task=prices          — pull 1y daily prices for the entire seed universe
@@ -26,12 +26,21 @@ import { getErrorMessage } from "@/lib/errors";
  *   task=news            — pull all RSS feeds
  *   task=status          — return adapter readiness, no side effects
  *
- * Always auth-gated to AUTH_ALLOWED_EMAIL. Not exposed in production routing
- * beyond what the allowlist enforces, but useful for local development and
- * one-off backfills.
+ * POST (not GET) because every task except `status` mutates state and fans
+ * out to external APIs — a cookie-authenticated GET was CSRF-able via a
+ * simple <img> tag. In production the route additionally requires the
+ * x-dev-ingest-secret header to match DEV_INGEST_SECRET (unset = disabled in
+ * production). Scheduled ingest belongs to Inngest jobs, not this route.
  */
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    const secret = process.env.DEV_INGEST_SECRET;
+    if (!secret || request.headers.get("x-dev-ingest-secret") !== secret) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
