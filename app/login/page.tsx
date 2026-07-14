@@ -22,7 +22,7 @@ export default async function LoginPage({
   return (
     <main className="mx-auto max-w-md px-6 py-24">
       <div className="mb-8 flex justify-center">
-        <Wordmark size="h-9" />
+        <Wordmark size="h-14" />
       </div>
 
       <div className="card-cli overflow-hidden p-0">

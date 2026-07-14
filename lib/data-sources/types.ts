@@ -12,6 +12,7 @@ export type DataSourceName =
   | "fred"
   | "yfinance"
   | "finnhub"
+  | "twelvedata"
   | "lse_rns"
   | "companies_house"
   | "news_rss"
