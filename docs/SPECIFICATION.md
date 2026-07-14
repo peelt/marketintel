@@ -312,10 +312,15 @@ vs-owner-only evidence flag; body-read timeouts + SEC 403 retry handling.
 Finnhub LSE coverage probe exposed via `/api/dev/ingest?task=status` — run
 it on the live key before treating Finnhub as locked in (plan §5).
 
-**Open — 3.5c (scale):** bounded-concurrency batch resolution; Anthropic
-Batch API for LLM signals; negative caching + bulk `resolveSecurityId`;
-ingest moved into chunked Inngest steps (route-handler ingest times out at
-Reaction scale).
+**Fixed in 3.5c** *(for the record)*: bounded-concurrency signal resolution
+(sub-signals ×4, per-candidate fallback ×8); Anthropic **Batch API** for LLM
+signals, split into step-friendly submit/check/collect so Inngest
+orchestrators `step.sleep` between polls (plus an in-process-polling
+convenience for scripts/tests); `resolveSecurityIds` bulk lookup (one query
+per batch) with 10-min negative caching for untracked tickers; ingest moved
+into chunked Inngest steps (`ingest/refresh.requested`, 25 tickers/step —
+800 names = 32 steps, each inside serverless limits, failure reports merged
+across chunks).
 
 **Open — product phase:** see `docs/IMPLEMENTATION_PLAN.md` §3 (PR 4–10).
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { dividendScheduled } from "@/lib/inngest/functions/dividend";
+import { chunkedIngest } from "@/lib/inngest/functions/ingest";
 
 /**
  * Inngest serves and signs invocations at this route. Functions get added to
@@ -17,7 +18,7 @@ import { dividendScheduled } from "@/lib/inngest/functions/dividend";
  */
 const handler = serve({
   client: inngest,
-  functions: [dividendScheduled],
+  functions: [dividendScheduled, chunkedIngest],
 });
 
 type RouteHandler = (req: Request) => Promise<Response> | Response;
