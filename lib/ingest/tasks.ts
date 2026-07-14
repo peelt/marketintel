@@ -21,12 +21,15 @@ import { getErrorMessage } from "@/lib/errors";
 export const INGEST_TASKS = [
   "status",
   "seed-universe",
+  "seed-broad-universe",
   "prices",
   "dividends",
   "fundamentals",
   "macro",
   "news",
   "run-dividend",
+  "run-reaction",
+  "broad-prices",
 ] as const;
 
 export type IngestTaskName = (typeof INGEST_TASKS)[number];
@@ -48,6 +51,10 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
   switch (task) {
     case "seed-universe": {
       return seedUniverse();
+    }
+    case "seed-broad-universe": {
+      const { seedBroadUniverse } = await import("./seed-broad-universe");
+      return seedBroadUniverse();
     }
     case "prices": {
       const fallbacks: FallbackEvent[] = [];
@@ -126,6 +133,44 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
         { reason: "manual ops trigger" },
         { trigger: "manual" },
       );
+    }
+    case "run-reaction": {
+      const [{ reactionAgent }, { runAgent }] = await Promise.all([
+        import("@/lib/agents/reaction/agent"),
+        import("@/lib/agents/run"),
+      ]);
+      return runAgent(
+        reactionAgent,
+        { reason: "manual ops trigger" },
+        { trigger: "manual" },
+      );
+    }
+    case "broad-prices": {
+      // ~850 names at provider throttle far exceeds one serverless call —
+      // hand the work to the chunked Inngest job (3.5c). Requires Inngest to
+      // be connected; the returned note says so if it isn't.
+      const [{ loadBroadUniverse }, { inngest }] = await Promise.all([
+        import("@/lib/agents/reaction/data"),
+        import("@/lib/inngest/client"),
+      ]);
+      const universe = await loadBroadUniverse();
+      if (universe.length === 0) {
+        throw new Error(
+          "broad universe is empty — run seed-broad-universe first",
+        );
+      }
+      await inngest.send({
+        name: "ingest/refresh.requested",
+        data: {
+          feed: "prices",
+          lookbackDays: 400,
+          tickers: universe.map((u) => ({ ticker: u.ticker, exchange: u.exchange })),
+        },
+      });
+      return {
+        queued: universe.length,
+        note: "Price fetch queued via Inngest (chunked). Progress appears in the Inngest dashboard; the run takes a while at free-tier rate limits.",
+      };
     }
     case "status": {
       const { listReadyAdapters, listStubbedAdapters, finnhub } = await import(

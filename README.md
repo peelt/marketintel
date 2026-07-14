@@ -17,7 +17,7 @@ disclaimer surface.
 | Pole | Status | Cadence (UTC) |
 |---|---|---|
 | Dividend Intelligence | **live** (PR 4) | Fri 18:00 |
-| Reaction Analyser *(hero)* | next — PR 5 | Tue + Fri 17:00 |
+| Reaction Analyser *(hero)* | **live** (PR 5) | Tue + Fri 17:00 |
 | IPO Evaluation | metadata only | Sun 18:00 |
 | Geopolitical Scanner | metadata only | Sun 20:00 |
 | Precious Metals | metadata only | Sat 12:00 |

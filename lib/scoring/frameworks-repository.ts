@@ -20,6 +20,7 @@ interface FrameworkRow {
   agent_name: string;
   version: number;
   criteria: { criteria: ScoringCriterion[] };
+  params: Record<string, unknown> | null;
   notes: string | null;
   is_active: boolean;
   created_at: string;
@@ -75,6 +76,7 @@ export async function listFrameworksForAgent(
 export async function saveNewFrameworkVersion(input: {
   agentName: AgentName;
   criteria: ScoringCriterion[];
+  params?: Record<string, unknown>;
   notes?: string;
   setActive?: boolean;
 }): Promise<ScoringFramework> {
@@ -107,6 +109,7 @@ export async function saveNewFrameworkVersion(input: {
       agent_name: input.agentName,
       version: nextVersion,
       criteria: { criteria: input.criteria },
+      params: input.params ?? {},
       notes: input.notes ?? null,
       is_active: setActive,
     })
@@ -123,6 +126,7 @@ function rowToFramework(row: FrameworkRow): ScoringFramework {
     agentName: row.agent_name as AgentName,
     version: row.version,
     criteria: row.criteria.criteria,
+    params: row.params ?? {},
   };
 }
 

@@ -10,6 +10,14 @@ import type { AgentMeta, AgentName } from "./types";
  * agent — i.e. before the US close on Peel's Friday evening.
  */
 const META: Record<AgentName, AgentMeta> = {
+  reaction: {
+    name: "reaction",
+    displayName: "Reaction Analyser",
+    description:
+      "Screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
+    schedule: "0 17 * * 2,5", // Tue + Fri 17:00 UTC (settled)
+    modelTier: "deep",
+  },
   ipo: {
     name: "ipo",
     displayName: "IPO Evaluation",

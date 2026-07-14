@@ -1,6 +1,12 @@
 import type { DataSourceName } from "./types";
 
 /**
+ * Error source: usually a registered adapter, but occasional one-off fetchers
+ * (e.g. Wikipedia constituent tables) carry their own label.
+ */
+export type ErrorSource = DataSourceName | (string & {});
+
+/**
  * Typed error taxonomy for data-source adapters.
  *
  * The point (plan §3.5b): schema drift must be distinguishable from a
@@ -20,11 +26,11 @@ export type DataSourceErrorKind =
 
 export class DataSourceError extends Error {
   readonly kind: DataSourceErrorKind;
-  readonly source: DataSourceName;
+  readonly source: ErrorSource;
 
   constructor(
     kind: DataSourceErrorKind,
-    source: DataSourceName,
+    source: ErrorSource,
     message: string,
     options?: { cause?: unknown },
   ) {
@@ -37,7 +43,7 @@ export class DataSourceError extends Error {
 
 /** Provider response no longer matches our Zod schema — the adapter needs updating. */
 export class SchemaChangedError extends DataSourceError {
-  constructor(source: DataSourceName, message: string, options?: { cause?: unknown }) {
+  constructor(source: ErrorSource, message: string, options?: { cause?: unknown }) {
     super("schema_changed", source, message, options);
     this.name = "SchemaChangedError";
   }
@@ -45,7 +51,7 @@ export class SchemaChangedError extends DataSourceError {
 
 /** Symbol/series unknown to the provider — likely delisted, renamed, or out of coverage. */
 export class NotFoundError extends DataSourceError {
-  constructor(source: DataSourceName, message: string) {
+  constructor(source: ErrorSource, message: string) {
     super("not_found", source, message);
     this.name = "NotFoundError";
   }
@@ -53,7 +59,7 @@ export class NotFoundError extends DataSourceError {
 
 /** Provider throttled us (429). Retry later; don't treat as missing data. */
 export class RateLimitedError extends DataSourceError {
-  constructor(source: DataSourceName, message: string) {
+  constructor(source: ErrorSource, message: string) {
     super("rate_limited", source, message);
     this.name = "RateLimitedError";
   }
@@ -61,7 +67,7 @@ export class RateLimitedError extends DataSourceError {
 
 /** Provider refused the request (401/403) — bad key, paywalled endpoint, or bot-blocked. */
 export class BlockedError extends DataSourceError {
-  constructor(source: DataSourceName, message: string) {
+  constructor(source: ErrorSource, message: string) {
     super("blocked", source, message);
     this.name = "BlockedError";
   }
@@ -69,7 +75,7 @@ export class BlockedError extends DataSourceError {
 
 /** Adapter exists but its API key / config is absent. Fail fast, never guess. */
 export class NotConfiguredError extends DataSourceError {
-  constructor(source: DataSourceName, message: string) {
+  constructor(source: ErrorSource, message: string) {
     super("not_configured", source, message);
     this.name = "NotConfiguredError";
   }
@@ -77,7 +83,7 @@ export class NotConfiguredError extends DataSourceError {
 
 /** Map an HTTP status onto the taxonomy. Anything unrecognised is `network`. */
 export function errorFromStatus(
-  source: DataSourceName,
+  source: ErrorSource,
   status: number,
   context: string,
 ): DataSourceError {

@@ -6,10 +6,11 @@
  *
  * LSE tickers that end in a dot (e.g. Aviva is "AV." on the LSE) must have
  * the trailing dot stripped before the suffix is appended — "AV..L" matches
- * nothing on either provider; the correct symbol is "AV.L".
+ * nothing on either provider; the correct symbol is "AV.L". Interior dots
+ * (BT Group is "BT.A") map to hyphens: providers use "BT-A.L".
  */
 export function suffixSymbol(ticker: string, exchange: string): string {
-  const base = ticker.replace(/\.+$/, "");
+  const base = ticker.replace(/\.+$/, "").replace(/\./g, "-");
   const upper = exchange.toUpperCase();
   if (upper === "LSE" || upper === "LON") return `${base}.L`;
   if (upper === "TSX") return `${base}.TO`;
