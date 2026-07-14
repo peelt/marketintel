@@ -32,13 +32,15 @@ sibling sites come only from the brand variables below.
 
 | Variable | Value |
 |---|---|
-| Wordmark | **investor**·**logical** — Ubuntu Bold, `investor` navy `#034566`, `logical` accent (`Wordmark` in `components/cli.tsx`) |
-| Secondary accent | **Indigo `#4F5DD1`** (`--brand-accent` in `globals.css`) — chosen by Peel 14 Jul 2026. Card hovers, pills, focus rings, button borders. |
+| Wordmark | Official logo asset (`public/brand/investorlogical-logo*.{svg,png}`): gradient logomark + `investor` cyan `#00B5E2` · `logical` deep navy `#08325a`. Rendered by `Wordmark` in `components/cli.tsx` — sized by height, `w-auto`, never squashed. |
+| Secondary accent | **Cyan `#00B5E2`** (`--brand-accent` in `globals.css`) — taken from the official logo (supersedes the interim indigo pick). Card hovers, pills, focus rings, button borders. |
+| Icon / favicon | `public/brand/investorlogical-icon*.{svg,png}` — navy `#034566` rounded square, white trend-tick mark. Wired as `app/icon.png` + `app/apple-icon.png` (Next convention). |
 | Module accents | One hue per agent pole — `MODULE_COLORS` in `components/cli.tsx`: reaction `#E2282C`, dividend `#6DCA9B`, ipo `#69C6F6`, metals `#E7D149`, geopolitical `#B161CF`, energy `#2D5AC7`. Top-stripes/hover borders/glyphs only, never fills. |
 | Domain vocabulary | securities · frameworks · reports · evidence · verdicts · coverage |
 
 ## Where things live
 
+- Brand assets (logo, icon, favicon sources): `public/brand/`
 - Tokens + full family component CSS: `app/globals.css`
 - Fonts (next/font Ubuntu + Ubuntu Mono): `app/layout.tsx`
 - Wordmark, header, title bar, `[*]`, module colours: `components/cli.tsx`
