@@ -1,4 +1,5 @@
 import { normaliseValues } from "./normalise";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import type {
   CandidateScore,
   ScoringRunInput,
@@ -6,6 +7,11 @@ import type {
   SignalResolverRegistry,
 } from "./types";
 import type { EvidenceItem } from "@/lib/agents/types";
+
+/** Sub-signals resolved in flight at once (each is typically one DB/API round-trip). */
+const SIGNAL_CONCURRENCY = 4;
+/** Per-candidate fallback path: sequential candidates are the 800-name killer. */
+const CANDIDATE_CONCURRENCY = 8;
 
 /**
  * Score a set of candidates against a framework.
@@ -53,23 +59,19 @@ export async function scoreCandidates(
   }
 
   for (const criterion of framework.criteria) {
-    // Resolve every sub-signal for every candidate.
-    const subResults: {
-      signalKey: string;
-      weight: number;
-      direction: "higher_better" | "lower_better";
-      values: Map<string, SignalValue>;
-    }[] = [];
-
-    for (const sub of criterion.subSignals) {
-      const values = await resolveSignal(resolver, candidates, sub.sourceQuery);
-      subResults.push({
+    // Resolve every sub-signal for every candidate — bounded-concurrent
+    // across sub-signals (3.5c): each resolution is typically one batch
+    // round-trip, and serialising them summed the latencies.
+    const subResults = await mapWithConcurrency(
+      criterion.subSignals,
+      SIGNAL_CONCURRENCY,
+      async (sub) => ({
         signalKey: sub.key,
         weight: sub.weight,
         direction: sub.direction,
-        values,
-      });
-    }
+        values: await resolveSignal(resolver, candidates, sub.sourceQuery),
+      }),
+    );
 
     // Normalise each sub-signal across candidates per its declared mode.
     const normalisedBySignal = new Map<string, Map<string, number | null>>();
@@ -168,10 +170,15 @@ async function resolveSignal(
     return out;
   }
 
+  // Per-candidate fallback path, bounded-concurrent: at Reaction scale
+  // (~800 names) a sequential loop here is minutes of summed latency.
+  const values = await mapWithConcurrency(
+    candidates,
+    CANDIDATE_CONCURRENCY,
+    (securityId) => resolver.resolve({ securityId, sourceQuery }),
+  );
   const out = new Map<string, SignalValue>();
-  for (const securityId of candidates) {
-    out.set(securityId, await resolver.resolve({ securityId, sourceQuery }));
-  }
+  candidates.forEach((securityId, i) => out.set(securityId, values[i]));
   return out;
 }
 

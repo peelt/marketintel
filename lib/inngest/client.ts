@@ -13,4 +13,14 @@ export const inngest = new Inngest({
 /** Event names emitted into Inngest. Keep strongly typed. */
 export type InngestEvent =
   | { name: "agent/run.requested"; data: { agentName: string; reason?: string } }
-  | { name: "report/generated"; data: { reportId: string; agentName: string } };
+  | { name: "report/generated"; data: { reportId: string; agentName: string } }
+  | {
+      name: "ingest/refresh.requested";
+      data: {
+        feed: "prices" | "dividends" | "fundamentals";
+        /** Defaults: prices 365, dividends 1825, fundamentals n/a. */
+        lookbackDays?: number;
+        /** Restrict to specific tickers; defaults to the full seed universe. */
+        tickers?: { ticker: string; exchange: string }[];
+      };
+    };
