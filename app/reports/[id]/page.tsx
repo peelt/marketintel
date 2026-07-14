@@ -7,6 +7,7 @@ import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
+import { SiteHeader } from "@/components/cli";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 
 export const dynamic = "force-dynamic";
@@ -151,19 +152,21 @@ export default async function ReportDetailPage({
   const meta = agentRegistry.get(report.agent_name as AgentName);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <>
+    <SiteHeader active="reports" />
+    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header className="flex items-baseline justify-between">
         <Link
           href="/reports"
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="font-mono-cli text-xs text-muted-foreground hover:text-il-orange"
         >
           ← reports
         </Link>
         <div className="text-right">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-3xl font-bold text-il-navy">
             {meta?.displayName ?? report.agent_name}
           </h1>
-          <div className="mt-1 font-mono text-xs text-muted-foreground">
+          <div className="mt-1 font-mono-cli text-xs text-muted-foreground">
             {formatDate(report.generated_at)}
             {run?.framework?.version != null && (
               <> · framework v{run.framework.version}</>
@@ -179,7 +182,7 @@ export default async function ReportDetailPage({
         </p>
       )}
 
-      <article className="prose prose-sm mt-10 max-w-none dark:prose-invert">
+      <article className="prose prose-sm mt-10 max-w-none prose-headings:text-il-navy">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {report.body_markdown}
         </ReactMarkdown>
@@ -187,12 +190,10 @@ export default async function ReportDetailPage({
 
       {items && items.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-            Ranked candidates
-          </h2>
-          <div className="mt-3 overflow-hidden rounded-md border border-border">
+          <div className="font-mono-cli text-sm text-il-navy">~ ranked candidates</div>
+          <div className="card-cli mt-3 overflow-hidden p-0">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-il-tint font-mono-cli text-xs text-il-navy">
                 <tr>
                   <th className="px-3 py-2 text-left">#</th>
                   <th className="px-3 py-2 text-left">Ticker</th>
@@ -238,9 +239,7 @@ export default async function ReportDetailPage({
 
       {items && items.length > 0 && (
         <section className="mt-12">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-            Evidence by candidate
-          </h2>
+          <div className="font-mono-cli text-sm text-il-navy">~ evidence by candidate</div>
           <p className="mt-1 text-xs text-muted-foreground">
             Every score is defensible from the rows below — open a candidate to
             see exactly what the framework read.
@@ -259,10 +258,7 @@ export default async function ReportDetailPage({
               const criteria = it.scoring_breakdown?.criteria ?? {};
 
               return (
-                <details
-                  key={it.id}
-                  className="group rounded-md border border-border bg-card"
-                >
+                <details key={it.id} className="card-cli group">
                   <summary className="flex cursor-pointer items-baseline justify-between px-4 py-3 text-sm marker:content-none">
                     <span>
                       <span className="font-mono">{it.security?.ticker ?? "—"}</span>
@@ -347,6 +343,7 @@ export default async function ReportDetailPage({
 
       <Disclaimer />
     </main>
+    </>
   );
 }
 

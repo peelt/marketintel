@@ -58,20 +58,22 @@ export function PriceChart({
         role="img"
         aria-label={`Price history ${first.date} to ${last.date}`}
       >
+        {/* Family illustration language: navy line-art; alert green/red only
+            for the small change glyph, never as large fills. */}
         <polyline
           points={coords.join(" ")}
           fill="none"
-          stroke={rising ? "#059669" : "#dc2626"}
+          stroke="#034566"
           strokeWidth="1.5"
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <figcaption className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
+      <figcaption className="font-mono-cli mt-1 flex justify-between text-[10px] text-muted-foreground">
         <span>
           {first.date} · {formatClose(first.close)}
           {currency ? ` ${currency}` : ""}
         </span>
-        <span className={rising ? "text-emerald-600" : "text-red-600"}>
+        <span style={{ color: rising ? "#8DC73F" : "#EE1D23" }}>
           {rising ? "+" : ""}
           {(change * 100).toFixed(1)}%
         </span>

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
+import { MODULE_COLORS, SiteHeader, Star } from "@/components/cli";
+import type { AgentName } from "@/lib/agents/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,87 +21,71 @@ export default async function DashboardPage() {
   const agents = agentRegistry.list();
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Sign out
-          </button>
-        </form>
-      </header>
+    <>
+      <SiteHeader active="dashboard" />
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <div className="font-mono-cli text-sm text-il-navy">~ the desk</div>
+            <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
+          </div>
+          <form action={signOut}>
+            <button type="submit" className="btn-cli-outline btn-cli-sm">
+              sign out
+            </button>
+          </form>
+        </div>
 
-      <section className="mt-8">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Agents
-        </h2>
-        <div className="mt-3 grid gap-2">
-          {agents.map((a) => (
-            <div
-              key={a.name}
-              className="flex items-center justify-between rounded-md border border-border bg-card px-4 py-3"
-            >
-              <div>
-                <div className="text-sm font-medium">{a.displayName}</div>
-                <div className="text-xs text-muted-foreground">
+        <section className="mt-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {agents.map((a) => (
+              <div
+                key={a.name}
+                className="card-cli card-cli-module p-6"
+                style={{ "--module-color": MODULE_COLORS[a.name as AgentName] } as React.CSSProperties}
+              >
+                <div className="font-bold text-il-navy">{a.displayName}</div>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {a.description}
+                </p>
+                <div className="mt-4 font-mono-cli text-xs text-muted-foreground">
+                  ~ cron {a.schedule}
                 </div>
               </div>
-              <div className="font-mono text-xs text-muted-foreground">
-                {a.schedule}
-              </div>
+            ))}
+          </div>
+        </section>
+
+        <hr className="divider-cli my-10" />
+
+        <section className="grid gap-4 sm:grid-cols-3">
+          <Link href="/reports" className="card-cli block p-6">
+            <div className="font-mono-cli text-sm">
+              <Star /> <span className="font-bold text-il-navy">reports</span>
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Reports
-        </h2>
-        <p className="mt-3 text-sm">
-          <Link
-            href="/reports"
-            className="text-accent hover:underline"
-          >
-            View all reports →
+            <p className="mt-2 text-sm text-muted-foreground">
+              Every filed report, ranked tables, evidence viewers.
+            </p>
           </Link>
-        </p>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          Tools
-        </h2>
-        <ul className="mt-3 space-y-1 text-sm">
-          <li>
-            <Link
-              href="/dashboard/ops"
-              className="text-accent hover:underline"
-            >
-              Ops — click-through setup, data refresh and agent runs
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/dashboard/diagnostics"
-              className="text-accent hover:underline"
-            >
-              Diagnostics — adapter readiness, row counts, manual ingest
-            </Link>
-          </li>
-        </ul>
-      </section>
-
-      <footer className="mt-16 text-xs text-muted-foreground">
-        <Link href="/" className="hover:text-foreground">
-          ← back to landing
-        </Link>
-      </footer>
-    </main>
+          <Link href="/dashboard/ops" className="card-cli block p-6">
+            <div className="font-mono-cli text-sm">
+              <Star /> <span className="font-bold text-il-navy">ops</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Click-through setup, data refresh and manual agent runs.
+            </p>
+          </Link>
+          <Link href="/dashboard/diagnostics" className="card-cli block p-6">
+            <div className="font-mono-cli text-sm">
+              <Star /> <span className="font-bold text-il-navy">diagnostics</span>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Adapter readiness and row counts, at a glance.
+            </p>
+          </Link>
+        </section>
+      </main>
+    </>
   );
 }
 

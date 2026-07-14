@@ -1,9 +1,27 @@
 import type { Metadata } from "next";
+import { Ubuntu, Ubuntu_Mono } from "next/font/google";
 import "./globals.css";
 
+// Family type pairing: Ubuntu for prose, Ubuntu Mono for anything "machine".
+const ubuntu = Ubuntu({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-ubuntu",
+  weight: ["300", "400", "500", "700"],
+  preload: true,
+});
+const ubuntuMono = Ubuntu_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-ubuntu-mono",
+  weight: ["400", "700"],
+  preload: true,
+});
+
 export const metadata: Metadata = {
-  title: "marketintel",
-  description: "Investment research agents",
+  title: "Investorlogical",
+  description:
+    "Glass-box investment research: scheduled specialist agents file ranked, evidence-backed reports against scoring frameworks you can see and edit.",
 };
 
 export default function RootLayout({
@@ -12,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${ubuntu.variable} ${ubuntuMono.variable}`}>
       <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
       </body>

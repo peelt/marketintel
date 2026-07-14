@@ -116,14 +116,14 @@ export function OpsPanel() {
       {STEPS.map((step, index) => {
         const state = states[step.task] ?? { phase: "idle" };
         return (
-          <section
-            key={step.task}
-            className="rounded-md border border-border bg-card px-4 py-3"
-          >
+          <section key={step.task} className="card-cli px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-medium">
-                  {index + 1} · {step.title}
+                <div className="text-sm font-bold text-il-navy">
+                  <span className="font-mono-cli text-il-orange">
+                    [{index + 1}]
+                  </span>{" "}
+                  {step.title}
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {step.description}{" "}
@@ -133,25 +133,28 @@ export function OpsPanel() {
               <button
                 onClick={() => run(step.task)}
                 disabled={state.phase === "running"}
-                className="shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-50"
+                className="btn-cli btn-cli-sm shrink-0"
               >
                 {state.phase === "running"
-                  ? "Running…"
+                  ? "running…"
                   : state.phase === "done"
-                    ? "Run again"
-                    : "Run"}
+                    ? "run again"
+                    : "run"}
               </button>
             </div>
 
             {state.phase === "running" && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Working — leave this tab open. Longer steps can take a few
-                minutes.
+              <p className="mt-2 font-mono-cli text-xs text-muted-foreground">
+                ~ working — leave this tab open; longer steps take a few
+                minutes <span className="cursor-blink" />
               </p>
             )}
             {state.phase === "error" && (
-              <p className="mt-2 rounded bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
-                Failed: {state.message}
+              <p
+                className="mt-2 border-l-2 py-1 pl-3 font-mono-cli text-xs"
+                style={{ borderColor: "#EE1D23", color: "#EE1D23" }}
+              >
+                ~ failed: {state.message}
               </p>
             )}
             {state.phase === "done" && (
@@ -170,20 +173,23 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
   const r = (result ?? {}) as Record<string, unknown>;
   return (
     <div className="mt-2 space-y-2">
-      <p className="rounded bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
-        {summarise(task, r)}
+      <p
+        className="border-l-2 py-1 pl-3 text-xs"
+        style={{ borderColor: "#22a87b", color: "#1a1a1a" }}
+      >
+        <span style={{ color: "#22a87b" }}>✓</span> {summarise(task, r)}
       </p>
       <FailureList result={r} />
       {(task === "run-dividend" || task === "run-reaction") && typeof r.reportId === "string" && (
         <p className="text-xs">
-          <Link href="/reports" className="text-accent hover:underline">
-            Open the report →
+          <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
+            ~ open the report →
           </Link>
         </p>
       )}
       <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Raw details</summary>
-        <pre className="mt-1 max-h-64 overflow-auto rounded bg-muted/30 p-2 text-[10px] leading-relaxed">
+        <summary className="cursor-pointer font-mono-cli">~ raw details</summary>
+        <pre className="bg-il-tint mt-1 max-h-64 overflow-auto rounded border border-border p-2 font-mono-cli text-[10px] leading-relaxed">
           {JSON.stringify(result, null, 2)}
         </pre>
       </details>
