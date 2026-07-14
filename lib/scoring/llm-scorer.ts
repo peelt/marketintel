@@ -41,7 +41,7 @@ export interface LlmGrade {
   confidence: "low" | "medium" | "high";
 }
 
-const GRADE_SCHEMA = {
+export const GRADE_SCHEMA = {
   type: "object",
   properties: {
     score: {
@@ -63,7 +63,7 @@ const GRADE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const SYSTEM_PROMPT = `You are a buy-side investment analyst grading one criterion of one security.
+export const SYSTEM_PROMPT = `You are a buy-side investment analyst grading one criterion of one security.
 
 Scoring discipline (absolute, NOT relative to the current peer set):
 - 0-20: severe negative on this criterion. Material concern.
@@ -76,19 +76,36 @@ Use "low" confidence when the evidence is thin or contradictory. Do not invent
 facts. If the evidence is genuinely insufficient to grade, return score=50,
 confidence="low" with a justification explaining what was missing.`;
 
-export async function scoreWithLlm(
-  request: LlmScoringRequest,
-): Promise<SignalValue> {
-  const client = getAnthropicClient();
-  const truncatedContext = request.context.slice(0, 6_000);
-
-  const userPrompt = `Criterion: ${request.criterion}
+/** Shared by the single-call and Batch API paths — one prompt shape, one grade contract. */
+export function buildUserPrompt(request: LlmScoringRequest): string {
+  return `Criterion: ${request.criterion}
 
 Rubric:
 ${request.rubric}
 
 Evidence to consider:
-${truncatedContext}`;
+${request.context.slice(0, 6_000)}`;
+}
+
+/**
+ * Map a raw structured-outputs text payload to the engine's SignalValue
+ * contract: valid grade → calibrated raw score with annotated evidence;
+ * anything else → null signal (weight redistributes, never zero).
+ */
+export function gradeTextToSignalValue(
+  request: LlmScoringRequest,
+  text: string,
+): SignalValue {
+  const grade = validateGrade(text);
+  if (!grade) return { raw: null, evidence: request.evidence };
+  return { raw: grade.score, evidence: annotateEvidence(request, grade) };
+}
+
+export async function scoreWithLlm(
+  request: LlmScoringRequest,
+): Promise<SignalValue> {
+  const client = getAnthropicClient();
+  const userPrompt = buildUserPrompt(request);
 
   try {
     const response = await client.messages.create({
@@ -118,10 +135,7 @@ ${truncatedContext}`;
     if (!textBlock || textBlock.type !== "text") {
       return { raw: null, evidence: request.evidence };
     }
-    const grade = validateGrade(textBlock.text);
-    if (!grade) return { raw: null, evidence: request.evidence };
-
-    return { raw: grade.score, evidence: annotateEvidence(request, grade) };
+    return gradeTextToSignalValue(request, textBlock.text);
   } catch (err) {
     // Don't throw — let the engine treat this as a null signal for this
     // candidate. One model hiccup shouldn't kill the whole run.
@@ -172,7 +186,7 @@ export function validateGrade(text: string): LlmGrade | null {
  * confidence maps to the evidence weight when the scorer had to synthesise
  * its own evidence row.
  */
-function annotateEvidence(
+export function annotateEvidence(
   request: LlmScoringRequest,
   grade: LlmGrade,
 ): EvidenceItem[] {
