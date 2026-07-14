@@ -1,26 +1,30 @@
-# marketintel
+# Investorlogical
 
-Five scheduled investment-research agents that produce ranked reports with
-follow-up Q&A scoped to the evidence they cited.
+*(repo name `marketintel` retained by decision — see CLAUDE.md)*
+
+Glass-box investment research: scheduled specialist agents file ranked,
+evidence-backed reports against scoring frameworks the user can see and
+edit — with follow-up Q&A scoped to the evidence they cited.
 
 ## Status
 
-PR 3 — agent base + scoring engine + report rendering. The infrastructure
-all five agents will share: a generic scoring engine with declarative
-signal resolvers, evidence persistence, a versioned framework repository,
-the BaseAgent abstract class, and reports list + detail pages with markdown
-rendering. Default dividend framework seeded; other frameworks ship in PR 4–7
-alongside the agents that consume them.
+Foundation hardened (3.5a security/scoring/CI + 3.5b typed data layer with
+Finnhub primary / yfinance fallback). PR 4 delivers the first concrete pole:
+the Dividend agent files a scheduled, evidence-backed report rendered in the
+dashboard with an evidence viewer, price charts and the impersonal
+disclaimer surface.
 
 | Pole | Status | Cadence (UTC) |
 |---|---|---|
+| Dividend Intelligence | **live** (PR 4) | Fri 18:00 |
+| Reaction Analyser *(hero)* | next — PR 5 | Tue + Fri 17:00 |
 | IPO Evaluation | metadata only | Sun 18:00 |
-| Dividend Intelligence | metadata only | Fri 18:00 |
 | Geopolitical Scanner | metadata only | Sun 20:00 |
-| Energy Beneficiaries | metadata only | Sat 10:00 |
 | Precious Metals | metadata only | Sat 12:00 |
+| Energy Beneficiaries | deprioritized | — |
 
-See `CLAUDE.md` for the build plan and conventions.
+See `CLAUDE.md` for conventions and `docs/IMPLEMENTATION_PLAN.md` for the
+authoritative build sequence.
 
 ## Stack
 
@@ -28,7 +32,7 @@ See `CLAUDE.md` for the build plan and conventions.
 - Tailwind v4
 - Supabase (auth + Postgres + pgvector + RLS)
 - Inngest (scheduling and long-running agent jobs)
-- Anthropic SDK (Claude Sonnet 4.5 default, Opus 4.7 for deep synthesis)
+- Anthropic SDK (tier-indirected: `routine` → Sonnet 5, `deep` → Opus 4.8; IDs pinned once in `lib/anthropic/client.ts`)
 - Vercel for hosting
 
 ## Setup
@@ -79,13 +83,9 @@ without refactor.
 
 ## Build plan
 
-1. ~~**PR 1** — scaffold~~
-2. ~~**PR 2** — data source adapters with normalised return shapes + seed universe~~
-3. ~~**PR 3** — agent base, scoring engine, evidence persistence, report rendering~~
-4. **PR 4** — Dividend agent (first concrete pole)
-5. **PR 5** — IPO agent
-6. **PR 6** — Energy + Metals agents
-7. **PR 7** — Geopolitical scanner + chat layer
+The authoritative sequence lives in `docs/IMPLEMENTATION_PLAN.md` (foundation
+3.5a–c, then Dividend → Reaction → portfolio holdings → editable frameworks →
+breadth). This README intentionally doesn't duplicate it.
 
 ## Conventions
 

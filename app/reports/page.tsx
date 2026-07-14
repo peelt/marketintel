@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
+import { Disclaimer } from "@/components/disclaimer";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,8 @@ export default async function ReportsPage() {
           })}
         </ul>
       )}
+
+      <Disclaimer />
     </main>
   );
 }
