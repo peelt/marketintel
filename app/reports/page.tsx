@@ -5,6 +5,7 @@ import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
+import { SiteHeader } from "@/components/cli";
 
 export const dynamic = "force-dynamic";
 
@@ -34,21 +35,16 @@ export default async function ReportsPage() {
     .returns<ReportRow[]>();
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <Link
-          href="/dashboard"
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← dashboard
-        </Link>
-      </header>
+    <>
+    <SiteHeader active="reports" />
+    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+      <div className="font-mono-cli text-sm text-il-navy">~ filed by the desk</div>
+      <h1 className="mt-1 text-3xl font-bold text-il-navy">Reports</h1>
 
       {!reports?.length ? (
         <p className="mt-10 text-sm text-muted-foreground">
-          No reports yet. Agents will start producing reports once they&apos;re
-          wired up in PR 4 onwards.
+          No reports filed yet. Run an agent from the Ops page, or wait for
+          the next scheduled run.
         </p>
       ) : (
         <ul className="mt-8 space-y-2">
@@ -58,13 +54,13 @@ export default async function ReportsPage() {
               <li key={r.id}>
                 <Link
                   href={`/reports/${r.id}`}
-                  className="block rounded-md border border-border bg-card px-4 py-3 hover:border-accent"
+                  className="card-cli block px-5 py-4"
                 >
                   <div className="flex items-baseline justify-between">
-                    <div className="text-sm font-medium">
+                    <div className="text-sm font-bold text-il-navy">
                       {meta?.displayName ?? r.agent_name}
                     </div>
-                    <div className="font-mono text-xs text-muted-foreground">
+                    <div className="font-mono-cli text-xs text-muted-foreground">
                       {formatDate(r.generated_at)}
                     </div>
                   </div>
@@ -80,6 +76,7 @@ export default async function ReportsPage() {
 
       <Disclaimer />
     </main>
+    </>
   );
 }
 

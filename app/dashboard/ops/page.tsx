@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { OpsPanel } from "./ops-panel";
+import { SiteHeader } from "@/components/cli";
 
 export const dynamic = "force-dynamic";
 // Ingest steps fan out to external APIs — give the server actions invoked
@@ -22,24 +22,20 @@ export default async function OpsPage() {
   if (!user || !isAllowedEmail(user.email)) redirect("/login");
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Ops</h1>
-        <Link
-          href="/dashboard"
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← dashboard
-        </Link>
-      </header>
+    <>
+      <SiteHeader active="ops" />
+      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+        <div className="font-mono-cli text-sm text-il-navy">~ setup &amp; data refresh</div>
+        <h1 className="mt-1 text-3xl font-bold text-il-navy">Ops</h1>
 
-      <p className="mt-2 text-sm text-muted-foreground">
-        Run these top to bottom on first setup. After that, re-run individual
-        steps whenever you want fresh data. Each step reports exactly what it
-        did — including which tickers failed and why.
-      </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Run these top to bottom on first setup. After that, re-run individual
+          steps whenever you want fresh data. Each step reports exactly what it
+          did — including which tickers failed and why.
+        </p>
 
-      <OpsPanel />
-    </main>
+        <OpsPanel />
+      </main>
+    </>
   );
 }
