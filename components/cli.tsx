@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { AgentName } from "@/lib/agents/types";
 
 /**
@@ -6,13 +7,21 @@ import type { AgentName } from "@/lib/agents/types";
  * Server-safe pieces live here; CliTyping (client) is in cli-typing.tsx.
  */
 
-/** investor·logical — Ubuntu Bold two-colour split (navy · brand accent). */
-export function Wordmark({ className = "text-2xl" }: { className?: string }) {
+/**
+ * The official logo (public/brand/): logomark + investor (cyan #00B5E2) ·
+ * logical (deep navy #08325a). Sized by height, w-auto — never squashed
+ * (family rule). `size` is the rendered height class.
+ */
+export function Wordmark({ size = "h-8" }: { size?: string }) {
   return (
-    <span className={`font-bold tracking-tight ${className}`}>
-      <span style={{ color: "#034566" }}>investor</span>
-      <span style={{ color: "var(--brand-accent)" }}>logical</span>
-    </span>
+    <Image
+      src="/brand/investorlogical-logo@2x.png"
+      alt="investorlogical"
+      width={3200}
+      height={711}
+      priority
+      className={`${size} w-auto`}
+    />
   );
 }
 
@@ -61,7 +70,7 @@ export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-baseline gap-4">
           <Link href="/dashboard">
-            <Wordmark className="text-xl" />
+            <Wordmark size="h-7" />
           </Link>
           <span className="hidden font-mono-cli text-xs text-muted-foreground sm:inline">
             guest@investorlogical:~

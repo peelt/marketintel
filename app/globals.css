@@ -11,7 +11,7 @@
  *
  * Brand variables (Investorlogical's own):
  *   wordmark: investor·logical
- *   secondary accent: indigo #4F5DD1 (--brand-accent) — chosen by Peel
+ *   secondary accent: cyan #00B5E2 (--brand-accent) — from the official logo
  *   module accents: one hue per agent pole (MODULE_COLORS in components/cli.tsx)
  */
 
@@ -21,7 +21,7 @@
   --il-deep-blue: #022d42; /* CTA dark */
   --il-orange: #f6881c; /* action / markers / cursor */
   --il-aqua: #47d5c6;
-  --brand-accent: #4f5dd1; /* Investorlogical indigo */
+  --brand-accent: #00b5e2; /* Investorlogical cyan — from the official logo */
 
   --background: #ffffff;
   --foreground: #1a1a1a;
@@ -245,7 +245,7 @@ body {
 }
 .input-cli:focus {
   border-color: var(--brand-accent);
-  box-shadow: 0 0 0 3px rgba(79, 93, 209, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 181, 226, 0.1);
 }
 .input-cli::placeholder {
   color: #9ca3af;
