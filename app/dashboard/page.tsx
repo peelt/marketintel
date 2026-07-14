@@ -77,6 +77,14 @@ export default async function DashboardPage() {
         <ul className="mt-3 space-y-1 text-sm">
           <li>
             <Link
+              href="/dashboard/ops"
+              className="text-accent hover:underline"
+            >
+              Ops — click-through setup, data refresh and agent runs
+            </Link>
+          </li>
+          <li>
+            <Link
               href="/dashboard/diagnostics"
               className="text-accent hover:underline"
             >
