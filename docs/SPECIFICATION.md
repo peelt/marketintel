@@ -170,6 +170,70 @@ dividends/RNS; redistributable-vs-owner-only evidence flag.)
 - `chat_sessions` / `chat_messages` — owner-scoped (`user_id = auth.uid()`).
 - `app_users` — entitlements; service-role managed; no client policies.
 
+### 5.1 Portfolio & holdings (PR 6)
+
+The user enters their own share holdings — with an *optional* purchase
+price — which powers two surfaces: a factual performance view, and (the
+strategic one) a **"My Portfolio" lens over the entire intel service**:
+every report, verdict, delta, and alert filtered to the names actually held.
+
+**Tables (both `user_id = auth.uid()`-scoped via RLS — the first genuinely
+per-user data):**
+
+- `portfolios` — `id`, `user_id`, `name`, `base_currency` (default GBP),
+  timestamps. One default portfolio is auto-created on first use; the schema
+  supports several (Stockopedia-style folios) without change.
+- `holdings` — `id`, `portfolio_id` FK, `security_id` FK, `quantity`,
+  `purchase_price` *(nullable)*, `purchase_currency` *(nullable)*,
+  `purchase_date` *(nullable)*, `notes`, timestamps. **Each row is a lot** —
+  repeat purchases of the same name are separate rows, aggregated in the UI.
+  Purchase fields are optional by design: the add flow must never stall on a
+  missing cost basis, because the intel lens (the real value) works without it.
+
+**On-demand security resolution:** holdings are NOT limited to the seed
+universes. Ticker search hits `securities` first; a miss resolves through
+the active `PriceSource` (profile lookup) and inserts the row. Held names
+automatically join the daily price-refresh set.
+
+**Surface 1 — performance (factual arithmetic only):** current value
+(latest close × quantity, normalised to the portfolio base currency — GBp
+pence ÷ 100 handled via `price_snapshots.currency`), day change, unrealised
+P/L and simple return vs cost basis where a purchase price was given.
+Deliberately *not* Sharesight: no IRR/TWR, no dividend-adjusted returns, no
+DRIP, no tax reports in v1. Our differentiation is intel, not accounting —
+say so in the UI rather than half-building it.
+
+**Surface 2 — portfolio-filtered intel (the point):** `report_items` joined
+on held `security_id`s gives: latest classification + framework scores per
+holding with its evidence one click away; a portfolio-scoped **"what
+changed"** feed (PR 6 delta engine); alerts when a new agent run cites a
+holding (a cut-risk flag on a name you own is the single highest-value
+event the product can emit). Aggregate view: a coverage-weighted framework
+snapshot of the whole portfolio — the glass-box answer to Simply Wall St's
+portfolio "snowflake".
+
+**I2 discipline (hard constraints, regulatory):**
+- Quantity, purchase price, and P/L **never feed scoring** or verdict text.
+  Scoring stays security-scoped; a holder and a non-holder see byte-identical
+  analysis for the same security. Filtering is not tailoring.
+- Performance figures are arithmetic, presented as fact, never judgment. No
+  "you should…" anywhere; disclaimers carry over from PR 4.
+
+**UX (prior-art informed — Simply Wall St, Seeking Alpha, Sharesight,
+Stockopedia):**
+- **Add flow:** one search box (ticker/name autocomplete over `securities` +
+  provider lookup), then quantity + optional price/date inline, "add
+  another" loop. Target: first holding added < 30 seconds, no mandatory
+  fields beyond ticker + quantity. CSV import later; broker linking
+  (Plaid/TrueLayer) explicitly deferred to the paid phase.
+- **My Portfolio page:** holdings table (name, qty, value, day Δ, P/L,
+  latest classification badge + coverage %) with an intel feed rail
+  filtered to held names. Becomes the default landing page once ≥1 holding
+  exists — the product opens on *your* names, magazine view one click away.
+- **Missing ≠ zero everywhere:** a holding without price data reads "no
+  data", never 0; P/L renders blank without a cost basis; coverage % shows
+  how much of the framework had data for each holding.
+
 ---
 
 ## 6. Scoring engine — semantics

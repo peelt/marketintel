@@ -99,6 +99,9 @@ semantics, tests/CI). Next per the plan: 3.5b (data layer), then PR 4
   fundamentals revived via cookie+crumb in 3.5b.
 - Design-for-paid, no billing yet; **sell derived analysis only**; thin
   dashboard from PR 4; Reaction Analyser is the hero pole; Energy deprioritized.
+- **Holdings (PR 6):** user-entered positions with *optional* purchase price →
+  factual performance snapshot + "My Portfolio" intel lens (the priority).
+  Purchase data never feeds scoring; filtering ≠ tailoring. SPECIFICATION §5.1.
 
 ## What not to do
 
