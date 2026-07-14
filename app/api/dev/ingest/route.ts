@@ -133,6 +133,20 @@ export async function POST(request: NextRequest) {
         const ingest = await ingestNews(all);
         return NextResponse.json({ pulled: all.length, ...ingest });
       }
+      case "run-dividend": {
+        // Direct end-to-end agent run for verification — same runAgent
+        // lifecycle the Inngest cron uses, without needing Inngest locally.
+        const [{ dividendAgent }, { runAgent }] = await Promise.all([
+          import("@/lib/agents/dividend/agent"),
+          import("@/lib/agents/run"),
+        ]);
+        const result = await runAgent(
+          dividendAgent,
+          { reason: "manual dev trigger" },
+          { trigger: "manual" },
+        );
+        return NextResponse.json(result);
+      }
       case "status":
       case null:
       case undefined: {
