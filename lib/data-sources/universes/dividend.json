@@ -1,38 +1,330 @@
 {
   "_meta": {
-    "version": 1,
-    "last_reviewed": "2026-05-19",
-    "notes": "Seed list of historically high-yield names across S&P 500 and FTSE 350. Tagged 'high_yield_watchlist' for the dividend agent. Universe expands automatically once the FMP IPO calendar and screener are wired in PR 2's paid tier."
+    "version": 2,
+    "last_reviewed": "2026-07-14",
+    "notes": "Seed list of historically high-yield names across S&P 500 and FTSE 350. Tagged 'high_yield_watchlist' for the dividend agent. Universe expands automatically once the FMP IPO calendar and screener are wired in PR 2's paid tier. 2026-07 review: WBA dropped (taken private by Sycamore Partners, Aug 2025)."
   },
   "securities": [
-    { "ticker": "MO", "exchange": "NYSE", "name": "Altria Group", "country": "US", "currency": "USD", "sector": "Consumer Staples", "sub_sector": "Tobacco", "tags": ["high_yield_watchlist"] },
-    { "ticker": "T", "exchange": "NYSE", "name": "AT&T Inc", "country": "US", "currency": "USD", "sector": "Communication Services", "sub_sector": "Telecom", "tags": ["high_yield_watchlist"] },
-    { "ticker": "VZ", "exchange": "NYSE", "name": "Verizon Communications", "country": "US", "currency": "USD", "sector": "Communication Services", "sub_sector": "Telecom", "tags": ["high_yield_watchlist"] },
-    { "ticker": "BTI", "exchange": "NYSE", "name": "British American Tobacco", "country": "GB", "currency": "USD", "sector": "Consumer Staples", "sub_sector": "Tobacco", "tags": ["high_yield_watchlist"] },
-    { "ticker": "IBM", "exchange": "NYSE", "name": "International Business Machines", "country": "US", "currency": "USD", "sector": "Information Technology", "sub_sector": "Software", "tags": ["high_yield_watchlist"] },
-    { "ticker": "PFE", "exchange": "NYSE", "name": "Pfizer Inc", "country": "US", "currency": "USD", "sector": "Health Care", "sub_sector": "Pharmaceuticals", "tags": ["high_yield_watchlist"] },
-    { "ticker": "BMY", "exchange": "NYSE", "name": "Bristol-Myers Squibb", "country": "US", "currency": "USD", "sector": "Health Care", "sub_sector": "Pharmaceuticals", "tags": ["high_yield_watchlist"] },
-    { "ticker": "MMM", "exchange": "NYSE", "name": "3M Company", "country": "US", "currency": "USD", "sector": "Industrials", "sub_sector": "Conglomerate", "tags": ["high_yield_watchlist"] },
-    { "ticker": "WBA", "exchange": "NASDAQ", "name": "Walgreens Boots Alliance", "country": "US", "currency": "USD", "sector": "Consumer Staples", "sub_sector": "Drug Retail", "tags": ["high_yield_watchlist"] },
-
-    { "ticker": "O", "exchange": "NYSE", "name": "Realty Income Corporation", "country": "US", "asset_class": "reit", "currency": "USD", "sector": "Real Estate", "sub_sector": "Retail REIT", "tags": ["high_yield_watchlist", "reit_monthly"] },
-    { "ticker": "STAG", "exchange": "NYSE", "name": "STAG Industrial", "country": "US", "asset_class": "reit", "currency": "USD", "sector": "Real Estate", "sub_sector": "Industrial REIT", "tags": ["high_yield_watchlist", "reit_monthly"] },
-    { "ticker": "VICI", "exchange": "NYSE", "name": "VICI Properties", "country": "US", "asset_class": "reit", "currency": "USD", "sector": "Real Estate", "sub_sector": "Gaming REIT", "tags": ["high_yield_watchlist"] },
-    { "ticker": "OHI", "exchange": "NYSE", "name": "Omega Healthcare Investors", "country": "US", "asset_class": "reit", "currency": "USD", "sector": "Real Estate", "sub_sector": "Healthcare REIT", "tags": ["high_yield_watchlist"] },
-    { "ticker": "WPC", "exchange": "NYSE", "name": "W. P. Carey Inc", "country": "US", "asset_class": "reit", "currency": "USD", "sector": "Real Estate", "sub_sector": "Diversified REIT", "tags": ["high_yield_watchlist"] },
-
-    { "ticker": "BCS", "exchange": "NYSE", "name": "Barclays plc (ADR)", "country": "GB", "asset_class": "adr", "currency": "USD", "sector": "Financials", "sub_sector": "Banks", "tags": ["high_yield_watchlist"] },
-    { "ticker": "LYG", "exchange": "NYSE", "name": "Lloyds Banking Group (ADR)", "country": "GB", "asset_class": "adr", "currency": "USD", "sector": "Financials", "sub_sector": "Banks", "tags": ["high_yield_watchlist"] },
-    { "ticker": "HSBA", "exchange": "LSE", "name": "HSBC Holdings", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Banks", "tags": ["high_yield_watchlist"] },
-    { "ticker": "BARC", "exchange": "LSE", "name": "Barclays plc", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Banks", "tags": ["high_yield_watchlist"] },
-    { "ticker": "NWG", "exchange": "LSE", "name": "NatWest Group", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Banks", "tags": ["high_yield_watchlist"] },
-    { "ticker": "PHNX", "exchange": "LSE", "name": "Phoenix Group Holdings", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Life Insurance", "tags": ["high_yield_watchlist"] },
-    { "ticker": "LGEN", "exchange": "LSE", "name": "Legal & General Group", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Life Insurance", "tags": ["high_yield_watchlist"] },
-    { "ticker": "AV.", "exchange": "LSE", "name": "Aviva plc", "country": "GB", "currency": "GBP", "sector": "Financials", "sub_sector": "Insurance", "tags": ["high_yield_watchlist"] },
-    { "ticker": "IMB", "exchange": "LSE", "name": "Imperial Brands", "country": "GB", "currency": "GBP", "sector": "Consumer Staples", "sub_sector": "Tobacco", "tags": ["high_yield_watchlist"] },
-    { "ticker": "BATS", "exchange": "LSE", "name": "British American Tobacco", "country": "GB", "currency": "GBP", "sector": "Consumer Staples", "sub_sector": "Tobacco", "tags": ["high_yield_watchlist"] },
-    { "ticker": "VOD", "exchange": "LSE", "name": "Vodafone Group", "country": "GB", "currency": "GBP", "sector": "Communication Services", "sub_sector": "Telecom", "tags": ["high_yield_watchlist"] },
-    { "ticker": "RIO", "exchange": "LSE", "name": "Rio Tinto plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Diversified Mining", "tags": ["high_yield_watchlist"] },
-    { "ticker": "GLEN", "exchange": "LSE", "name": "Glencore plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Diversified Mining", "tags": ["high_yield_watchlist"] }
+    {
+      "ticker": "MO",
+      "exchange": "NYSE",
+      "name": "Altria Group",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Consumer Staples",
+      "sub_sector": "Tobacco",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "T",
+      "exchange": "NYSE",
+      "name": "AT&T Inc",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Communication Services",
+      "sub_sector": "Telecom",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "VZ",
+      "exchange": "NYSE",
+      "name": "Verizon Communications",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Communication Services",
+      "sub_sector": "Telecom",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "BTI",
+      "exchange": "NYSE",
+      "name": "British American Tobacco",
+      "country": "GB",
+      "currency": "USD",
+      "sector": "Consumer Staples",
+      "sub_sector": "Tobacco",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "IBM",
+      "exchange": "NYSE",
+      "name": "International Business Machines",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Information Technology",
+      "sub_sector": "Software",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "PFE",
+      "exchange": "NYSE",
+      "name": "Pfizer Inc",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Health Care",
+      "sub_sector": "Pharmaceuticals",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "BMY",
+      "exchange": "NYSE",
+      "name": "Bristol-Myers Squibb",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Health Care",
+      "sub_sector": "Pharmaceuticals",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "MMM",
+      "exchange": "NYSE",
+      "name": "3M Company",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Industrials",
+      "sub_sector": "Conglomerate",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "O",
+      "exchange": "NYSE",
+      "name": "Realty Income Corporation",
+      "country": "US",
+      "asset_class": "reit",
+      "currency": "USD",
+      "sector": "Real Estate",
+      "sub_sector": "Retail REIT",
+      "tags": [
+        "high_yield_watchlist",
+        "reit_monthly"
+      ]
+    },
+    {
+      "ticker": "STAG",
+      "exchange": "NYSE",
+      "name": "STAG Industrial",
+      "country": "US",
+      "asset_class": "reit",
+      "currency": "USD",
+      "sector": "Real Estate",
+      "sub_sector": "Industrial REIT",
+      "tags": [
+        "high_yield_watchlist",
+        "reit_monthly"
+      ]
+    },
+    {
+      "ticker": "VICI",
+      "exchange": "NYSE",
+      "name": "VICI Properties",
+      "country": "US",
+      "asset_class": "reit",
+      "currency": "USD",
+      "sector": "Real Estate",
+      "sub_sector": "Gaming REIT",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "OHI",
+      "exchange": "NYSE",
+      "name": "Omega Healthcare Investors",
+      "country": "US",
+      "asset_class": "reit",
+      "currency": "USD",
+      "sector": "Real Estate",
+      "sub_sector": "Healthcare REIT",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "WPC",
+      "exchange": "NYSE",
+      "name": "W. P. Carey Inc",
+      "country": "US",
+      "asset_class": "reit",
+      "currency": "USD",
+      "sector": "Real Estate",
+      "sub_sector": "Diversified REIT",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "BCS",
+      "exchange": "NYSE",
+      "name": "Barclays plc (ADR)",
+      "country": "GB",
+      "asset_class": "adr",
+      "currency": "USD",
+      "sector": "Financials",
+      "sub_sector": "Banks",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "LYG",
+      "exchange": "NYSE",
+      "name": "Lloyds Banking Group (ADR)",
+      "country": "GB",
+      "asset_class": "adr",
+      "currency": "USD",
+      "sector": "Financials",
+      "sub_sector": "Banks",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "HSBA",
+      "exchange": "LSE",
+      "name": "HSBC Holdings",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Banks",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "BARC",
+      "exchange": "LSE",
+      "name": "Barclays plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Banks",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "NWG",
+      "exchange": "LSE",
+      "name": "NatWest Group",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Banks",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "PHNX",
+      "exchange": "LSE",
+      "name": "Phoenix Group Holdings",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Life Insurance",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "LGEN",
+      "exchange": "LSE",
+      "name": "Legal & General Group",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Life Insurance",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "AV.",
+      "exchange": "LSE",
+      "name": "Aviva plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Financials",
+      "sub_sector": "Insurance",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "IMB",
+      "exchange": "LSE",
+      "name": "Imperial Brands",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Consumer Staples",
+      "sub_sector": "Tobacco",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "BATS",
+      "exchange": "LSE",
+      "name": "British American Tobacco",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Consumer Staples",
+      "sub_sector": "Tobacco",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "VOD",
+      "exchange": "LSE",
+      "name": "Vodafone Group",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Communication Services",
+      "sub_sector": "Telecom",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "RIO",
+      "exchange": "LSE",
+      "name": "Rio Tinto plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Diversified Mining",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    },
+    {
+      "ticker": "GLEN",
+      "exchange": "LSE",
+      "name": "Glencore plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Diversified Mining",
+      "tags": [
+        "high_yield_watchlist"
+      ]
+    }
   ]
 }

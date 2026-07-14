@@ -94,8 +94,9 @@ semantics, tests/CI). Next per the plan: 3.5b (data layer), then PR 4
   cut-risk rebalanced 0.5/0.5.
 - Reaction threshold **5d ≥12% OR 1d ≥8%** (stored as framework data);
   schedule **Tue + Fri 17:00 UTC**.
-- **Finnhub** primary price source (provisional — confirm LSE coverage in
-  3.5b); yfinance demoted to fallback, dead for fundamentals.
+- **Finnhub** primary price source (provisional — confirm LSE coverage via
+  `/api/dev/ingest?task=status` on the live key); yfinance fallback, with
+  fundamentals revived via cookie+crumb in 3.5b.
 - Design-for-paid, no billing yet; **sell derived analysis only**; thin
   dashboard from PR 4; Reaction Analyser is the hero pole; Energy deprioritized.
 

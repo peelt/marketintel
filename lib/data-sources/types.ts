@@ -11,6 +11,7 @@ export type DataSourceName =
   | "sec_edgar"
   | "fred"
   | "yfinance"
+  | "finnhub"
   | "lse_rns"
   | "companies_house"
   | "news_rss"
@@ -84,6 +85,12 @@ export interface RawPriceSnapshot {
   close: number;
   adjustedClose?: number;
   volume?: number;
+  /**
+   * Currency AS REPORTED by the provider — LSE prices arrive in pence
+   * ("GBp"), not pounds. Persisted verbatim so consumers can normalise;
+   * dropping it is a latent 100× error on UK names.
+   */
+  currency?: string;
   source: DataSourceName;
 }
 

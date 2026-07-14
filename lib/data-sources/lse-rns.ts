@@ -60,6 +60,9 @@ function parseRssItems(xml: string, ticker: string, since?: string): RawFiling[]
       filingType: classifyAnnouncement(title),
       filedAt: filedAt.toISOString(),
       url: link,
+      // RNS items have no EDGAR-style accession number; the announcement URL
+      // is the stable per-item identity and serves as the dedupe key.
+      accessionNumber: link,
     });
   }
 

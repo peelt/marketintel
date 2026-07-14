@@ -100,6 +100,7 @@ export function buildEvidenceRows(
     source_id: string | null;
     source_text: string;
     weight: number;
+    redistributable: boolean;
   };
   const rows: Row[] = [];
 
@@ -116,6 +117,9 @@ export function buildEvidenceRows(
         source_id: isUuid(ev.sourceId) ? ev.sourceId : null,
         source_text: ev.text.slice(0, 8_000),
         weight: Math.max(0, Math.min(1, ev.weight)),
+        // I3 boundary: only our own derived metrics are redistributable;
+        // everything quoting a third-party source row stays owner-only.
+        redistributable: ev.type === "derived_metric",
       });
     }
   });

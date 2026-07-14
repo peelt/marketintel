@@ -133,7 +133,7 @@ Scheduled trigger (Inngest cron)
 | Anthropic SDK | `^0.111` | Structured outputs (`output_config.format`) in use; no prose-parsing |
 | LLM batch | Anthropic Batch API | 3.5c — for Reaction's LLM fan-out |
 | News (Geo/Reaction) | native `web_search` / `web_fetch` server tools | PR 5+; RSS kept only where structured feeds help |
-| Price/fundamentals | **Finnhub primary** (settled, provisional) · yfinance fallback | 3.5b; yfinance fundamentals endpoint is dead (cookie+crumb auth) |
+| Price/fundamentals | **Finnhub primary** (settled, provisional) · yfinance fallback | `PriceSource` interface since 3.5b; yfinance fundamentals revived via cookie+crumb |
 | Auth/DB | Supabase (magic link, Postgres, RLS, pgvector) | RLS entitlement-gated since migration 0003 |
 | Scheduling | Inngest | Fails closed in prod without signing key. Do NOT replace with the Agent SDK |
 | Hosting | Vercel | Deploys `main` |
@@ -216,14 +216,14 @@ owner-only; only derived analysis is ever sellable (POSITIONING §8).
 | **Finnhub** | free (key) | **Primary from 3.5b** (settled; confirm LSE coverage in the readiness check). Also carries analyst data that may reinstate the eps-revision signal. |
 | SEC EDGAR | free (UA) | Active. Known issues before the IPO agent: full-text search unpaginated (first ~10 hits); section splitter can't handle "Item 1A."/S-1s. |
 | FRED | free (key) | Active. Some curated series are third-party licensed (LBMA/ICE/Cboe) — inputs only, never redistribute values. |
-| yfinance | free (scraped) | **Fallback only.** Fundamentals endpoint dead (cookie+crumb). Non-viable commercially. |
-| LSE RNS (Investegate), Companies House | free | Active; RNS needs a real dedupe key (3.5b). |
+| yfinance | free (scraped) | **Fallback only.** Fundamentals work via the cookie+crumb dance (fragile by nature). Non-viable commercially. |
+| LSE RNS (Investegate), Companies House | free | Active; RNS dedupes on announcement URL since 3.5b. |
 | RSS news | free | Superseded for Geo/Reaction by native web search. Redistribution-restricted — discovery signals only. |
 | FMP / Polygon(massive.com) / Marketaux | paid stubs | Scaffolded, inactive. Stub readiness must mean implemented AND configured (3.5b). |
 
-Seed universes (curated JSON, Zod-validated): metals ~34, energy ~40,
-dividend ~27 — refresh for delistings in 3.5b; broad-market universe added
-for Reaction in PR 5.
+Seed universes (curated JSON, Zod-validated): metals 32, energy 37,
+dividend 26 — reviewed 2026-07-14 (delistings/renames dropped); broad-market
+universe added for Reaction in PR 5.
 
 ---
 
@@ -237,12 +237,16 @@ mid-run race; stale model IDs/SDK; manual JSON parsing; RLS `using(true)`;
 CSRF-able mutating GET; service-role on a request path; allowlist timing
 oracle; missing-as-zero persistence; no tests/CI.
 
-**Open — 3.5b (data layer):** callable `PriceSource` interface + Finnhub
-adapter with yfinance fallback; Zod validation on all network responses with
-typed errors; currency column on prices (GBp/USD 100× trap); dividends/RNS
-dedupe keys; in-batch dedupe before upserts; per-run failure reports instead
-of silent catches; universe refresh; redistributable-vs-owner-only evidence
-flag; body-read timeouts + SEC 403 retry handling.
+**Fixed in 3.5b** *(for the record)*: callable `PriceSource` interface +
+Finnhub adapter with yfinance fallback; Zod validation on price-source
+responses with typed errors (SchemaChanged/NotFound/RateLimited/Blocked);
+yfinance fundamentals revived (cookie+crumb); currency column on prices
+(GBp/USD 100× trap); dividends dedupe on (security, ex-date); RNS dedupe on
+announcement URL; in-batch dedupe before upserts; per-run failure reports
+instead of silent catches; universe refresh (2026-07-14); redistributable-
+vs-owner-only evidence flag; body-read timeouts + SEC 403 retry handling.
+Finnhub LSE coverage probe exposed via `/api/dev/ingest?task=status` — run
+it on the live key before treating Finnhub as locked in (plan §5).
 
 **Open — 3.5c (scale):** bounded-concurrency batch resolution; Anthropic
 Batch API for LLM signals; negative caching + bulk `resolveSecurityId`;
