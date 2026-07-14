@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAllowedEmail, getAllowedEmail } from "@/lib/auth/allowlist";
+import { CliTitleBar, Wordmark } from "@/components/cli";
 
 export default async function LoginPage({
   searchParams,
@@ -20,38 +21,55 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto max-w-md px-6 py-24">
-      <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        marketintel is single-user. Only the configured email can sign in.
-      </p>
+      <div className="mb-8 text-center">
+        <Wordmark />
+      </div>
 
-      <form action={sendMagicLink} className="mt-8 space-y-3">
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="you@example.com"
-          autoComplete="email"
-          className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent"
-        />
-        <button
-          type="submit"
-          className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90"
-        >
-          Send magic link
-        </button>
-      </form>
+      <div className="card-cli overflow-hidden p-0">
+        <CliTitleBar title="~ sign in" />
+        <div className="p-6">
+          <p className="text-sm text-muted-foreground">
+            Investorlogical is single-user during the preview. Only the
+            configured email can sign in — a magic link is sent, no password.
+          </p>
 
-      {sent && (
-        <p className="mt-4 text-sm text-muted-foreground">
-          If that email is allowed, a magic link has been sent.
-        </p>
-      )}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+          <form action={sendMagicLink} className="mt-6 space-y-4">
+            <div>
+              <label htmlFor="email" className="label-cli">
+                email
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="input-cli"
+              />
+            </div>
+            <button type="submit" className="btn-cli w-full">
+              send magic link
+            </button>
+          </form>
+
+          {sent && (
+            <p className="mt-4 font-mono-cli text-sm text-il-navy">
+              ~ if that email is allowed, a link is on its way. Check spam; the
+              sender throttles to a few emails per hour.
+            </p>
+          )}
+          {error && (
+            <p className="mt-4 font-mono-cli text-sm" style={{ color: "#EE1D23" }}>
+              ~ {error}
+            </p>
+          )}
+        </div>
+      </div>
 
       {process.env.NODE_ENV !== "production" && getAllowedEmail() && (
-        <p className="mt-12 text-xs text-muted-foreground">
-          Dev hint: allowlist = {getAllowedEmail()}
+        <p className="mt-12 text-center font-mono-cli text-xs text-muted-foreground">
+          ~ dev hint: allowlist = {getAllowedEmail()}
         </p>
       )}
     </main>

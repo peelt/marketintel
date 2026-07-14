@@ -14,6 +14,7 @@ framework the user can see and edit. See the doc set:
 | `docs/POSITIONING.md` | What we're building and why (market, moats, poles, regulatory posture) |
 | `docs/IMPLEMENTATION_PLAN.md` | How and in what order — the sequence a session picks up and follows |
 | `docs/SPECIFICATION.md` | Architecture, data model, scoring engine, data sources |
+| `docs/DESIGN.md` | House style — the "-logical" family Manifesto-White CLI language + Investorlogical's brand variables (indigo accent). Follow it for ALL UI work. |
 
 **Where we are:** `main` carries PR 1–3 (scaffold, data sources, scoring/agent
 base) + the docs set + PR 3.5a (foundation hardening: security floor, scoring
