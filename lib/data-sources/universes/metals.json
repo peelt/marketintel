@@ -1,47 +1,430 @@
 {
   "_meta": {
-    "version": 1,
-    "last_reviewed": "2026-05-19",
-    "notes": "Curated starter set. Tags drive metals agent classification: 'gold_major', 'gold_midtier', 'gold_junior', 'royalty', 'silver_major', 'silver_midtier', 'metals_etf', 'diversified_miner'. Expand carefully — universe creep dilutes scoring signal."
+    "version": 2,
+    "last_reviewed": "2026-07-14",
+    "notes": "Curated starter set. Tags drive metals agent classification: 'gold_major', 'gold_midtier', 'gold_junior', 'royalty', 'silver_major', 'silver_midtier', 'metals_etf', 'diversified_miner'. Expand carefully — universe creep dilutes scoring signal. 2026-07 review: Barrick NYSE ticker changed GOLD->B (May 2025); EVR dropped (Evraz LSE listing suspended since 2022); SAND dropped (acquired by Royal Gold, 2025)."
   },
   "securities": [
-    { "ticker": "NEM", "exchange": "NYSE", "name": "Newmont Corporation", "country": "US", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_major", "metals_buyhold_avoid"] },
-    { "ticker": "GOLD", "exchange": "NYSE", "name": "Barrick Gold Corporation", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_major", "metals_buyhold_avoid"] },
-    { "ticker": "AEM", "exchange": "NYSE", "name": "Agnico Eagle Mines", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_major", "metals_buyhold_avoid"] },
-    { "ticker": "KGC", "exchange": "NYSE", "name": "Kinross Gold Corporation", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "AU", "exchange": "NYSE", "name": "AngloGold Ashanti", "country": "ZA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_major", "metals_buyhold_avoid"] },
-    { "ticker": "GFI", "exchange": "NYSE", "name": "Gold Fields", "country": "ZA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_major", "metals_buyhold_avoid"] },
-    { "ticker": "HMY", "exchange": "NYSE", "name": "Harmony Gold Mining", "country": "ZA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "AGI", "exchange": "NYSE", "name": "Alamos Gold", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "BTG", "exchange": "NYSE", "name": "B2Gold Corp", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "EQX", "exchange": "NYSE", "name": "Equinox Gold", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "IAG", "exchange": "NYSE", "name": "IAMGOLD Corporation", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "EGO", "exchange": "NYSE", "name": "Eldorado Gold", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "NGD", "exchange": "NYSE", "name": "New Gold Inc", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Gold", "tags": ["gold_junior", "metals_buyhold_avoid"] },
-
-    { "ticker": "PAAS", "exchange": "NYSE", "name": "Pan American Silver", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Silver", "tags": ["silver_major", "metals_buyhold_avoid"] },
-    { "ticker": "CDE", "exchange": "NYSE", "name": "Coeur Mining", "country": "US", "currency": "USD", "sector": "Materials", "sub_sector": "Silver", "tags": ["silver_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "HL", "exchange": "NYSE", "name": "Hecla Mining", "country": "US", "currency": "USD", "sector": "Materials", "sub_sector": "Silver", "tags": ["silver_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "FSM", "exchange": "NYSE", "name": "Fortuna Mining", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Silver", "tags": ["silver_midtier", "metals_buyhold_avoid"] },
-    { "ticker": "AG", "exchange": "NYSE", "name": "First Majestic Silver", "country": "CA", "currency": "USD", "sector": "Materials", "sub_sector": "Silver", "tags": ["silver_midtier", "metals_buyhold_avoid"] },
-
-    { "ticker": "FNV", "exchange": "NYSE", "name": "Franco-Nevada Corporation", "country": "CA", "asset_class": "royalty", "currency": "USD", "sector": "Materials", "sub_sector": "Precious Metals Royalty", "tags": ["royalty", "metals_buyhold_avoid"] },
-    { "ticker": "RGLD", "exchange": "NASDAQ", "name": "Royal Gold", "country": "US", "asset_class": "royalty", "currency": "USD", "sector": "Materials", "sub_sector": "Precious Metals Royalty", "tags": ["royalty", "metals_buyhold_avoid"] },
-    { "ticker": "WPM", "exchange": "NYSE", "name": "Wheaton Precious Metals", "country": "CA", "asset_class": "royalty", "currency": "USD", "sector": "Materials", "sub_sector": "Precious Metals Royalty", "tags": ["royalty", "metals_buyhold_avoid"] },
-    { "ticker": "OR", "exchange": "NYSE", "name": "Osisko Gold Royalties", "country": "CA", "asset_class": "royalty", "currency": "USD", "sector": "Materials", "sub_sector": "Precious Metals Royalty", "tags": ["royalty", "metals_buyhold_avoid"] },
-    { "ticker": "SAND", "exchange": "NYSE", "name": "Sandstorm Gold", "country": "CA", "asset_class": "royalty", "currency": "USD", "sector": "Materials", "sub_sector": "Precious Metals Royalty", "tags": ["royalty", "metals_buyhold_avoid"] },
-
-    { "ticker": "GLD", "exchange": "NYSE", "name": "SPDR Gold Shares", "country": "US", "asset_class": "etf", "currency": "USD", "sector": "Commodity", "sub_sector": "Gold", "tags": ["metals_etf", "physical_gold"] },
-    { "ticker": "IAU", "exchange": "NYSE", "name": "iShares Gold Trust", "country": "US", "asset_class": "etf", "currency": "USD", "sector": "Commodity", "sub_sector": "Gold", "tags": ["metals_etf", "physical_gold"] },
-    { "ticker": "SLV", "exchange": "NYSE", "name": "iShares Silver Trust", "country": "US", "asset_class": "etf", "currency": "USD", "sector": "Commodity", "sub_sector": "Silver", "tags": ["metals_etf", "physical_silver"] },
-    { "ticker": "GDX", "exchange": "NYSE", "name": "VanEck Gold Miners ETF", "country": "US", "asset_class": "etf", "currency": "USD", "sector": "Materials", "sub_sector": "Gold Miners", "tags": ["metals_etf", "miners_etf"] },
-    { "ticker": "GDXJ", "exchange": "NYSE", "name": "VanEck Junior Gold Miners ETF", "country": "US", "asset_class": "etf", "currency": "USD", "sector": "Materials", "sub_sector": "Gold Miners", "tags": ["metals_etf", "miners_etf_junior"] },
-
-    { "ticker": "FRES", "exchange": "LSE", "name": "Fresnillo plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Silver/Gold", "tags": ["silver_major", "metals_buyhold_avoid"] },
-    { "ticker": "EVR", "exchange": "LSE", "name": "Evraz plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Steel", "tags": ["diversified_miner"] },
-    { "ticker": "AAL", "exchange": "LSE", "name": "Anglo American plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Diversified Mining", "tags": ["diversified_miner"] },
-    { "ticker": "ANTO", "exchange": "LSE", "name": "Antofagasta plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Copper", "tags": ["copper_major"] },
-    { "ticker": "GLEN", "exchange": "LSE", "name": "Glencore plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Diversified Mining", "tags": ["diversified_miner"] },
-    { "ticker": "RIO", "exchange": "LSE", "name": "Rio Tinto plc", "country": "GB", "currency": "GBP", "sector": "Materials", "sub_sector": "Diversified Mining", "tags": ["diversified_miner"] }
+    {
+      "ticker": "NEM",
+      "exchange": "NYSE",
+      "name": "Newmont Corporation",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "B",
+      "exchange": "NYSE",
+      "name": "Barrick Mining Corporation",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "AEM",
+      "exchange": "NYSE",
+      "name": "Agnico Eagle Mines",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "KGC",
+      "exchange": "NYSE",
+      "name": "Kinross Gold Corporation",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "AU",
+      "exchange": "NYSE",
+      "name": "AngloGold Ashanti",
+      "country": "ZA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "GFI",
+      "exchange": "NYSE",
+      "name": "Gold Fields",
+      "country": "ZA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "HMY",
+      "exchange": "NYSE",
+      "name": "Harmony Gold Mining",
+      "country": "ZA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "AGI",
+      "exchange": "NYSE",
+      "name": "Alamos Gold",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "BTG",
+      "exchange": "NYSE",
+      "name": "B2Gold Corp",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "EQX",
+      "exchange": "NYSE",
+      "name": "Equinox Gold",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "IAG",
+      "exchange": "NYSE",
+      "name": "IAMGOLD Corporation",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "EGO",
+      "exchange": "NYSE",
+      "name": "Eldorado Gold",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "NGD",
+      "exchange": "NYSE",
+      "name": "New Gold Inc",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold",
+      "tags": [
+        "gold_junior",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "PAAS",
+      "exchange": "NYSE",
+      "name": "Pan American Silver",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Silver",
+      "tags": [
+        "silver_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "CDE",
+      "exchange": "NYSE",
+      "name": "Coeur Mining",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Silver",
+      "tags": [
+        "silver_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "HL",
+      "exchange": "NYSE",
+      "name": "Hecla Mining",
+      "country": "US",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Silver",
+      "tags": [
+        "silver_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "FSM",
+      "exchange": "NYSE",
+      "name": "Fortuna Mining",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Silver",
+      "tags": [
+        "silver_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "AG",
+      "exchange": "NYSE",
+      "name": "First Majestic Silver",
+      "country": "CA",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Silver",
+      "tags": [
+        "silver_midtier",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "FNV",
+      "exchange": "NYSE",
+      "name": "Franco-Nevada Corporation",
+      "country": "CA",
+      "asset_class": "royalty",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Precious Metals Royalty",
+      "tags": [
+        "royalty",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "RGLD",
+      "exchange": "NASDAQ",
+      "name": "Royal Gold",
+      "country": "US",
+      "asset_class": "royalty",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Precious Metals Royalty",
+      "tags": [
+        "royalty",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "WPM",
+      "exchange": "NYSE",
+      "name": "Wheaton Precious Metals",
+      "country": "CA",
+      "asset_class": "royalty",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Precious Metals Royalty",
+      "tags": [
+        "royalty",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "OR",
+      "exchange": "NYSE",
+      "name": "Osisko Gold Royalties",
+      "country": "CA",
+      "asset_class": "royalty",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Precious Metals Royalty",
+      "tags": [
+        "royalty",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "GLD",
+      "exchange": "NYSE",
+      "name": "SPDR Gold Shares",
+      "country": "US",
+      "asset_class": "etf",
+      "currency": "USD",
+      "sector": "Commodity",
+      "sub_sector": "Gold",
+      "tags": [
+        "metals_etf",
+        "physical_gold"
+      ]
+    },
+    {
+      "ticker": "IAU",
+      "exchange": "NYSE",
+      "name": "iShares Gold Trust",
+      "country": "US",
+      "asset_class": "etf",
+      "currency": "USD",
+      "sector": "Commodity",
+      "sub_sector": "Gold",
+      "tags": [
+        "metals_etf",
+        "physical_gold"
+      ]
+    },
+    {
+      "ticker": "SLV",
+      "exchange": "NYSE",
+      "name": "iShares Silver Trust",
+      "country": "US",
+      "asset_class": "etf",
+      "currency": "USD",
+      "sector": "Commodity",
+      "sub_sector": "Silver",
+      "tags": [
+        "metals_etf",
+        "physical_silver"
+      ]
+    },
+    {
+      "ticker": "GDX",
+      "exchange": "NYSE",
+      "name": "VanEck Gold Miners ETF",
+      "country": "US",
+      "asset_class": "etf",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold Miners",
+      "tags": [
+        "metals_etf",
+        "miners_etf"
+      ]
+    },
+    {
+      "ticker": "GDXJ",
+      "exchange": "NYSE",
+      "name": "VanEck Junior Gold Miners ETF",
+      "country": "US",
+      "asset_class": "etf",
+      "currency": "USD",
+      "sector": "Materials",
+      "sub_sector": "Gold Miners",
+      "tags": [
+        "metals_etf",
+        "miners_etf_junior"
+      ]
+    },
+    {
+      "ticker": "FRES",
+      "exchange": "LSE",
+      "name": "Fresnillo plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Silver/Gold",
+      "tags": [
+        "silver_major",
+        "metals_buyhold_avoid"
+      ]
+    },
+    {
+      "ticker": "AAL",
+      "exchange": "LSE",
+      "name": "Anglo American plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Diversified Mining",
+      "tags": [
+        "diversified_miner"
+      ]
+    },
+    {
+      "ticker": "ANTO",
+      "exchange": "LSE",
+      "name": "Antofagasta plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Copper",
+      "tags": [
+        "copper_major"
+      ]
+    },
+    {
+      "ticker": "GLEN",
+      "exchange": "LSE",
+      "name": "Glencore plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Diversified Mining",
+      "tags": [
+        "diversified_miner"
+      ]
+    },
+    {
+      "ticker": "RIO",
+      "exchange": "LSE",
+      "name": "Rio Tinto plc",
+      "country": "GB",
+      "currency": "GBP",
+      "sector": "Materials",
+      "sub_sector": "Diversified Mining",
+      "tags": [
+        "diversified_miner"
+      ]
+    }
   ]
 }

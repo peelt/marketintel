@@ -1,4 +1,4 @@
-import { getAnthropicClient, MODELS } from "@/lib/anthropic/client";
+import { getAnthropicClient, modelForTier, type ModelTier } from "@/lib/anthropic/client";
 import { getErrorMessage } from "@/lib/errors";
 import type { EvidenceItem } from "@/lib/agents/types";
 import type { SignalValue } from "./types";
@@ -11,14 +11,15 @@ import type { SignalValue } from "./types";
  * these, the agent gathers evidence (filing sections, news, peer commentary)
  * and asks the model to grade 0–100 with a justification.
  *
- * The returned `SignalValue` plugs straight into the scoring engine: the LLM
- * score becomes the `raw` number, evidence rows are carried through. Engine
- * normalises across candidates the same as any quantitative signal.
+ * The returned `SignalValue` plugs straight into the scoring engine. The grade
+ * is CALIBRATED (0–20 material concern … 81–100 best in class), so framework
+ * sub-signals backed by this scorer should use `normalisation: "absolute"` —
+ * rank-normalising a calibrated grade across peers destroys the calibration.
  *
- * Cost discipline: each call is one Sonnet message with a tight system prompt
- * and a JSON-only response. Budget: ~600 input + 200 output tokens per
- * candidate per qualitative criterion. Five agents × five candidates × three
- * qualitative criteria ≈ £0.10/run on Sonnet 4.5 pricing — fine.
+ * Output shape is enforced with structured outputs (output_config.format), so
+ * there is no prose-parsing fallback. Sonnet 5 runs adaptive thinking by
+ * default and it shares max_tokens, so effort is pinned low and the budget
+ * leaves headroom.
  */
 
 export interface LlmScoringRequest {
@@ -30,37 +31,50 @@ export interface LlmScoringRequest {
   context: string;
   /** Evidence rows to carry through onto the final score. */
   evidence: EvidenceItem[];
-  /** Override model — defaults to Sonnet. */
-  model?: string;
+  /** Model tier — defaults to routine. */
+  tier?: ModelTier;
 }
 
-interface LlmGrade {
+export interface LlmGrade {
   score: number; // 0–100
   justification: string;
   confidence: "low" | "medium" | "high";
 }
 
+const GRADE_SCHEMA = {
+  type: "object",
+  properties: {
+    score: {
+      type: "integer",
+      description: "Calibrated grade 0-100 per the scoring discipline.",
+    },
+    justification: {
+      type: "string",
+      description: "Two to four sentence rationale citing the evidence.",
+    },
+    confidence: {
+      type: "string",
+      enum: ["low", "medium", "high"],
+      description:
+        "low when the evidence is thin or contradictory; high only when well-grounded.",
+    },
+  },
+  required: ["score", "justification", "confidence"],
+  additionalProperties: false,
+} as const;
+
 const SYSTEM_PROMPT = `You are a buy-side investment analyst grading one criterion of one security.
 
-Return ONLY a JSON object with this exact shape:
-{
-  "score": <integer 0-100>,
-  "justification": "<two to four sentence rationale citing the evidence>",
-  "confidence": "low" | "medium" | "high"
-}
-
-Scoring discipline:
+Scoring discipline (absolute, NOT relative to the current peer set):
 - 0-20: severe negative on this criterion. Material concern.
-- 21-40: weak. Below peer median.
+- 21-40: weak.
 - 41-60: average. Defensible but unremarkable.
-- 61-80: above peer median. Real strength.
-- 81-100: best in class on this criterion within this peer set.
+- 61-80: real strength.
+- 81-100: best in class.
 
 Use "low" confidence when the evidence is thin or contradictory. Do not invent
 facts. If the evidence is genuinely insufficient to grade, return score=50,
-confidence="low" with a justification explaining what was missing.
-
-Respond with ONLY the JSON object, no preamble, no markdown fences.`;
+confidence="low" with a justification explaining what was missing.`;
 
 export async function scoreWithLlm(
   request: LlmScoringRequest,
@@ -78,79 +92,105 @@ ${truncatedContext}`;
 
   try {
     const response = await client.messages.create({
-      model: request.model ?? MODELS.default,
-      max_tokens: 400,
+      model: modelForTier(request.tier ?? "routine"),
+      // Adaptive thinking (default-on for sonnet-5) shares this budget; keep
+      // headroom so the grade never truncates.
+      max_tokens: 2_000,
+      output_config: {
+        effort: "low",
+        format: {
+          type: "json_schema",
+          schema: GRADE_SCHEMA,
+        },
+      },
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     });
 
-    const textBlock = response.content.find(
-      (block) => block.type === "text",
-    );
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
+      console.error(
+        `scoreWithLlm: unusable stop_reason=${response.stop_reason} for ${request.criterion}`,
+      );
+      return { raw: null, evidence: request.evidence };
+    }
+
+    const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
       return { raw: null, evidence: request.evidence };
     }
-    const grade = parseGrade(textBlock.text);
+    const grade = validateGrade(textBlock.text);
     if (!grade) return { raw: null, evidence: request.evidence };
 
-    // Stash the justification on the first evidence item so it surfaces in the
-    // report alongside the source rows the model was grounding against.
-    const annotatedEvidence: EvidenceItem[] = request.evidence.length
-      ? [
-          {
-            ...request.evidence[0],
-            text: `[${request.criterion} · score ${grade.score} · ${grade.confidence}] ${grade.justification}\n\n${request.evidence[0].text}`,
-          },
-          ...request.evidence.slice(1),
-        ]
-      : [
-          {
-            type: "derived_metric",
-            sourceTable: "agent_runs",
-            sourceId: "llm_grade",
-            text: `[${request.criterion} · score ${grade.score} · ${grade.confidence}] ${grade.justification}`,
-            weight: grade.confidence === "high" ? 0.9 : grade.confidence === "medium" ? 0.6 : 0.3,
-          },
-        ];
-
-    return { raw: grade.score, evidence: annotatedEvidence };
+    return { raw: grade.score, evidence: annotateEvidence(request, grade) };
   } catch (err) {
     // Don't throw — let the engine treat this as a null signal for this
     // candidate. One model hiccup shouldn't kill the whole run.
-    console.error(`scoreWithLlm failed for ${request.criterion}:`, getErrorMessage(err));
+    console.error(
+      `scoreWithLlm failed for ${request.criterion}:`,
+      getErrorMessage(err),
+    );
     return { raw: null, evidence: request.evidence };
   }
 }
 
-function parseGrade(text: string): LlmGrade | null {
-  const cleaned = text.replace(/```json\s*|\s*```/g, "").trim();
+/**
+ * Structured outputs guarantee schema-valid JSON, but guard anyway: the value
+ * ranges (0–100) aren't expressible in the supported schema subset, and a
+ * defensive parse keeps the engine's null-signal contract intact if the API
+ * ever returns something unexpected.
+ */
+export function validateGrade(text: string): LlmGrade | null {
   try {
-    const parsed = JSON.parse(cleaned);
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const candidate = parsed as Record<string, unknown>;
     if (
-      typeof parsed.score === "number" &&
-      parsed.score >= 0 &&
-      parsed.score <= 100 &&
-      typeof parsed.justification === "string" &&
-      (parsed.confidence === "low" ||
-        parsed.confidence === "medium" ||
-        parsed.confidence === "high")
+      typeof candidate.score === "number" &&
+      Number.isFinite(candidate.score) &&
+      candidate.score >= 0 &&
+      candidate.score <= 100 &&
+      typeof candidate.justification === "string" &&
+      (candidate.confidence === "low" ||
+        candidate.confidence === "medium" ||
+        candidate.confidence === "high")
     ) {
       return {
-        score: Math.round(parsed.score),
-        justification: parsed.justification,
-        confidence: parsed.confidence,
+        score: Math.round(candidate.score),
+        justification: candidate.justification,
+        confidence: candidate.confidence,
       };
     }
     return null;
   } catch {
-    // Last-ditch: scrape a bare integer 0–100 from the response.
-    const match = /\b(\d{1,3})\b/.exec(cleaned);
-    if (match) {
-      const n = parseInt(match[1], 10);
-      if (n >= 0 && n <= 100) {
-        return { score: n, justification: cleaned.slice(0, 400), confidence: "low" };
-      }
-    }
     return null;
   }
+}
+
+/**
+ * Stash the justification on the first evidence item so it surfaces in the
+ * report alongside the source rows the model was grounding against. The
+ * confidence maps to the evidence weight when the scorer had to synthesise
+ * its own evidence row.
+ */
+function annotateEvidence(
+  request: LlmScoringRequest,
+  grade: LlmGrade,
+): EvidenceItem[] {
+  const label = `[${request.criterion} · score ${grade.score} · ${grade.confidence}] ${grade.justification}`;
+  if (request.evidence.length > 0) {
+    return [
+      { ...request.evidence[0], text: `${label}\n\n${request.evidence[0].text}` },
+      ...request.evidence.slice(1),
+    ];
+  }
+  return [
+    {
+      type: "derived_metric",
+      sourceTable: "agent_runs",
+      sourceId: "llm_grade",
+      text: label,
+      weight:
+        grade.confidence === "high" ? 0.9 : grade.confidence === "medium" ? 0.6 : 0.3,
+    },
+  ];
 }

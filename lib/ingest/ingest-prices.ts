@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveSecurityId } from "./resolve-security";
+import { dedupeBy } from "./dedupe";
 import type { RawPriceSnapshot } from "@/lib/data-sources/types";
 
 /**
@@ -33,7 +34,7 @@ export async function ingestPriceSnapshots(
       continue;
     }
 
-    const rows = batch.map((s) => ({
+    const rows = dedupeBy(batch, (s) => s.snapshotDate).map((s) => ({
       security_id: securityId,
       snapshot_date: s.snapshotDate,
       open: s.open,
@@ -42,6 +43,7 @@ export async function ingestPriceSnapshots(
       close: s.close,
       adjusted_close: s.adjustedClose,
       volume: s.volume,
+      currency: s.currency,
       source: s.source,
     }));
 

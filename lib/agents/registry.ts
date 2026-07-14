@@ -16,7 +16,7 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Weekly league table of upcoming IPOs scored on valuation, growth, management, market timing and risk.",
     schedule: "0 18 * * 0", // Sun 18:00 UTC
-    defaultModel: "claude-opus-4-7",
+    modelTier: "deep",
   },
   dividend: {
     name: "dividend",
@@ -24,7 +24,7 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Friday report of high-yield names with plain-English sustainability assessment and cut-probability flagging.",
     schedule: "0 18 * * 5", // Fri 18:00 UTC
-    defaultModel: "claude-sonnet-4-5",
+    modelTier: "routine",
   },
   geopolitical: {
     name: "geopolitical",
@@ -32,7 +32,7 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Memo on macro and geopolitical shifts with source-weighted signals and explicit confidence levels.",
     schedule: "0 20 * * 0", // Sun 20:00 UTC
-    defaultModel: "claude-opus-4-7",
+    modelTier: "deep",
   },
   energy: {
     name: "energy",
@@ -40,7 +40,7 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Upstream, midstream, equipment and energy-intensive industrials ranked on direct exposure and hedging.",
     schedule: "0 10 * * 6", // Sat 10:00 UTC
-    defaultModel: "claude-sonnet-4-5",
+    modelTier: "routine",
   },
   metals: {
     name: "metals",
@@ -48,7 +48,7 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Buy/hold/avoid across ETFs, royalties, majors and juniors with AISC-aware valuation logic.",
     schedule: "0 12 * * 6", // Sat 12:00 UTC
-    defaultModel: "claude-sonnet-4-5",
+    modelTier: "routine",
   },
 };
 
@@ -57,7 +57,11 @@ class AgentRegistry {
     return Object.values(META);
   }
 
-  get(name: AgentName): AgentMeta {
+  /**
+   * Undefined for unknown names — DB rows carry free-text agent_name, so
+   * callers must handle a stale/unknown value instead of crashing at render.
+   */
+  get(name: AgentName): AgentMeta | undefined {
     return META[name];
   }
 }

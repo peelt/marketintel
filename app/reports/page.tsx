@@ -12,6 +12,7 @@ interface ReportRow {
   agent_name: string;
   generated_at: string;
   summary_markdown: string;
+  agent_runs: { status: string } | null;
 }
 
 export default async function ReportsPage() {
@@ -21,9 +22,12 @@ export default async function ReportsPage() {
   } = await supabase.auth.getUser();
   if (!user || !isAllowedEmail(user.email)) redirect("/login");
 
+  // Inner-join on the run and filter to succeeded — failed or half-persisted
+  // runs must never render as legitimate reports.
   const { data: reports } = await supabase
     .from("reports")
-    .select("id, agent_name, generated_at, summary_markdown")
+    .select("id, agent_name, generated_at, summary_markdown, agent_runs!inner(status)")
+    .eq("agent_runs.status", "succeeded")
     .order("generated_at", { ascending: false })
     .limit(50)
     .returns<ReportRow[]>();

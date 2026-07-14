@@ -66,9 +66,10 @@ without refactor.
 
 | Adapter | Status | Provides |
 |---|---|---|
+| Finnhub | active (API key) — **primary** | prices, dividends, fundamentals snapshot |
 | SEC EDGAR | active (UA required) | filings (S-1, 10-K, full-text search) |
 | FRED | active (API key) | macro time series |
-| yfinance | active | prices, dividends, fundamentals snapshot |
+| yfinance | active — fallback | prices, dividends, fundamentals snapshot |
 | LSE RNS (via Investegate) | active | UK announcements |
 | Companies House | active (API key) | UK issuer detail |
 | RSS news | active | financial news from FT/MW/SA/Yahoo |

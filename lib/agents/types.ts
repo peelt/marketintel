@@ -25,8 +25,11 @@ export interface AgentMeta {
   description: string;
   /** Cron expression in Inngest format (UTC). */
   schedule: string;
-  /** Default Anthropic model — sonnet for routine, opus for deep synthesis. */
-  defaultModel: "claude-sonnet-4-5" | "claude-opus-4-7";
+  /**
+   * Model tier, not a model ID. Concrete IDs are pinned once in
+   * lib/anthropic/client.ts (`MODELS`) so migrations are a one-file change.
+   */
+  modelTier: "routine" | "deep";
 }
 
 /**
@@ -70,13 +73,38 @@ export interface ScoringCriterion {
     direction: "higher_better" | "lower_better";
     /** Declarative selector — interpreted by the scoring engine in PR 3. */
     sourceQuery: string;
+    /**
+     * How the raw value becomes a 0–100 score:
+     *   "rank"     (default) — percentile across the current candidate set.
+     *               Relative: the worst candidate scores 0 regardless of merit.
+     *   "zscore"   — z-score across the set mapped to 0–100. Relative, but
+     *               respects distribution tails.
+     *   "absolute" — the raw value IS the 0–100 score (clamped; inverted for
+     *               lower_better). Use for LLM-calibrated grades and
+     *               absolute-threshold signals so scores stay comparable
+     *               across reports and over time.
+     */
+    normalisation?: "rank" | "zscore" | "absolute";
   }[];
 }
 
 export interface ScoredCandidate {
   securityId: string;
   composite: number; // 0–100
-  breakdown: Record<string, { score: number; signals: Record<string, number> }>;
+  /** 0–1: share of framework weight that actually had data behind it. */
+  coverage: number;
+  /**
+   * Per-criterion scores. `null` means "no data" — deliberately distinct from
+   * 0 ("worst"). The UI must never render a null as a zero.
+   */
+  breakdown: Record<
+    string,
+    { score: number | null; signals: Record<string, number | null> }
+  >;
+  /** Free-text verdict, e.g. Reaction's overshoot bands. Agent-assigned. */
+  verdict?: string | null;
+  /** Constrained classification, e.g. Metals' buy/hold/avoid. Agent-assigned. */
+  classification?: string | null;
   evidenceRefs: number[]; // indexes into the EvidenceItem array for this run
 }
 

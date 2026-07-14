@@ -18,6 +18,11 @@ export interface FetchOptions extends RequestInit {
   /** Min ms between requests to the same hostname. */
   hostThrottleMs?: number;
   userAgent?: string;
+  /**
+   * Extra HTTP statuses to retry beyond the default 5xx/429 — SEC EDGAR
+   * intermittently 403s legitimate requests and recovers on the next try.
+   */
+  retryStatuses?: number[];
 }
 
 const lastHit: Map<string, number> = new Map();
@@ -31,6 +36,7 @@ export async function httpFetch(
     retries = 2,
     hostThrottleMs = 0,
     userAgent,
+    retryStatuses = [],
     headers,
     ...init
   } = options;
@@ -61,13 +67,23 @@ export async function httpFetch(
       });
       clearTimeout(timer);
 
-      // Retry on 5xx and 429
-      if (response.status >= 500 || response.status === 429) {
+      // Retry on 5xx, 429, and any caller-specified statuses
+      if (
+        response.status >= 500 ||
+        response.status === 429 ||
+        retryStatuses.includes(response.status)
+      ) {
         if (attempt < retries) {
           await sleep(backoff(attempt));
           continue;
         }
       }
+
+      // The header timer is done, but the BODY hasn't been read yet — a stalled
+      // stream would otherwise hang the caller's .json()/.text() forever. Re-arm
+      // the abort for the body read; it's a no-op once the body is consumed.
+      const bodyTimer = setTimeout(() => controller.abort(), timeoutMs);
+      bodyTimer.unref?.();
       return response;
     } catch (err) {
       clearTimeout(timer);

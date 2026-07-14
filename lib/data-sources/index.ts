@@ -1,6 +1,7 @@
 import * as secEdgar from "./sec-edgar";
 import * as fred from "./fred";
 import * as yfinance from "./yfinance";
+import * as finnhub from "./finnhub";
 import * as lseRns from "./lse-rns";
 import * as companiesHouse from "./companies-house";
 import * as newsRss from "./news-rss";
@@ -19,6 +20,7 @@ export const dataSources: Record<DataSourceName, AdapterCapabilities> = {
   sec_edgar: secEdgar.capabilities,
   fred: fred.capabilities,
   yfinance: yfinance.capabilities,
+  finnhub: finnhub.capabilities,
   lse_rns: lseRns.capabilities,
   companies_house: companiesHouse.capabilities,
   news_rss: newsRss.capabilities,
@@ -39,5 +41,8 @@ export function listStubbedAdapters(): { adapter: AdapterCapabilities; reason: s
     );
 }
 
-export { secEdgar, fred, yfinance, lseRns, companiesHouse, newsRss, fmp, polygon, marketaux };
+export { secEdgar, fred, yfinance, finnhub, lseRns, companiesHouse, newsRss, fmp, polygon, marketaux };
 export type * from "./types";
+export * from "./errors";
+export { getPriceSource, withFallback } from "./price-source";
+export type { PriceSource, PriceRangeQuery, SymbolQuery, FallbackEvent } from "./price-source";

@@ -1,72 +1,58 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getErrorMessage } from "@/lib/errors";
-import type { AgentName, EvidenceItem, RankedReport } from "./types";
+import type { EvidenceItem, RankedReport } from "./types";
 
 /**
- * Persist a RankedReport.
+ * Persist a RankedReport against an EXISTING agent_runs row.
  *
- * Writes three table-sets atomically-ish: agent_runs (1 row), reports (1 row),
- * report_items (N rows), evidence (M rows). Supabase doesn't expose
- * transactions over the REST API, so the order matters — failure at any step
- * leaves the run in `failed` status which the UI can flag.
+ * Run lifecycle lives in runAgent (lib/agents/run.ts): the run row is created
+ * BEFORE the agent executes, so failures anywhere — including inside
+ * agent.run() itself — always leave an auditable failed run. This module only
+ * writes the report artefacts: reports (1 row), report_items (N), evidence (M).
  *
- * Inputs:
- *   agentName, frameworkId, report, bodyMarkdown
- *
- * Returns the report UUID for use in URLs.
+ * Supabase's REST API has no transactions, so on partial failure we
+ * best-effort delete the reports row (cascade removes items + evidence) and
+ * rethrow — and the /reports UI additionally filters on run status, so a
+ * half-persisted report can never render as a good one.
  */
 export async function persistReport(input: {
-  agentName: AgentName;
-  frameworkId: string;
+  runId: string;
   report: RankedReport;
-  bodyMarkdown: string;
-  trigger?: "scheduled" | "manual" | "event";
-  inputParams?: Record<string, unknown>;
-}): Promise<{ reportId: string; runId: string }> {
+  bodyMarkdown?: string;
+}): Promise<{ reportId: string }> {
   const supabase = createServiceClient();
+  const { runId, report } = input;
+  const bodyMarkdown = input.bodyMarkdown ?? report.bodyMarkdown;
 
-  // 1. Create the agent_run record in 'running' state.
-  const { data: run, error: runErr } = await supabase
-    .from("agent_runs")
+  // 1. reports row
+  const { data: reportRow, error: reportErr } = await supabase
+    .from("reports")
     .insert({
-      agent_name: input.agentName,
-      framework_id: input.frameworkId,
-      status: "running",
-      trigger: input.trigger ?? "manual",
-      input_params: input.inputParams ?? {},
+      agent_run_id: runId,
+      agent_name: report.agentName,
+      generated_at: report.generatedAt,
+      summary_markdown: report.summaryMarkdown,
+      body_markdown: bodyMarkdown,
     })
     .select("id")
     .single<{ id: string }>();
-  if (runErr || !run) {
-    throw new Error(`persistReport: agent_runs insert failed: ${getErrorMessage(runErr)}`);
+  if (reportErr || !reportRow) {
+    throw new Error(`persistReport: reports insert failed: ${getErrorMessage(reportErr)}`);
   }
 
   try {
-    // 2. reports row
-    const { data: reportRow, error: reportErr } = await supabase
-      .from("reports")
-      .insert({
-        agent_run_id: run.id,
-        agent_name: input.agentName,
-        generated_at: input.report.generatedAt,
-        summary_markdown: input.report.summaryMarkdown,
-        body_markdown: input.bodyMarkdown,
-      })
-      .select("id")
-      .single<{ id: string }>();
-    if (reportErr || !reportRow) {
-      throw new Error(`reports insert failed: ${getErrorMessage(reportErr)}`);
-    }
-
-    // 3. report_items rows (one per ranked candidate)
-    const itemRows = input.report.ranked.map((candidate, idx) => ({
+    // 2. report_items rows (one per ranked candidate)
+    const itemRows = report.ranked.map((candidate, idx) => ({
       report_id: reportRow.id,
       security_id: candidate.securityId,
       rank: idx + 1,
       composite_score: candidate.composite,
-      scoring_breakdown: candidate.breakdown,
-      verdict: null,
-      classification: null,
+      scoring_breakdown: {
+        coverage: candidate.coverage,
+        criteria: candidate.breakdown,
+      },
+      verdict: candidate.verdict ?? null,
+      classification: candidate.classification ?? null,
     }));
 
     let createdItems: { id: string; rank: number }[] = [];
@@ -82,12 +68,9 @@ export async function persistReport(input: {
       createdItems = insertedItems;
     }
 
-    // 4. evidence rows. Each evidence row attaches to the report_item for the
-    // candidate whose ranked position references it via evidenceRefs.
-    const evidenceRows = buildEvidenceRows(
-      input.report,
-      createdItems,
-    );
+    // 3. evidence rows, attached to the report_item whose ranked candidate
+    // references them via evidenceRefs.
+    const evidenceRows = buildEvidenceRows(report, createdItems);
     if (evidenceRows.length > 0) {
       const { error: evErr } = await supabase
         .from("evidence")
@@ -97,27 +80,16 @@ export async function persistReport(input: {
       }
     }
 
-    // 5. Mark run succeeded
-    await supabase
-      .from("agent_runs")
-      .update({ status: "succeeded", finished_at: new Date().toISOString() })
-      .eq("id", run.id);
-
-    return { reportId: reportRow.id, runId: run.id };
+    return { reportId: reportRow.id };
   } catch (err) {
-    await supabase
-      .from("agent_runs")
-      .update({
-        status: "failed",
-        finished_at: new Date().toISOString(),
-        error: getErrorMessage(err),
-      })
-      .eq("id", run.id);
+    // Best-effort cleanup so no orphan report survives; the run-status filter
+    // in the UI is the backstop if this delete itself fails.
+    await supabase.from("reports").delete().eq("id", reportRow.id);
     throw err;
   }
 }
 
-function buildEvidenceRows(
+export function buildEvidenceRows(
   report: RankedReport,
   items: { id: string; rank: number }[],
 ) {
@@ -128,6 +100,7 @@ function buildEvidenceRows(
     source_id: string | null;
     source_text: string;
     weight: number;
+    redistributable: boolean;
   };
   const rows: Row[] = [];
 
@@ -144,6 +117,9 @@ function buildEvidenceRows(
         source_id: isUuid(ev.sourceId) ? ev.sourceId : null,
         source_text: ev.text.slice(0, 8_000),
         weight: Math.max(0, Math.min(1, ev.weight)),
+        // I3 boundary: only our own derived metrics are redistributable;
+        // everything quoting a third-party source row stays owner-only.
+        redistributable: ev.type === "derived_metric",
       });
     }
   });

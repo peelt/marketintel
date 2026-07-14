@@ -8,15 +8,25 @@ import { ingestFinancials } from "@/lib/ingest/ingest-financials";
 import { ingestMacro } from "@/lib/ingest/ingest-macro";
 import { ingestNews } from "@/lib/ingest/ingest-news";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
-import * as yfinance from "@/lib/data-sources/yfinance";
+import { getPriceSource, type FallbackEvent } from "@/lib/data-sources/price-source";
 import * as fred from "@/lib/data-sources/fred";
 import * as newsRss from "@/lib/data-sources/news-rss";
+import { collectPerTicker } from "@/lib/ingest/failure-report";
 import { getErrorMessage } from "@/lib/errors";
+
+/** Inclusive YYYY-MM-DD bounds for a trailing window ending today. */
+function lookback(days: number): { from: string; to: string } {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  return { from, to };
+}
 
 /**
  * Dev-only manual ingest endpoint.
  *
- * GET /api/dev/ingest?task=<task>
+ * POST /api/dev/ingest?task=<task>
  *
  *   task=seed-universe   — seed/refresh the curated tickers in `securities`
  *   task=prices          — pull 1y daily prices for the entire seed universe
@@ -26,12 +36,21 @@ import { getErrorMessage } from "@/lib/errors";
  *   task=news            — pull all RSS feeds
  *   task=status          — return adapter readiness, no side effects
  *
- * Always auth-gated to AUTH_ALLOWED_EMAIL. Not exposed in production routing
- * beyond what the allowlist enforces, but useful for local development and
- * one-off backfills.
+ * POST (not GET) because every task except `status` mutates state and fans
+ * out to external APIs — a cookie-authenticated GET was CSRF-able via a
+ * simple <img> tag. In production the route additionally requires the
+ * x-dev-ingest-secret header to match DEV_INGEST_SECRET (unset = disabled in
+ * production). Scheduled ingest belongs to Inngest jobs, not this route.
  */
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    const secret = process.env.DEV_INGEST_SECRET;
+    if (!secret || request.headers.get("x-dev-ingest-secret") !== secret) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,79 +67,66 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(result);
       }
       case "prices": {
-        const seeds = allSeedSecurities();
-        const all = [];
-        for (const s of seeds) {
-          try {
-            const batch = await yfinance.fetchPriceHistory({
-              ticker: s.ticker,
-              exchange: s.exchange,
-              range: "1y",
-              interval: "1d",
-            });
-            all.push(...batch);
-          } catch {
-            // Skip and continue — yfinance is unofficial, individual failures are expected.
-          }
-        }
-        const ingest = await ingestPriceSnapshots(all);
-        return NextResponse.json({ pulled: all.length, ...ingest });
+        const fallbacks: FallbackEvent[] = [];
+        const source = await getPriceSource((e) => fallbacks.push(e));
+        const { from, to } = lookback(365);
+        const { rows, report } = await collectPerTicker(
+          "prices",
+          allSeedSecurities(),
+          (s) => source.fetchPrices({ ticker: s.ticker, exchange: s.exchange, from, to }),
+        );
+        report.fallbacks = fallbacks;
+        const ingest = await ingestPriceSnapshots(rows);
+        return NextResponse.json({ pulled: rows.length, ...ingest, report });
       }
       case "dividends": {
-        const seeds = allSeedSecurities();
-        const all = [];
-        for (const s of seeds) {
-          try {
-            const batch = await yfinance.fetchDividendHistory({
-              ticker: s.ticker,
-              exchange: s.exchange,
-              range: "5y",
-            });
-            all.push(...batch);
-          } catch {
-            /* skip */
-          }
-        }
-        const ingest = await ingestDividends(all);
-        return NextResponse.json({ pulled: all.length, ...ingest });
+        const fallbacks: FallbackEvent[] = [];
+        const source = await getPriceSource((e) => fallbacks.push(e));
+        const { from, to } = lookback(5 * 365);
+        const { rows, report } = await collectPerTicker(
+          "dividends",
+          allSeedSecurities(),
+          (s) => source.fetchDividends({ ticker: s.ticker, exchange: s.exchange, from, to }),
+        );
+        report.fallbacks = fallbacks;
+        const ingest = await ingestDividends(rows);
+        return NextResponse.json({ pulled: rows.length, ...ingest, report });
       }
       case "fundamentals": {
-        const seeds = allSeedSecurities();
-        const all = [];
-        for (const s of seeds) {
-          try {
-            const snap = await yfinance.fetchFundamentalsSnapshot({
+        const fallbacks: FallbackEvent[] = [];
+        const source = await getPriceSource((e) => fallbacks.push(e));
+        const { rows, report } = await collectPerTicker(
+          "fundamentals",
+          allSeedSecurities(),
+          async (s) => {
+            const snap = await source.fetchFundamentals({
               ticker: s.ticker,
               exchange: s.exchange,
             });
-            if (snap) all.push(snap);
-          } catch {
-            /* skip */
-          }
-        }
-        const ingest = await ingestFinancials(all);
-        return NextResponse.json({ pulled: all.length, ...ingest });
+            return snap ? [snap] : [];
+          },
+        );
+        report.fallbacks = fallbacks;
+        const ingest = await ingestFinancials(rows);
+        return NextResponse.json({ pulled: rows.length, ...ingest, report });
       }
       case "macro": {
-        const all = [];
-        const today = new Date().toISOString().slice(0, 10);
-        const start = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10);
-        for (const [_label, seriesId] of Object.entries(fred.SERIES)) {
-          try {
-            const obs = await fred.fetchSeries({
-              seriesId,
-              observationStart: start,
-              observationEnd: today,
-            });
-            all.push(...obs);
-          } catch {
-            /* skip */
-          }
-        }
-        const ingest = await ingestMacro(all);
-        return NextResponse.json({ pulled: all.length, ...ingest });
+        const { from, to } = lookback(365);
+        const series = Object.entries(fred.SERIES).map(([label, seriesId]) => ({
+          ticker: seriesId,
+          exchange: "FRED",
+          label,
+          seriesId,
+        }));
+        const { rows, report } = await collectPerTicker("macro", series, (s) =>
+          fred.fetchSeries({
+            seriesId: s.seriesId,
+            observationStart: from,
+            observationEnd: to,
+          }),
+        );
+        const ingest = await ingestMacro(rows);
+        return NextResponse.json({ pulled: rows.length, ...ingest, report });
       }
       case "news": {
         const all = await newsRss.fetchAllFeeds();
@@ -130,15 +136,25 @@ export async function GET(request: NextRequest) {
       case "status":
       case null:
       case undefined: {
-        const { listReadyAdapters, listStubbedAdapters } = await import(
+        const { listReadyAdapters, listStubbedAdapters, finnhub } = await import(
           "@/lib/data-sources"
         );
+        // LSE coverage probe (plan §5): Finnhub is provisional as primary
+        // until this reports covered=true on the live key.
+        const lseCoverage =
+          finnhub.capabilities.readinessCheck() === null
+            ? await finnhub.probeLseCoverage().catch((err: unknown) => ({
+                covered: false as const,
+                reason: getErrorMessage(err),
+              }))
+            : { covered: false as const, reason: "finnhub not configured" };
         return NextResponse.json({
           ready: listReadyAdapters().map((a) => a.name),
           stubbed: listStubbedAdapters().map((x) => ({
             name: x.adapter.name,
             reason: x.reason,
           })),
+          finnhubLseCoverage: lseCoverage,
         });
       }
       default:

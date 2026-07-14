@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveSecurityId } from "./resolve-security";
+import { dedupeBy } from "./dedupe";
 import type { RawDividend } from "@/lib/data-sources/types";
 
 export async function ingestDividends(
@@ -27,7 +28,7 @@ export async function ingestDividends(
       continue;
     }
 
-    const rows = batch.map((d) => ({
+    const rows = dedupeBy(batch, (d) => d.exDate).map((d) => ({
       security_id: securityId,
       ex_date: d.exDate,
       record_date: d.recordDate,
@@ -38,10 +39,11 @@ export async function ingestDividends(
       source: d.source,
     }));
 
-    // Unique constraint is (security_id, ex_date, amount).
+    // Unique constraint is (security_id, ex_date) since migration 0004 —
+    // amount is out of the key so re-reported amounts update, not duplicate.
     const { error } = await supabase
       .from("dividends")
-      .upsert(rows, { onConflict: "security_id,ex_date,amount" });
+      .upsert(rows, { onConflict: "security_id,ex_date" });
     if (error) throw error;
     inserted += rows.length;
   }

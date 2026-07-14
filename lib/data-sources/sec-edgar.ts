@@ -85,6 +85,8 @@ export async function fetchRecentFilings(
   const data = await httpJson<EdgarSubmissionsResponse>(url, {
     userAgent: userAgent(),
     hostThrottleMs: HOST_THROTTLE_MS,
+    // EDGAR intermittently 403s well-formed requests; retry through it.
+    retryStatuses: [403],
   });
 
   const r = data.filings.recent;
@@ -140,6 +142,8 @@ export async function searchFilings(params: {
   const data = await httpJson<EdgarFullTextResponse>(url, {
     userAgent: userAgent(),
     hostThrottleMs: HOST_THROTTLE_MS,
+    // EDGAR intermittently 403s well-formed requests; retry through it.
+    retryStatuses: [403],
   });
 
   return data.hits.hits.slice(0, params.max ?? 100).map((hit) => {
@@ -170,6 +174,8 @@ export async function fetchFilingPrimaryDocument(
   return httpText(filing.url, {
     userAgent: userAgent(),
     hostThrottleMs: HOST_THROTTLE_MS,
+    // EDGAR intermittently 403s well-formed requests; retry through it.
+    retryStatuses: [403],
     headers: { Accept: "text/html,application/xhtml+xml" },
   });
 }
