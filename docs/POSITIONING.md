@@ -90,7 +90,11 @@ currently have neither.
 
 - **Portfolio / watchlist anchoring.** Seeking Alpha, Simply Wall St, Morningstar, Stockopedia and
   Simply Safe Dividends all anchor on the user's holdings. A tool that scores a universe but doesn't
-  know what you own reads as a magazine, not an analyst.
+  know what you own reads as a magazine, not an analyst. Decided 2026-07: holdings entry includes an
+  *optional* purchase price — enough for a factual performance snapshot (value, day change,
+  unrealised P/L), while the primary payoff is the whole service curated to held names. Full
+  performance accounting (IRR, dividends, tax) stays out of scope — that's Sharesight's product;
+  ours is the intel lens. See SPECIFICATION §5.1.
 - **"What changed" alerting.** The scheduled-agent architecture is *already* a delta engine; it just
   frames output as reports on a universe rather than changes to names the user cares about. Reframe
   it. The versioned framework tells a trust story no black box can: your holding's score moved

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveSecurityId } from "./resolve-security";
+import { dedupeBy } from "./dedupe";
 import type { RawFinancialsSnapshot } from "@/lib/data-sources/types";
 
 export async function ingestFinancials(
@@ -11,7 +12,12 @@ export async function ingestFinancials(
   let inserted = 0;
   let skipped = 0;
 
-  for (const s of snapshots) {
+  const unique = dedupeBy(
+    snapshots,
+    (s) => `${s.ticker}::${s.exchange}::${s.periodEnd}::${s.periodType}::${s.source}`,
+  );
+
+  for (const s of unique) {
     const securityId = await resolveSecurityId(s.ticker, s.exchange);
     if (!securityId) {
       skipped++;

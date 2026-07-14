@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolveSecurityId } from "./resolve-security";
+import { dedupeBy } from "./dedupe";
 import type { RawFiling } from "@/lib/data-sources/types";
 
 /**
@@ -16,7 +17,11 @@ export async function ingestFilings(
   let inserted = 0;
   let skipped = 0;
 
-  for (const f of filings) {
+  // Dedupe key is (source, accession_number); URL stands in for sources
+  // without accession numbers (migration 0004 made the column not-null).
+  const unique = dedupeBy(filings, (f) => `${f.source}::${f.accessionNumber ?? f.url}`);
+
+  for (const f of unique) {
     let securityId: string | null = null;
     if (f.ticker && f.exchange) {
       securityId = await resolveSecurityId(f.ticker, f.exchange);
@@ -31,7 +36,7 @@ export async function ingestFilings(
       filed_at: f.filedAt,
       period_end: f.periodEnd,
       url: f.url,
-      accession_number: f.accessionNumber,
+      accession_number: f.accessionNumber ?? f.url,
       raw_text: f.rawText,
     };
 

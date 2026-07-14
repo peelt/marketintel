@@ -59,7 +59,7 @@ Everything below is in service of that paragraph. If a task doesn't advance it, 
 | **M1 · Solid ground** | Foundations hardened; CI green; the fundamentals data path is actually alive; a non-allowlisted session reads nothing. | 3.5a, 3.5b, (3.5c) |
 | **M2 · First cited report** | A Dividend report renders in a real dashboard with a working evidence viewer. First glass-box artifact. | 4 |
 | **M3 · The hero** | Reaction Analyser live: drop → overshoot-vs-earned verdict, evidence-backed. The wedge. | 5 |
-| **M4 · My analyst** | Watchlist anchoring + "what changed" alerts. It stops feeling like a magazine. | 6 |
+| **M4 · My analyst** | Own-holdings entry (optional cost basis) → portfolio performance + the whole service filtered to held names, with "what changed" alerts. It stops feeling like a magazine. | 6 |
 | **M5 · You own the model** | Framework-editing UI: edit weights, re-score, versions pinned. The headline moat, visible. | 7 |
 | **M6 · Breadth** | IPO, Metals, then Geopolitical + evidence-scoped chat. | 8, 9, 10 |
 | **Paid gate** | After M5: decide US-first paid launch, legal review, then billing. | (post-M5) |
@@ -187,14 +187,35 @@ M3 is the thing that earns the first paying user.
   banded verdict with cited evidence, and renders in the dashboard. This is the demo.
 - **Settled inputs (§5):** threshold 5d ≥12% OR 1d ≥8% (as framework data); schedule Tue + Fri 17:00 UTC.
 
-#### PR 6 — Portfolio/watchlist anchoring + "what changed" alerting (table-stakes)
-- **Goal:** make it feel like *the user's* analyst without crossing into personal advice.
-- **Advances:** M4 · I2.
-- **Key tasks:** per-user watchlist model (RLS, `user_id = auth.uid()`); manual holdings entry first;
-  **delta engine** comparing successive runs for watched names; alert delivery (email via existing
-  infra / in-app). Strictly impersonal: alert on owned securities, never tailor the verdict.
-- **DoD:** a user adds names, and after a run receives a "what changed" summary for exactly those
-  names; no personalized recommendation is generated.
+#### PR 6 — Portfolio holdings + the "My Portfolio" intel lens (the personal moat)
+- **Goal:** the user enters their own holdings (quantity + *optional* purchase price) and the
+  product reorients around them: factual portfolio performance, and — more importantly — a curated
+  view of the whole service filtered to the names they hold. Spec detail: SPECIFICATION §5.1.
+- **Advances:** M4 · I2, I6.
+- **Depends on:** PR 4 (dashboard + evidence surface to filter); PR 5 enriches it but doesn't gate it.
+- **Ships in two slices:**
+  - **6a — holdings model + entry UX + performance snapshot:** `portfolios`/`holdings` tables
+    (per-lot rows, `user_id = auth.uid()` RLS); add flow = ticker autocomplete → quantity →
+    optional price/date, "add another" loop, first holding in <30s; on-demand security resolution
+    via `PriceSource` (holdings not limited to seed universes; held names join the price refresh);
+    My Portfolio page with value / day Δ / unrealised P/L vs cost basis (currency-normalised —
+    GBp trap) in the portfolio base currency. Performance is arithmetic only: no IRR/TWR/dividend
+    accounting (Sharesight's product, not ours — link out rather than half-build).
+  - **6b — the intel lens + deltas + alerts:** report items joined on held names (latest
+    classification badge + coverage per holding, evidence one click away); **delta engine**
+    comparing successive runs for held names; portfolio-scoped "what changed" feed; alert delivery
+    (email/in-app) when a new run cites a holding — a cut-risk flag on an owned name is the
+    highest-value event we can emit. Aggregate coverage-weighted framework snapshot of the
+    portfolio (glass-box answer to Simply Wall St's snowflake). My Portfolio becomes the default
+    landing page once ≥1 holding exists.
+- **I2 guardrails (non-negotiable):** quantity/price/P&L never feed scoring or verdict text —
+  holder and non-holder see byte-identical analysis for a security; filtering is not tailoring;
+  performance is presented as fact, never judgment.
+- **DoD:** a user adds holdings in under a minute (purchase price skippable); the portfolio page
+  shows value + P/L where cost basis exists and "no data" (never 0) where prices are missing;
+  after an agent run, the user sees a "what changed" summary and per-holding verdicts for exactly
+  the held names; no personalized recommendation is generated anywhere; a security absent from the
+  seed universes can be held, priced, and covered by reports.
 
 #### PR 7 — Editable framework UI (the headline moat, made visible)
 - **Goal:** turn frameworks-as-data into a product surface.
@@ -251,6 +272,7 @@ explicitly revisited.
 | Reaction inclusion threshold | **5d drawdown ≥12% OR 1d drop ≥8%**, stored as editable framework data (not code) so it can be tuned from observed weeks. | PR 5 |
 | Reaction schedule | **Tue + Fri 17:00 UTC.** | PR 5 |
 | Primary price source | **Finnhub** (provisional — ~60 calls/min free tier suits the 800-name refresh; carries analyst data). Confirm LSE coverage in 3.5b's readiness check before lock-in; yfinance covers LSE in the interim. Requires `FINNHUB_API_KEY` in env. | PR 3.5b |
+| Holdings & performance scope (14 Jul 2026) | **Own-holdings entry with optional purchase price.** Two surfaces: factual performance snapshot (value/day Δ/unrealised P&L — arithmetic only, no IRR/TWR/tax accounting) and the "My Portfolio" intel lens (service filtered to held names — the priority). Purchase data never feeds scoring (I2). Spec: SPECIFICATION §5.1. | PR 6 |
 
 Still open (not blocking current work):
 

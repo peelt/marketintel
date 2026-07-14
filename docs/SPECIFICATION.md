@@ -133,7 +133,7 @@ Scheduled trigger (Inngest cron)
 | Anthropic SDK | `^0.111` | Structured outputs (`output_config.format`) in use; no prose-parsing |
 | LLM batch | Anthropic Batch API | 3.5c — for Reaction's LLM fan-out |
 | News (Geo/Reaction) | native `web_search` / `web_fetch` server tools | PR 5+; RSS kept only where structured feeds help |
-| Price/fundamentals | **Finnhub primary** (settled, provisional) · yfinance fallback | 3.5b; yfinance fundamentals endpoint is dead (cookie+crumb auth) |
+| Price/fundamentals | **Finnhub primary** (settled, provisional) · yfinance fallback | `PriceSource` interface since 3.5b; yfinance fundamentals revived via cookie+crumb |
 | Auth/DB | Supabase (magic link, Postgres, RLS, pgvector) | RLS entitlement-gated since migration 0003 |
 | Scheduling | Inngest | Fails closed in prod without signing key. Do NOT replace with the Agent SDK |
 | Hosting | Vercel | Deploys `main` |
@@ -169,6 +169,70 @@ dividends/RNS; redistributable-vs-owner-only evidence flag.)
 - `evidence` — per item; typed source rows, 0–1 resolver-confidence weight.
 - `chat_sessions` / `chat_messages` — owner-scoped (`user_id = auth.uid()`).
 - `app_users` — entitlements; service-role managed; no client policies.
+
+### 5.1 Portfolio & holdings (PR 6)
+
+The user enters their own share holdings — with an *optional* purchase
+price — which powers two surfaces: a factual performance view, and (the
+strategic one) a **"My Portfolio" lens over the entire intel service**:
+every report, verdict, delta, and alert filtered to the names actually held.
+
+**Tables (both `user_id = auth.uid()`-scoped via RLS — the first genuinely
+per-user data):**
+
+- `portfolios` — `id`, `user_id`, `name`, `base_currency` (default GBP),
+  timestamps. One default portfolio is auto-created on first use; the schema
+  supports several (Stockopedia-style folios) without change.
+- `holdings` — `id`, `portfolio_id` FK, `security_id` FK, `quantity`,
+  `purchase_price` *(nullable)*, `purchase_currency` *(nullable)*,
+  `purchase_date` *(nullable)*, `notes`, timestamps. **Each row is a lot** —
+  repeat purchases of the same name are separate rows, aggregated in the UI.
+  Purchase fields are optional by design: the add flow must never stall on a
+  missing cost basis, because the intel lens (the real value) works without it.
+
+**On-demand security resolution:** holdings are NOT limited to the seed
+universes. Ticker search hits `securities` first; a miss resolves through
+the active `PriceSource` (profile lookup) and inserts the row. Held names
+automatically join the daily price-refresh set.
+
+**Surface 1 — performance (factual arithmetic only):** current value
+(latest close × quantity, normalised to the portfolio base currency — GBp
+pence ÷ 100 handled via `price_snapshots.currency`), day change, unrealised
+P/L and simple return vs cost basis where a purchase price was given.
+Deliberately *not* Sharesight: no IRR/TWR, no dividend-adjusted returns, no
+DRIP, no tax reports in v1. Our differentiation is intel, not accounting —
+say so in the UI rather than half-building it.
+
+**Surface 2 — portfolio-filtered intel (the point):** `report_items` joined
+on held `security_id`s gives: latest classification + framework scores per
+holding with its evidence one click away; a portfolio-scoped **"what
+changed"** feed (PR 6 delta engine); alerts when a new agent run cites a
+holding (a cut-risk flag on a name you own is the single highest-value
+event the product can emit). Aggregate view: a coverage-weighted framework
+snapshot of the whole portfolio — the glass-box answer to Simply Wall St's
+portfolio "snowflake".
+
+**I2 discipline (hard constraints, regulatory):**
+- Quantity, purchase price, and P/L **never feed scoring** or verdict text.
+  Scoring stays security-scoped; a holder and a non-holder see byte-identical
+  analysis for the same security. Filtering is not tailoring.
+- Performance figures are arithmetic, presented as fact, never judgment. No
+  "you should…" anywhere; disclaimers carry over from PR 4.
+
+**UX (prior-art informed — Simply Wall St, Seeking Alpha, Sharesight,
+Stockopedia):**
+- **Add flow:** one search box (ticker/name autocomplete over `securities` +
+  provider lookup), then quantity + optional price/date inline, "add
+  another" loop. Target: first holding added < 30 seconds, no mandatory
+  fields beyond ticker + quantity. CSV import later; broker linking
+  (Plaid/TrueLayer) explicitly deferred to the paid phase.
+- **My Portfolio page:** holdings table (name, qty, value, day Δ, P/L,
+  latest classification badge + coverage %) with an intel feed rail
+  filtered to held names. Becomes the default landing page once ≥1 holding
+  exists — the product opens on *your* names, magazine view one click away.
+- **Missing ≠ zero everywhere:** a holding without price data reads "no
+  data", never 0; P/L renders blank without a cost basis; coverage % shows
+  how much of the framework had data for each holding.
 
 ---
 
@@ -216,14 +280,14 @@ owner-only; only derived analysis is ever sellable (POSITIONING §8).
 | **Finnhub** | free (key) | **Primary from 3.5b** (settled; confirm LSE coverage in the readiness check). Also carries analyst data that may reinstate the eps-revision signal. |
 | SEC EDGAR | free (UA) | Active. Known issues before the IPO agent: full-text search unpaginated (first ~10 hits); section splitter can't handle "Item 1A."/S-1s. |
 | FRED | free (key) | Active. Some curated series are third-party licensed (LBMA/ICE/Cboe) — inputs only, never redistribute values. |
-| yfinance | free (scraped) | **Fallback only.** Fundamentals endpoint dead (cookie+crumb). Non-viable commercially. |
-| LSE RNS (Investegate), Companies House | free | Active; RNS needs a real dedupe key (3.5b). |
+| yfinance | free (scraped) | **Fallback only.** Fundamentals work via the cookie+crumb dance (fragile by nature). Non-viable commercially. |
+| LSE RNS (Investegate), Companies House | free | Active; RNS dedupes on announcement URL since 3.5b. |
 | RSS news | free | Superseded for Geo/Reaction by native web search. Redistribution-restricted — discovery signals only. |
 | FMP / Polygon(massive.com) / Marketaux | paid stubs | Scaffolded, inactive. Stub readiness must mean implemented AND configured (3.5b). |
 
-Seed universes (curated JSON, Zod-validated): metals ~34, energy ~40,
-dividend ~27 — refresh for delistings in 3.5b; broad-market universe added
-for Reaction in PR 5.
+Seed universes (curated JSON, Zod-validated): metals 32, energy 37,
+dividend 26 — reviewed 2026-07-14 (delistings/renames dropped); broad-market
+universe added for Reaction in PR 5.
 
 ---
 
@@ -237,12 +301,16 @@ mid-run race; stale model IDs/SDK; manual JSON parsing; RLS `using(true)`;
 CSRF-able mutating GET; service-role on a request path; allowlist timing
 oracle; missing-as-zero persistence; no tests/CI.
 
-**Open — 3.5b (data layer):** callable `PriceSource` interface + Finnhub
-adapter with yfinance fallback; Zod validation on all network responses with
-typed errors; currency column on prices (GBp/USD 100× trap); dividends/RNS
-dedupe keys; in-batch dedupe before upserts; per-run failure reports instead
-of silent catches; universe refresh; redistributable-vs-owner-only evidence
-flag; body-read timeouts + SEC 403 retry handling.
+**Fixed in 3.5b** *(for the record)*: callable `PriceSource` interface +
+Finnhub adapter with yfinance fallback; Zod validation on price-source
+responses with typed errors (SchemaChanged/NotFound/RateLimited/Blocked);
+yfinance fundamentals revived (cookie+crumb); currency column on prices
+(GBp/USD 100× trap); dividends dedupe on (security, ex-date); RNS dedupe on
+announcement URL; in-batch dedupe before upserts; per-run failure reports
+instead of silent catches; universe refresh (2026-07-14); redistributable-
+vs-owner-only evidence flag; body-read timeouts + SEC 403 retry handling.
+Finnhub LSE coverage probe exposed via `/api/dev/ingest?task=status` — run
+it on the live key before treating Finnhub as locked in (plan §5).
 
 **Open — 3.5c (scale):** bounded-concurrency batch resolution; Anthropic
 Batch API for LLM signals; negative caching + bulk `resolveSecurityId`;
