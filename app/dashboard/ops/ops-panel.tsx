@@ -171,13 +171,34 @@ export function OpsPanel() {
 
 function ResultSummary({ task, result }: { task: string; result: unknown }) {
   const r = (result ?? {}) as Record<string, unknown>;
+  const report = r.report as
+    | { attempted?: number; succeeded?: number; failed?: number }
+    | undefined;
+  // A run that fetched nothing is a failure, not a success with a green tick.
+  const attempted = report?.attempted ?? 0;
+  const succeeded = report?.succeeded ?? 0;
+  const failed = report?.failed ?? 0;
+  const outcome: "ok" | "partial" | "failed" =
+    attempted > 0 && succeeded === 0
+      ? "failed"
+      : failed > 0
+        ? "partial"
+        : "ok";
+  const tone =
+    outcome === "failed"
+      ? { border: "#EE1D23", glyph: "✗", glyphColor: "#EE1D23" }
+      : outcome === "partial"
+        ? { border: "#F6881C", glyph: "△", glyphColor: "#F6881C" }
+        : { border: "#22a87b", glyph: "✓", glyphColor: "#22a87b" };
   return (
     <div className="mt-2 space-y-2">
       <p
         className="border-l-2 py-1 pl-3 text-xs"
-        style={{ borderColor: "#22a87b", color: "#1a1a1a" }}
+        style={{ borderColor: tone.border, color: "#1a1a1a" }}
       >
-        <span style={{ color: "#22a87b" }}>✓</span> {summarise(task, r)}
+        <span style={{ color: tone.glyphColor }}>{tone.glyph}</span>{" "}
+        {outcome === "failed" ? "Nothing was fetched. " : ""}
+        {summarise(task, r)}
       </p>
       <FailureList result={r} />
       {(task === "run-dividend" || task === "run-reaction") && typeof r.reportId === "string" && (
@@ -205,8 +226,23 @@ function summarise(task: string, r: Record<string, unknown>): string {
       | undefined;
     const lseNote = lse?.covered
       ? "Finnhub covers the LSE — primary source confirmed."
-      : `Finnhub LSE coverage not confirmed (${lse?.reason ?? "unknown"}) — UK names will use the Yahoo fallback, which is fine.`;
-    return `Ready data sources: ${ready.join(", ") || "none"}. ${lseNote}`;
+      : ready.includes("finnhub")
+        ? `Finnhub LSE coverage not confirmed (${lse?.reason ?? "unknown"}) — UK names will use the fallback.`
+        : "Finnhub is NOT configured — data fetching will be unreliable until its key is added.";
+    const stubbed = Array.isArray(r.stubbed)
+      ? (r.stubbed as { reason?: string }[])
+      : [];
+    const missingKeys = [
+      ...new Set(
+        stubbed
+          .map((x) => /^([A-Z0-9_]+) not set$/.exec(x.reason ?? "")?.[1])
+          .filter((v): v is string => Boolean(v)),
+      ),
+    ];
+    const missingNote = missingKeys.length
+      ? ` Missing keys (add in Vercel → Settings → Environment Variables, then redeploy): ${missingKeys.join(", ")}.`
+      : "";
+    return `Ready data sources: ${ready.join(", ") || "none"}. ${lseNote}${missingNote}`;
   }
   if (task === "seed-universe") {
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.`;
