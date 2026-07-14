@@ -20,43 +20,64 @@ interface StepDef {
 const STEPS: StepDef[] = [
   {
     task: "status",
-    title: "1 · Check data sources",
+    title: "Check data sources",
     description:
       "Confirms which providers are configured, and probes whether Finnhub's free tier covers the London Stock Exchange.",
     eta: "a few seconds",
   },
   {
     task: "seed-universe",
-    title: "2 · Load the security universe",
+    title: "Load the security universe",
     description:
       "Fills the securities table from the curated dividend, metals and energy lists. Safe to re-run.",
     eta: "~10 seconds",
   },
   {
     task: "prices",
-    title: "3 · Fetch price history",
+    title: "Fetch price history",
     description: "About a year of daily prices for every seeded name.",
     eta: "1–3 minutes",
   },
   {
     task: "dividends",
-    title: "4 · Fetch dividend history",
+    title: "Fetch dividend history",
     description: "Five years of dividend payments per name.",
     eta: "1–3 minutes",
   },
   {
     task: "fundamentals",
-    title: "5 · Fetch fundamentals",
+    title: "Fetch fundamentals",
     description:
       "Trailing-twelve-month financials (cash flow, debt, payout) per name.",
     eta: "1–3 minutes",
   },
   {
     task: "run-dividend",
-    title: "6 · Run the Dividend agent",
+    title: "Run the Dividend agent",
     description:
       "Scores the universe against the framework and files the first evidence-backed report.",
     eta: "~30 seconds",
+  },
+  {
+    task: "seed-broad-universe",
+    title: "Load the broad market (Reaction)",
+    description:
+      "Adds the S&P 500 and FTSE 350 to the screening universe for the Reaction Analyser.",
+    eta: "~30 seconds",
+  },
+  {
+    task: "broad-prices",
+    title: "Fetch broad-market prices (Reaction)",
+    description:
+      "Queues the big price fetch through the background job system (Inngest must be connected). Runs in the background — no need to wait here.",
+    eta: "queued; ~30-60 min in background",
+  },
+  {
+    task: "run-reaction",
+    title: "Run the Reaction Analyser",
+    description:
+      "Screens for sharp drops, researches the news behind each, and files overshoot verdicts with cited sources.",
+    eta: "2-5 minutes",
   },
 ];
 
@@ -92,7 +113,7 @@ export function OpsPanel() {
 
   return (
     <div className="mt-8 space-y-3">
-      {STEPS.map((step) => {
+      {STEPS.map((step, index) => {
         const state = states[step.task] ?? { phase: "idle" };
         return (
           <section
@@ -101,7 +122,9 @@ export function OpsPanel() {
           >
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-medium">{step.title}</div>
+                <div className="text-sm font-medium">
+                  {index + 1} · {step.title}
+                </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">
                   {step.description}{" "}
                   <span className="whitespace-nowrap">Takes {step.eta}.</span>
@@ -151,7 +174,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
         {summarise(task, r)}
       </p>
       <FailureList result={r} />
-      {task === "run-dividend" && typeof r.reportId === "string" && (
+      {(task === "run-dividend" || task === "run-reaction") && typeof r.reportId === "string" && (
         <p className="text-xs">
           <Link href="/reports" className="text-accent hover:underline">
             Open the report →
@@ -182,8 +205,14 @@ function summarise(task: string, r: Record<string, unknown>): string {
   if (task === "seed-universe") {
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.`;
   }
-  if (task === "run-dividend") {
+  if (task === "run-dividend" || task === "run-reaction") {
     return "Report filed successfully.";
+  }
+  if (task === "seed-broad-universe") {
+    return `Broad market loaded: ${num(r.fetched)} constituents fetched — ${num(r.inserted)} new, ${num(r.tagged)} already tracked.`;
+  }
+  if (task === "broad-prices") {
+    return `Queued a background price fetch for ${num(r.queued)} names. ${typeof r.note === "string" ? r.note : ""}`;
   }
   const report = r.report as
     | { attempted?: number; succeeded?: number; failed?: number }

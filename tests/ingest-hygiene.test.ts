@@ -70,6 +70,12 @@ describe("suffixSymbol", () => {
   it("strips trailing dots before suffixing (Aviva is 'AV.' on the LSE)", () => {
     expect(suffixSymbol("AV.", "LSE")).toBe("AV.L");
   });
+
+  it("maps interior dots to hyphens (BT Group is 'BT.A' → provider symbol BT-A.L)", () => {
+    expect(suffixSymbol("BT.A", "LSE")).toBe("BT-A.L");
+    // US class shares keep their native form — Yahoo/Finnhub accept BRK.B unsuffixed
+    expect(suffixSymbol("BRK.B", "NYSE")).toBe("BRK.B");
+  });
 });
 
 describe("seed universes", () => {
