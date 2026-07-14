@@ -3,6 +3,13 @@ import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { dividendScheduled } from "@/lib/inngest/functions/dividend";
 import { chunkedIngest } from "@/lib/inngest/functions/ingest";
+import {
+  dailyPriceRefresh,
+  reactionScheduled,
+} from "@/lib/inngest/functions/reaction";
+
+// Agent runs fan out to data providers and the LLM — allow the full budget.
+export const maxDuration = 300;
 
 /**
  * Inngest serves and signs invocations at this route. Functions get added to
@@ -18,7 +25,7 @@ import { chunkedIngest } from "@/lib/inngest/functions/ingest";
  */
 const handler = serve({
   client: inngest,
-  functions: [dividendScheduled, chunkedIngest],
+  functions: [dividendScheduled, chunkedIngest, reactionScheduled, dailyPriceRefresh],
 });
 
 type RouteHandler = (req: Request) => Promise<Response> | Response;

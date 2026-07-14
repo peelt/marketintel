@@ -17,7 +17,7 @@ function tableResolver(
 }
 
 function framework(criteria: ScoringFramework["criteria"]): ScoringFramework {
-  return { id: "fw-1", agentName: "dividend", version: 1, criteria };
+  return { id: "fw-1", agentName: "dividend", version: 1, criteria, params: {} };
 }
 
 const A = "sec-a";

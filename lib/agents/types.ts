@@ -13,6 +13,7 @@
  */
 
 export type AgentName =
+  | "reaction"
   | "ipo"
   | "dividend"
   | "geopolitical"
@@ -60,6 +61,12 @@ export interface ScoringFramework {
   agentName: AgentName;
   version: number;
   criteria: ScoringCriterion[];
+  /**
+   * Agent-specific tunables that are DATA, not code — e.g. the Reaction
+   * Analyser's inclusion thresholds (settled: 5d ≥12% OR 1d ≥8%). Editable
+   * per framework version without redeploy, pinned like everything else.
+   */
+  params: Record<string, unknown>;
 }
 
 export interface ScoringCriterion {
