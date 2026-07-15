@@ -39,6 +39,18 @@ interface ReportItemRow {
   security: { ticker: string; exchange: string; name: string } | null;
 }
 
+/**
+ * Composite for display. A below-floor composite computed from PARTIAL data is
+ * real and shown with its coverage attached — but at 0% coverage there is no
+ * data behind the number at all, so rendering "0.0" would fabricate a
+ * worst-possible score (missing ≠ zero). Render "—" instead.
+ */
+function displayComposite(it: ReportItemRow): string {
+  const coverage = it.scoring_breakdown?.coverage ?? 0;
+  if (coverage === 0) return "—";
+  return it.composite_score.toFixed(1);
+}
+
 interface EvidenceRow {
   id: string;
   report_item_id: string;
@@ -219,7 +231,7 @@ export default async function ReportDetailPage({
                     </td>
                     <td className="px-3 py-2">{it.security?.name ?? "—"}</td>
                     <td className="px-3 py-2 text-right font-mono">
-                      {it.composite_score.toFixed(1)}
+                      {displayComposite(it)}
                     </td>
                     <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
                       {it.scoring_breakdown?.coverage != null
@@ -267,7 +279,7 @@ export default async function ReportDetailPage({
                       </span>
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
-                      #{it.rank} · {it.composite_score.toFixed(1)} ·{" "}
+                      #{it.rank} · {displayComposite(it)} ·{" "}
                       {evidenceRows.length} evidence row
                       {evidenceRows.length === 1 ? "" : "s"}
                     </span>
