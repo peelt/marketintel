@@ -24,12 +24,13 @@ import type {
  * class (US and LSE alike), so it can serve no price history at all; the
  * scraped fallbacks (Yahoo, Stooq) block datacenter IPs (429 / JS proof-of-work
  * wall) and so are dead from Vercel. Twelve Data is a keyed REST API built for
- * server access — it returns clean JSON from datacenter ranges and covers both
- * US and LSE on the free tier.
+ * server access — it returns clean JSON from datacenter ranges. The free
+ * "Basic" tier is US-only; LSE/London requires the paid "Grow" plan.
  *
- * Free tier is 8 API credits/min and 800/day. /time_series is 1 credit, so a
- * 25-name chunk (HOST_THROTTLE_MS below) fits inside one serverless call; the
- * full universe is refreshed via the chunked Inngest job, never inline.
+ * Request spacing is derived from the plan's credits/min (perRequestMs). Free
+ * Basic is 8/min (~7.9s apart) — a full seed refresh must go through the
+ * chunked Inngest job. Grow is 377/min (~160ms apart) — the seed universe
+ * fits inside one serverless call, so the ingest layer runs it inline.
  *
  * Dividends ride the /dividends endpoint (best-effort — 401/403 there degrades
  * to the fallback provider). Fundamentals are NOT served here: the free tier
@@ -52,9 +53,16 @@ function creditsPerMin(): number {
   const raw = Number(process.env.TWELVEDATA_CREDITS_PER_MIN);
   return Number.isFinite(raw) && raw > 0 ? raw : 8;
 }
-const HOST_THROTTLE_MS = process.env.VITEST
-  ? 0
-  : Math.ceil((60_000 / creditsPerMin()) * 1.05);
+
+/**
+ * Minimum spacing between requests for the configured plan. Read at call time
+ * (not module load) so a serverless cold start picks up the env, and so the
+ * ingest layer can estimate whether a batch fits inside one serverless call
+ * or must be queued. Zero under test (fetch is stubbed).
+ */
+export function perRequestMs(): number {
+  return process.env.VITEST ? 0 : Math.ceil((60_000 / creditsPerMin()) * 1.05);
+}
 
 function apiKey(): string | null {
   return process.env.TWELVEDATA_API_KEY || null;
@@ -148,7 +156,7 @@ async function tdJson<T extends z.ZodTypeAny>(
   url: string,
   schema: T,
 ): Promise<z.infer<T>> {
-  const res = await httpFetch(url, { hostThrottleMs: HOST_THROTTLE_MS });
+  const res = await httpFetch(url, { hostThrottleMs: perRequestMs() });
   if (!res.ok) throw errorFromStatus("twelvedata", res.status, redact(url));
 
   let body: unknown;

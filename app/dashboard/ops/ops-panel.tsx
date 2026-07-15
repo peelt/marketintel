@@ -221,14 +221,12 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
 function summarise(task: string, r: Record<string, unknown>): string {
   if (task === "status") {
     const ready = Array.isArray(r.ready) ? (r.ready as string[]) : [];
-    const lse = r.finnhubLseCoverage as
-      | { covered: boolean; reason?: string }
-      | undefined;
-    const lseNote = lse?.covered
-      ? "Finnhub covers the LSE — primary source confirmed."
-      : ready.includes("finnhub")
-        ? `Finnhub LSE coverage not confirmed (${lse?.reason ?? "unknown"}) — UK names will use the fallback.`
-        : "Finnhub is NOT configured — data fetching will be unreliable until its key is added.";
+    const pricePrimary = typeof r.pricePrimary === "string" ? r.pricePrimary : "";
+    const lseNote = pricePrimary.startsWith("twelvedata")
+      ? "Price primary: Twelve Data — US + LSE (LSE needs the Grow plan)."
+      : pricePrimary.startsWith("finnhub")
+        ? "Price primary: Finnhub — US only (its tier has no LSE candles). Add a Twelve Data key for London."
+        : "No price primary configured — add TWELVEDATA_API_KEY. (yfinance is a fallback only and blocks datacenter IPs.)";
     const stubbed = Array.isArray(r.stubbed)
       ? (r.stubbed as { reason?: string }[])
       : [];
@@ -255,6 +253,10 @@ function summarise(task: string, r: Record<string, unknown>): string {
   }
   if (task === "broad-prices") {
     return `Queued a background price fetch for ${num(r.queued)} names. ${typeof r.note === "string" ? r.note : ""}`;
+  }
+  // prices/dividends/fundamentals queue to Inngest on a slow (free-tier) plan.
+  if (typeof r.queued === "number" && typeof r.note === "string") {
+    return `Queued a background fetch for ${num(r.queued)} names. ${r.note}`;
   }
   const report = r.report as
     | { attempted?: number; succeeded?: number; failed?: number }
