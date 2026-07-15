@@ -50,6 +50,9 @@ export type ReactionClassification =
 
 export class ReactionAgent extends BaseAgent {
   readonly meta: AgentMeta = agentRegistry.get("reaction")!;
+  // Ranking and classification share the floor: a name too thin to classify
+  // is also too thin to compete for rank.
+  protected override coverageFloor = MIN_COVERAGE_TO_CLASSIFY;
 
   private ctx: ReactionRunContext | null = null;
   private screenSummary = { universe: 0, screened: 0, capped: 0 };
