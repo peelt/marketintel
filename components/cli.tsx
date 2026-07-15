@@ -46,7 +46,7 @@ export function Star() {
 
 /** Muted `~ …` mono eyebrow line (static; use CliTyping for the animated one). */
 export function CliEyebrow({ children }: { children: React.ReactNode }) {
-  return <div className="font-mono-cli text-sm text-il-navy">~ {children}</div>;
+  return <div className="font-mono-cli text-base text-il-navy">~ {children}</div>;
 }
 
 /**
@@ -56,7 +56,7 @@ export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops
   const link = (href: string, key: string, label: string) => (
     <Link
       href={href}
-      className={`font-mono-cli text-sm ${
+      className={`font-mono-cli text-base ${
         active === key
           ? "text-il-orange"
           : "text-il-navy hover:text-il-orange"
@@ -72,14 +72,14 @@ export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops
           <Link href="/dashboard">
             <Wordmark size="h-10" />
           </Link>
-          <span className="hidden font-mono-cli text-xs text-muted-foreground sm:inline">
+          <span className="hidden font-mono-cli text-sm text-muted-foreground sm:inline">
             guest@investorlogical:~
           </span>
         </div>
         <nav className="flex items-center gap-5">
           {link("/dashboard", "dashboard", "dashboard")}
           {link("/reports", "reports", "reports")}
-          {link("/dashboard/ops", "ops", "ops")}
+          {link("/dashboard/ops", "ops", "setup")}
         </nav>
       </div>
     </header>
@@ -98,3 +98,57 @@ export const MODULE_COLORS: Record<AgentName, string> = {
   geopolitical: "#B161CF",
   energy: "#2D5AC7",
 };
+
+/**
+ * Classification vocabulary → chip colour. Tinted background + coloured text
+ * (never a solid fill — family rule). Unknown values fall back to neutral so
+ * a new agent vocabulary degrades gracefully instead of crashing the page.
+ */
+const CLASSIFICATION_COLORS: Record<string, string> = {
+  // dividend vocabulary
+  resilient: "#22a87b",
+  watch: "#f6881c",
+  elevated_cut_risk: "#ee1d23",
+  // reaction vocabulary
+  strong_overshoot: "#e2282c",
+  mild_overshoot: "#f6881c",
+  proportionate: "#034566",
+  underreaction: "#6b7280",
+  // shared
+  insufficient_data: "#9ca3af",
+};
+
+/** Coloured classification pill ("elevated cut risk", "resilient", …). */
+export function ClassificationChip({ classification }: { classification: string }) {
+  const color = CLASSIFICATION_COLORS[classification] ?? "#6b7280";
+  return (
+    <span
+      className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono-cli text-sm"
+      style={{ color, backgroundColor: `${color}1a` }}
+    >
+      {classification.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+/**
+ * Coverage as a small bar + number — "how much of the framework had data for
+ * this name". A bar reads instantly where a naked percentage doesn't.
+ */
+export function CoverageBar({ coverage }: { coverage: number }) {
+  const pct = Math.round(coverage * 100);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="h-2 w-16 overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            backgroundColor: pct >= 65 ? "#22a87b" : pct >= 35 ? "#f6881c" : "#9ca3af",
+          }}
+        />
+      </span>
+      <span className="font-mono-cli text-sm text-muted-foreground">{pct}%</span>
+    </span>
+  );
+}

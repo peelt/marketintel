@@ -22,7 +22,7 @@ const STEPS: StepDef[] = [
     task: "status",
     title: "Check data sources",
     description:
-      "Confirms which providers are configured, and probes whether Finnhub's free tier covers the London Stock Exchange.",
+      "Confirms which providers are configured and which one is serving prices.",
     eta: "a few seconds",
   },
   {
@@ -69,8 +69,8 @@ const STEPS: StepDef[] = [
     task: "broad-prices",
     title: "Fetch broad-market prices (Reaction)",
     description:
-      "Queues the big price fetch through the background job system (Inngest must be connected). Runs in the background — no need to wait here.",
-    eta: "queued; ~30-60 min in background",
+      "Queues the big price fetch through the background job system (Inngest). Watch it finish in the Inngest dashboard before running the Reaction Analyser.",
+    eta: "queued; ~5–10 minutes in background",
   },
   {
     task: "run-reaction",
@@ -119,13 +119,13 @@ export function OpsPanel() {
           <section key={step.task} className="card-cli px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-bold text-il-navy">
+                <div className="text-base font-bold text-il-navy">
                   <span className="font-mono-cli text-il-orange">
                     [{index + 1}]
                   </span>{" "}
                   {step.title}
                 </div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
+                <div className="mt-0.5 text-sm text-muted-foreground">
                   {step.description}{" "}
                   <span className="whitespace-nowrap">Takes {step.eta}.</span>
                 </div>
@@ -144,14 +144,14 @@ export function OpsPanel() {
             </div>
 
             {state.phase === "running" && (
-              <p className="mt-2 font-mono-cli text-xs text-muted-foreground">
+              <p className="mt-2 font-mono-cli text-sm text-muted-foreground">
                 ~ working — leave this tab open; longer steps take a few
                 minutes <span className="cursor-blink" />
               </p>
             )}
             {state.phase === "error" && (
               <p
-                className="mt-2 border-l-2 py-1 pl-3 font-mono-cli text-xs"
+                className="mt-2 border-l-2 py-1 pl-3 font-mono-cli text-sm"
                 style={{ borderColor: "#EE1D23", color: "#EE1D23" }}
               >
                 ~ failed: {state.message}
@@ -193,7 +193,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
   return (
     <div className="mt-2 space-y-2">
       <p
-        className="border-l-2 py-1 pl-3 text-xs"
+        className="border-l-2 py-1 pl-3 text-sm"
         style={{ borderColor: tone.border, color: "#1a1a1a" }}
       >
         <span style={{ color: tone.glyphColor }}>{tone.glyph}</span>{" "}
@@ -202,7 +202,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
       </p>
       <FailureList result={r} />
       {(task === "run-dividend" || task === "run-reaction") && typeof r.reportId === "string" && (
-        <p className="text-xs">
+        <p className="text-sm">
           <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
             ~ open the report →
           </Link>
@@ -243,7 +243,8 @@ function summarise(task: string, r: Record<string, unknown>): string {
     return `Ready data sources: ${ready.join(", ") || "none"}. ${lseNote}${missingNote}`;
   }
   if (task === "seed-universe") {
-    return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.`;
+    const untagged = num(r.untagged);
+    return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.${untagged > 0 ? ` ${untagged} removed from curated watchlists.` : ""}`;
   }
   if (task === "run-dividend" || task === "run-reaction") {
     return "Report filed successfully.";
@@ -282,11 +283,11 @@ function FailureList({ result }: { result: Record<string, unknown> }) {
   const fallbackCount = report?.fallbacks?.length ?? 0;
   if (failures.length === 0 && fallbackCount === 0) return null;
   return (
-    <div className="text-xs text-muted-foreground">
+    <div className="text-sm text-muted-foreground">
       {fallbackCount > 0 && (
         <p>
-          {fallbackCount} request(s) fell back from the primary source to
-          Yahoo — expected on free-tier limits.
+          {fallbackCount} request(s) fell back from the primary source to a
+          backup provider — details in the raw JSON below.
         </p>
       )}
       {failures.length > 0 && (

@@ -17,6 +17,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
     schedule: "0 17 * * 2,5", // Tue + Fri 17:00 UTC (settled)
     modelTier: "deep",
+    status: "live",
   },
   ipo: {
     name: "ipo",
@@ -25,6 +26,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Weekly league table of upcoming IPOs scored on valuation, growth, management, market timing and risk.",
     schedule: "0 18 * * 0", // Sun 18:00 UTC
     modelTier: "deep",
+    status: "planned",
   },
   dividend: {
     name: "dividend",
@@ -33,6 +35,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Friday report of high-yield names with plain-English sustainability assessment and cut-probability flagging.",
     schedule: "0 18 * * 5", // Fri 18:00 UTC
     modelTier: "routine",
+    status: "live",
   },
   geopolitical: {
     name: "geopolitical",
@@ -41,6 +44,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Memo on macro and geopolitical shifts with source-weighted signals and explicit confidence levels.",
     schedule: "0 20 * * 0", // Sun 20:00 UTC
     modelTier: "deep",
+    status: "planned",
   },
   energy: {
     name: "energy",
@@ -49,6 +53,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Upstream, midstream, equipment and energy-intensive industrials ranked on direct exposure and hedging.",
     schedule: "0 10 * * 6", // Sat 10:00 UTC
     modelTier: "routine",
+    status: "planned",
   },
   metals: {
     name: "metals",
@@ -57,6 +62,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Buy/hold/avoid across ETFs, royalties, majors and juniors with AISC-aware valuation logic.",
     schedule: "0 12 * * 6", // Sat 12:00 UTC
     modelTier: "routine",
+    status: "planned",
   },
 };
 
