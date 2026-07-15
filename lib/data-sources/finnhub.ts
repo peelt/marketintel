@@ -267,12 +267,33 @@ async function fetchFundamentals(
     finiteNumber(metric["epsExclExtraItemsTTM"]) ??
     finiteNumber(metric["epsInclExtraItemsTTM"]);
 
+  // Finnhub's basic-financials payload has no absolute income/cash-flow
+  // figures, but it DOES carry per-share TTM values. Scaling those by shares
+  // outstanding reconstructs the absolutes the Dividend agent's sustainability
+  // ratios need (payout = dividends_paid/net_income, cover = fcf/dividends).
+  // The shares term cancels in both ratios, so any error in the share count
+  // drops out of the signals; all per-share values come from the same payload,
+  // so units stay internally consistent (a rank-normalisation requirement).
+  // Keys are read defensively — absent keys leave the field undefined, which
+  // scores as "no data" (missing ≠ zero), never as zero.
+  const dpsTtm =
+    finiteNumber(metric["dividendPerShareTTM"]) ??
+    finiteNumber(metric["dividendPerShareAnnual"]);
+  const fcfPerShare =
+    finiteNumber(metric["freeCashFlowPerShareTTM"]) ??
+    finiteNumber(metric["freeCashFlowPerShareAnnual"]);
+  const shares = profile?.sharesOutstanding;
+
   return {
     ticker: query.ticker,
     exchange: query.exchange,
     periodEnd: new Date().toISOString().slice(0, 10),
     periodType: "ttm",
     epsDiluted: eps,
+    netIncome: eps != null && shares != null ? eps * shares : undefined,
+    dividendsPaid: dpsTtm != null && shares != null ? dpsTtm * shares : undefined,
+    freeCashFlow:
+      fcfPerShare != null && shares != null ? fcfPerShare * shares : undefined,
     marketCap: marketCapMillions != null ? marketCapMillions * 1e6 : undefined,
     sharesOutstanding: profile?.sharesOutstanding,
     source: "finnhub",
