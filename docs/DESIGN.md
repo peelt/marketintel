@@ -46,6 +46,26 @@ sibling sites come only from the brand variables below.
 - Wordmark, header, title bar, `[*]`, module colours: `components/cli.tsx`
 - Animated eyebrow: `components/cli-typing.tsx`
 
+## Information design (UX pass, 15 Jul 2026)
+
+- **Verdicts first.** The unit of value is the verdict, not the report. The
+  dashboard renders live desks as signal cards fed from their latest report
+  (headline, top classified names as chips, filed/next-run times); planned
+  desks are a roadmap footnote, never cards. A status strip answers "is the
+  machine alive?" (price freshness, universe size, next runs).
+- **Report pages are assembled from structured data** (ranks, chips, coverage
+  bars, evidence accordions); the agent's markdown is an appendix
+  (`~ analyst note`, collapsed). Order: conclusion → ranking → evidence → prose.
+- **Never render what we don't know.** 0%-coverage names collapse to one
+  honest exclusion note (they never show as rows of dashes or 0.0); below-floor
+  partials stay ranked at the bottom with coverage attached.
+- **Type floor:** no informational text below 14px. Standard mono line is
+  15–16px; tags/labels 14px; raw-JSON disclosures are the only exception.
+- **No machine-speak:** crons render via `humanizeSchedule`/`nextRunLabel`
+  (lib/format.ts); classifications via `ClassificationChip`; coverage via
+  `CoverageBar` (both in components/cli.tsx). List summaries strip markdown
+  (`stripInlineMarkdown`) — raw `**bold**` in the UI was a live bug.
+
 ## Do / Don't (short form)
 
 **Do** keep white/navy/orange untouched; use mono for machine text; let

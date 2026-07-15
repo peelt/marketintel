@@ -7,10 +7,24 @@ import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
-import { SiteHeader } from "@/components/cli";
+import {
+  ClassificationChip,
+  CoverageBar,
+  MODULE_COLORS,
+  SiteHeader,
+} from "@/components/cli";
+import { classificationLabel, humanizeDateTime } from "@/lib/format";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Report page, assembled from the STRUCTURED data the agent filed (ranks,
+ * classifications, coverage, evidence) rather than its markdown essay —
+ * conclusion first, ranking second, evidence third, prose last (collapsed).
+ * Names with 0% coverage are collapsed to an honest exclusion note instead of
+ * rendering as rows of dashes: the reader shouldn't pay for a sourcing gap.
+ */
 
 interface ReportRow {
   id: string;
@@ -49,6 +63,10 @@ function displayComposite(it: ReportItemRow): string {
   const coverage = it.scoring_breakdown?.coverage ?? 0;
   if (coverage === 0) return "—";
   return it.composite_score.toFixed(1);
+}
+
+function coverageOf(it: ReportItemRow): number {
+  return it.scoring_breakdown?.coverage ?? 0;
 }
 
 interface EvidenceRow {
@@ -116,8 +134,9 @@ export default async function ReportDetailPage({
 
   // Evidence + 1y price history for the evidence viewer — the whole point of
   // the architecture (I1/I4): every score defensible from its cited rows.
-  const itemIds = (items ?? []).map((i) => i.id);
-  const securityIds = (items ?? [])
+  const allItems = items ?? [];
+  const itemIds = allItems.map((i) => i.id);
+  const securityIds = allItems
     .map((i) => i.security_id)
     .filter((v): v is string => v !== null);
 
@@ -162,24 +181,51 @@ export default async function ReportDetailPage({
   }
 
   const meta = agentRegistry.get(report.agent_name as AgentName);
+  const moduleColor = MODULE_COLORS[report.agent_name as AgentName] ?? "#034566";
+
+  // Partition: 0%-coverage names collapse to an exclusion note; everything
+  // else stays ranked (below-floor partials sit at the bottom, by design).
+  const rankedItems = allItems.filter((i) => coverageOf(i) > 0);
+  const excludedItems = allItems.filter((i) => coverageOf(i) === 0);
+
+  const classified = rankedItems.filter(
+    (i) => i.classification && i.classification !== "insufficient_data",
+  );
+  const classificationCounts = new Map<string, number>();
+  for (const i of classified) {
+    classificationCounts.set(
+      i.classification!,
+      (classificationCounts.get(i.classification!) ?? 0) + 1,
+    );
+  }
+  const avgCoverage =
+    rankedItems.length > 0
+      ? rankedItems.reduce((sum, i) => sum + coverageOf(i), 0) / rankedItems.length
+      : 0;
+  const topVerdicts = classified.slice(0, 3);
 
   return (
     <>
     <SiteHeader active="reports" />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <header className="flex items-baseline justify-between">
+      <header>
         <Link
           href="/reports"
-          className="font-mono-cli text-xs text-muted-foreground hover:text-il-orange"
+          className="font-mono-cli text-sm text-muted-foreground hover:text-il-orange"
         >
           ← reports
         </Link>
-        <div className="text-right">
-          <h1 className="text-3xl font-bold text-il-navy">
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-il-navy">
+            <span
+              aria-hidden
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ backgroundColor: moduleColor }}
+            />
             {meta?.displayName ?? report.agent_name}
           </h1>
-          <div className="mt-1 font-mono-cli text-xs text-muted-foreground">
-            {formatDate(report.generated_at)}
+          <div className="font-mono-cli text-base text-muted-foreground">
+            {humanizeDateTime(report.generated_at)}
             {run?.framework?.version != null && (
               <> · framework v{run.framework.version}</>
             )}
@@ -188,76 +234,139 @@ export default async function ReportDetailPage({
       </header>
 
       {run && run.status !== "succeeded" && (
-        <p className="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
+        <p className="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-base text-amber-700">
           This run finished with status <strong>{run.status}</strong> — the
           report below may be incomplete and is excluded from the reports list.
         </p>
       )}
 
-      <article className="prose prose-sm mt-10 max-w-none prose-headings:text-il-navy">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {report.body_markdown}
-        </ReactMarkdown>
-      </article>
+      {/* Verdict band — the conclusion, before anything else */}
+      {rankedItems.length > 0 && (
+        <section className="card-cli mt-8 p-6">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <span className="font-mono-cli text-base text-il-navy">
+              {rankedItems.length} name{rankedItems.length === 1 ? "" : "s"} ranked
+            </span>
+            {[...classificationCounts.entries()].map(([cls, count]) => (
+              <span key={cls} className="flex items-center gap-2">
+                <span className="font-mono-cli text-base text-il-navy">{count}×</span>
+                <ClassificationChip classification={cls} />
+              </span>
+            ))}
+            <span className="ml-auto flex items-center gap-2 font-mono-cli text-base text-muted-foreground">
+              avg coverage <CoverageBar coverage={avgCoverage} />
+            </span>
+          </div>
 
-      {items && items.length > 0 && (
-        <section className="mt-12">
-          <div className="font-mono-cli text-sm text-il-navy">~ ranked candidates</div>
-          <div className="card-cli mt-3 overflow-hidden p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-il-tint font-mono-cli text-xs text-il-navy">
+          {topVerdicts.length > 0 && (
+            <ul className="mt-5 space-y-3 border-t border-border pt-5">
+              {topVerdicts.map((item) => (
+                <li key={item.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-mono-cli text-lg font-bold text-il-navy">
+                    {item.security?.ticker ?? "—"}
+                  </span>
+                  <span className="text-base text-muted-foreground">
+                    {item.security?.name}
+                  </span>
+                  {item.classification && (
+                    <ClassificationChip classification={item.classification} />
+                  )}
+                  {item.verdict && (
+                    <span className="w-full text-base leading-relaxed text-foreground">
+                      {item.verdict}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {/* Ranked table */}
+      {rankedItems.length > 0 && (
+        <section className="mt-10">
+          <div className="font-mono-cli text-base text-il-navy">~ ranked candidates</div>
+          <div className="card-cli mt-3 overflow-x-auto p-0">
+            <table className="w-full text-base">
+              <thead className="bg-il-tint font-mono-cli text-sm text-il-navy">
                 <tr>
-                  <th className="px-3 py-2 text-left">#</th>
-                  <th className="px-3 py-2 text-left">Ticker</th>
-                  <th className="px-3 py-2 text-left">Name</th>
-                  <th className="px-3 py-2 text-right">Composite</th>
-                  <th className="px-3 py-2 text-right">Coverage</th>
-                  <th className="px-3 py-2 text-left">Classification</th>
+                  <th className="px-4 py-2.5 text-left">#</th>
+                  <th className="px-4 py-2.5 text-left">Name</th>
+                  <th className="px-4 py-2.5 text-right">Score</th>
+                  <th className="px-4 py-2.5 text-left">Coverage</th>
+                  <th className="px-4 py-2.5 text-left">Classification</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => (
+                {rankedItems.map((it) => (
                   <tr key={it.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                    <td className="px-4 py-2.5 font-mono-cli text-sm text-muted-foreground">
                       {it.rank}
                     </td>
-                    <td className="px-3 py-2 font-mono">
-                      {it.security?.ticker ?? "—"}
-                      {it.security?.exchange && (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          {it.security.exchange}
-                        </span>
-                      )}
+                    <td className="px-4 py-2.5">
+                      <span className="font-mono-cli font-bold text-il-navy">
+                        {it.security?.ticker ?? "—"}
+                      </span>
+                      <span className="ml-2 text-muted-foreground">
+                        {it.security?.name ?? ""}
+                      </span>
                     </td>
-                    <td className="px-3 py-2">{it.security?.name ?? "—"}</td>
-                    <td className="px-3 py-2 text-right font-mono">
+                    <td className="px-4 py-2.5 text-right font-mono-cli">
                       {displayComposite(it)}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-xs text-muted-foreground">
-                      {it.scoring_breakdown?.coverage != null
-                        ? `${Math.round(it.scoring_breakdown.coverage * 100)}%`
-                        : "—"}
+                    <td className="px-4 py-2.5">
+                      <CoverageBar coverage={coverageOf(it)} />
                     </td>
-                    <td className="px-3 py-2 text-xs">
-                      {it.classification ?? "—"}
+                    <td className="px-4 py-2.5">
+                      {it.classification ? (
+                        <ClassificationChip classification={it.classification} />
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Score = weighted composite against the framework (higher is
+            stronger). Coverage = how much of the framework had data for that
+            name; classifications are withheld below 35%.
+          </p>
         </section>
       )}
 
-      {items && items.length > 0 && (
-        <section className="mt-12">
-          <div className="font-mono-cli text-sm text-il-navy">~ evidence by candidate</div>
-          <p className="mt-1 text-xs text-muted-foreground">
+      {/* Excluded names — an honest note, not two screens of dashes */}
+      {excludedItems.length > 0 && (
+        <details className="card-cli mt-6 px-5 py-4">
+          <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
+            ~ {excludedItems.length} name{excludedItems.length === 1 ? "" : "s"}{" "}
+            excluded — no data on current sources
+          </summary>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            {excludedItems
+              .map((i) => i.security?.ticker ?? "—")
+              .join(", ")}{" "}
+            had no usable data this run (most are London names — UK
+            fundamentals are a known gap on the current sources), so nothing
+            was scored or classified. They stay in the universe and fill in
+            automatically when data lands.
+          </p>
+        </details>
+      )}
+
+      {/* Evidence, per candidate */}
+      {rankedItems.length > 0 && (
+        <section className="mt-10">
+          <div className="font-mono-cli text-base text-il-navy">~ evidence by candidate</div>
+          <p className="mt-1 text-base text-muted-foreground">
             Every score is defensible from the rows below — open a candidate to
             see exactly what the framework read.
           </p>
           <div className="mt-3 space-y-2">
-            {items.map((it) => {
+            {rankedItems.map((it) => {
               const evidenceRows = evidenceByItem.get(it.id) ?? [];
               const prices = it.security_id
                 ? (pricesBySecurity.get(it.security_id) ?? [])
@@ -271,24 +380,24 @@ export default async function ReportDetailPage({
 
               return (
                 <details key={it.id} className="card-cli group">
-                  <summary className="flex cursor-pointer items-baseline justify-between px-4 py-3 text-sm marker:content-none">
+                  <summary className="flex cursor-pointer items-baseline justify-between gap-3 px-4 py-3 text-base marker:content-none">
                     <span>
-                      <span className="font-mono">{it.security?.ticker ?? "—"}</span>
+                      <span className="font-mono-cli font-bold text-il-navy">
+                        {it.security?.ticker ?? "—"}
+                      </span>
                       <span className="ml-2 text-muted-foreground">
                         {it.security?.name ?? ""}
                       </span>
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="whitespace-nowrap font-mono-cli text-sm text-muted-foreground">
                       #{it.rank} · {displayComposite(it)} ·{" "}
-                      {evidenceRows.length} evidence row
+                      {evidenceRows.length} source
                       {evidenceRows.length === 1 ? "" : "s"}
                     </span>
                   </summary>
                   <div className="border-t border-border px-4 py-4">
                     {it.verdict && (
-                      <p className="mb-4 text-sm text-muted-foreground">
-                        {it.verdict}
-                      </p>
+                      <p className="mb-4 text-base leading-relaxed">{it.verdict}</p>
                     )}
 
                     {Object.keys(criteria).length > 0 && (
@@ -298,10 +407,10 @@ export default async function ReportDetailPage({
                             key={key}
                             className="rounded border border-border px-3 py-2"
                           >
-                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {key.replace(/_/g, " ")}
+                            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                              {classificationLabel(key)}
                             </div>
-                            <div className="mt-1 font-mono text-sm">
+                            <div className="mt-1 font-mono-cli text-base">
                               {/* null = no data. NEVER render as 0. */}
                               {c.score === null ? (
                                 <span className="text-muted-foreground">
@@ -318,7 +427,7 @@ export default async function ReportDetailPage({
 
                     {points.length >= 2 && (
                       <div className="mb-4">
-                        <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
                           Price — trailing year
                         </div>
                         <PriceChart points={points} currency={currency} />
@@ -330,9 +439,9 @@ export default async function ReportDetailPage({
                         {evidenceRows.map((ev) => (
                           <li
                             key={ev.id}
-                            className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-xs"
+                            className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-sm"
                           >
-                            <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
                               <span>{ev.evidence_type.replace(/_/g, " ")}</span>
                               <span>· confidence {ev.weight.toFixed(2)}</span>
                             </div>
@@ -341,7 +450,7 @@ export default async function ReportDetailPage({
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         No evidence rows persisted for this candidate.
                       </p>
                     )}
@@ -353,18 +462,20 @@ export default async function ReportDetailPage({
         </section>
       )}
 
+      {/* The agent's prose, demoted to an appendix */}
+      <details className="card-cli mt-10 px-5 py-4">
+        <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
+          ~ analyst note — the desk&apos;s full write-up
+        </summary>
+        <article className="prose mt-4 max-w-none prose-headings:text-il-navy">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {report.body_markdown}
+          </ReactMarkdown>
+        </article>
+      </details>
+
       <Disclaimer />
     </main>
     </>
   );
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
