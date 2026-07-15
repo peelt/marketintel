@@ -57,10 +57,19 @@ const INLINE_BUDGET_MS = 210_000;
  * London names came back. On the free tier (~7.9s/name) the universe would blow
  * the serverless budget, so we queue the chunked Inngest job instead.
  */
+// Fundamentals are DEFERRED by Twelve Data (plan-gated) and actually served by
+// Finnhub, whose free-tier throttle sets the real pace — 2 calls per name
+// (/stock/metric + /stock/profile2) at ~1.05s spacing, plus latency — no
+// matter how fast the Twelve Data plan is. Estimating fundamentals at the
+// Twelve Data pace made a 93-name run look like ~15s when it's really ~4min,
+// which sailed past the serverless budget and hung the Ops panel.
+const FUNDAMENTALS_PACE_MS = 2_400;
+
 async function refreshSeed(feed: SeedFeed, lookbackDays: number): Promise<unknown> {
   const { perRequestMs } = await import("@/lib/data-sources/twelvedata");
   const seeds = allSeedSecurities();
-  const estimateMs = seeds.length * perRequestMs();
+  const paceMs = feed === "fundamentals" ? FUNDAMENTALS_PACE_MS : perRequestMs();
+  const estimateMs = seeds.length * paceMs;
   if (estimateMs <= INLINE_BUDGET_MS) {
     return fetchSeedInline(feed, lookbackDays);
   }

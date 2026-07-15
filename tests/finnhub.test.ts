@@ -194,4 +194,50 @@ describe("finnhub fetchFundamentals", () => {
     // ratios agents need later ride along in raw
     expect((snap!.raw as { metric: Record<string, unknown> }).metric.payoutRatioTTM).toBe(0.55);
   });
+
+  it("reconstructs absolute income/cash-flow figures from per-share TTM metrics", async () => {
+    stubFetch((url) => {
+      if (url.includes("/stock/metric")) {
+        return json({
+          metric: {
+            epsTTM: 1.12,
+            dividendPerShareTTM: 0.62,
+            freeCashFlowPerShareTTM: 1.4,
+          },
+        });
+      }
+      if (url.includes("/stock/profile2")) return json(PROFILE_HSBA);
+      return null;
+    });
+
+    const snap = await finnhubPriceSource.fetchFundamentals({
+      ticker: "HSBA",
+      exchange: "LSE",
+    });
+    const shares = 17000 * 1e6;
+    expect(snap!.netIncome).toBeCloseTo(1.12 * shares);
+    expect(snap!.dividendsPaid).toBeCloseTo(0.62 * shares);
+    expect(snap!.freeCashFlow).toBeCloseTo(1.4 * shares);
+    // shares cancel downstream: dividendsPaid/netIncome === dps/eps
+    expect(snap!.dividendsPaid! / snap!.netIncome!).toBeCloseTo(0.62 / 1.12);
+  });
+
+  it("leaves derived absolutes undefined when per-share metrics are absent (missing ≠ zero)", async () => {
+    stubFetch((url) => {
+      if (url.includes("/stock/metric")) {
+        return json({ metric: { epsTTM: 1.12 } });
+      }
+      // No profile → no share count → nothing to scale by.
+      if (url.includes("/stock/profile2")) return json({});
+      return null;
+    });
+
+    const snap = await finnhubPriceSource.fetchFundamentals({
+      ticker: "HSBA",
+      exchange: "LSE",
+    });
+    expect(snap!.netIncome).toBeUndefined();
+    expect(snap!.dividendsPaid).toBeUndefined();
+    expect(snap!.freeCashFlow).toBeUndefined();
+  });
 });
