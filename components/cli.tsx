@@ -52,7 +52,11 @@ export function CliEyebrow({ children }: { children: React.ReactNode }) {
 /**
  * Shared authed-page header: wordmark home link, guest prompt, section nav.
  */
-export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops" }) {
+export function SiteHeader({
+  active,
+}: {
+  active?: "dashboard" | "reports" | "ops" | "portfolio";
+}) {
   const link = (href: string, key: string, label: string) => (
     <Link
       href={href}
@@ -78,6 +82,7 @@ export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops
         </div>
         <nav className="flex items-center gap-5">
           {link("/dashboard", "dashboard", "dashboard")}
+          {link("/portfolio", "portfolio", "portfolio")}
           {link("/reports", "reports", "reports")}
           {link("/dashboard/ops", "ops", "setup")}
         </nav>
