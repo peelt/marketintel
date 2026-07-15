@@ -95,9 +95,14 @@ semantics, tests/CI). Next per the plan: 3.5b (data layer), then PR 4
   cut-risk rebalanced 0.5/0.5.
 - Reaction threshold **5d ≥12% OR 1d ≥8%** (stored as framework data);
   schedule **Tue + Fri 17:00 UTC**.
-- **Finnhub** primary price source (provisional — confirm LSE coverage via
-  `/api/dev/ingest?task=status` on the live key); yfinance fallback, with
-  fundamentals revived via cookie+crumb in 3.5b.
+- **Twelve Data** primary price source. Finnhub's free tier turned out to
+  paywall `/stock/candle` for *every* symbol class (US and LSE), and scraped
+  Yahoo/Stooq block datacenter IPs (429 / JS proof-of-work) so are dead from
+  Vercel — Twelve Data is a keyed REST API that serves US+LSE history from
+  datacenter ranges (free tier 8 credits/min, 800/day). Chain is
+  Twelve Data → Finnhub → yfinance (`getPriceSource`); Finnhub stays for
+  fundamentals (`/stock/metric`) + fallback, yfinance is the floor only.
+  Full-universe refresh runs via chunked Inngest, never inline (rate cap).
 - Design-for-paid, no billing yet; **sell derived analysis only**; thin
   dashboard from PR 4; Reaction Analyser is the hero pole; Energy deprioritized.
 - **Holdings (PR 6):** user-entered positions with *optional* purchase price →

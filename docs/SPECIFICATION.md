@@ -133,7 +133,7 @@ Scheduled trigger (Inngest cron)
 | Anthropic SDK | `^0.111` | Structured outputs (`output_config.format`) in use; no prose-parsing |
 | LLM batch | Anthropic Batch API | 3.5c — for Reaction's LLM fan-out |
 | News (Geo/Reaction) | native `web_search` / `web_fetch` server tools | PR 5+; RSS kept only where structured feeds help |
-| Price/fundamentals | **Finnhub primary** (settled, provisional) · yfinance fallback | `PriceSource` interface since 3.5b; yfinance fundamentals revived via cookie+crumb |
+| Price/fundamentals | **Twelve Data primary** (prices) · Finnhub (fundamentals + fallback) · yfinance floor | `PriceSource` chain in `getPriceSource`. Finnhub free tier paywalls candles entirely and scraped Yahoo/Stooq block datacenter IPs, so a keyed REST provider is required from Vercel |
 | Auth/DB | Supabase (magic link, Postgres, RLS, pgvector) | RLS entitlement-gated since migration 0003 |
 | Scheduling | Inngest | Fails closed in prod without signing key. Do NOT replace with the Agent SDK |
 | Hosting | Vercel | Deploys `main` |
@@ -277,7 +277,8 @@ owner-only; only derived analysis is ever sellable (POSITIONING §8).
 
 | Adapter | Tier | Status |
 |---------|------|--------|
-| **Finnhub** | free (key) | **Primary from 3.5b** (settled; confirm LSE coverage in the readiness check). Also carries analyst data that may reinstate the eps-revision signal. |
+| **Twelve Data** | free (key) | **Primary price source.** Keyed REST API — serves US+LSE daily history from datacenter IPs where scraped sources are blocked. Free tier 8 credits/min · 800/day → full-universe refresh via chunked Inngest. Fundamentals paywalled (deferred to Finnhub). |
+| **Finnhub** | free (key) | **Fundamentals + fallback.** Free tier paywalls `/stock/candle` for every symbol class, so it is *not* the price primary; `/stock/metric` still serves fundamentals. Also carries analyst data that may reinstate the eps-revision signal. |
 | SEC EDGAR | free (UA) | Active. Known issues before the IPO agent: full-text search unpaginated (first ~10 hits); section splitter can't handle "Item 1A."/S-1s. |
 | FRED | free (key) | Active. Some curated series are third-party licensed (LBMA/ICE/Cboe) — inputs only, never redistribute values. |
 | yfinance | free (scraped) | **Fallback only.** Fundamentals work via the cookie+crumb dance (fragile by nature). Non-viable commercially. |
@@ -322,6 +323,16 @@ into chunked Inngest steps (`ingest/refresh.requested`, 25 tickers/step —
 800 names = 32 steps, each inside serverless limits, failure reports merged
 across chunks).
 
+**Price-source correction (post-3.5c, live-verified):** the Finnhub-primary
+decision was falsified against the live free-tier key — `/stock/candle` 403s
+for every symbol class (US + LSE), so Finnhub can serve no price history, and
+scraped Yahoo/Stooq block datacenter IPs (429 / JS proof-of-work) from Vercel.
+Added a **Twelve Data** adapter (keyed REST, serves US+LSE history from
+datacenter ranges) as the price primary; chain is Twelve Data → Finnhub →
+yfinance in `getPriceSource`. Seed price/dividend/fundamentals ops tasks now
+queue through chunked Inngest (Twelve Data's 8 credits/min cap can't complete
+the seed universe inline). Requires `TWELVEDATA_API_KEY`.
+
 **Open — product phase:** see `docs/IMPLEMENTATION_PLAN.md` §3 (PR 4–10).
 
 ---
@@ -331,6 +342,7 @@ across chunks).
 | Input | When needed |
 |-------|-------------|
 | Supabase project + keys; dashboard steps (disable signups, seed `app_users`) | before live verification of 3.5a |
+| `TWELVEDATA_API_KEY` (price primary) | live price ingest — required from Vercel |
 | `FINNHUB_API_KEY`, `FRED_API_KEY`, `COMPANIES_HOUSE_API_KEY` | 3.5b |
 | Inngest keys | PR 4 |
 | Confirm `AUTH_ALLOWED_EMAIL` value | before first login |
