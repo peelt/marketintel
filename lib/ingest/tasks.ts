@@ -63,7 +63,7 @@ const INLINE_BUDGET_MS = 210_000;
 // matter how fast the Twelve Data plan is. Estimating fundamentals at the
 // Twelve Data pace made a 93-name run look like ~15s when it's really ~4min,
 // which sailed past the serverless budget and hung the Ops panel.
-const FUNDAMENTALS_PACE_MS = 2_400;
+const FUNDAMENTALS_PACE_MS = 2_800; // 2 Finnhub calls/name at 1.25s spacing + latency
 
 async function refreshSeed(feed: SeedFeed, lookbackDays: number): Promise<unknown> {
   const { perRequestMs } = await import("@/lib/data-sources/twelvedata");

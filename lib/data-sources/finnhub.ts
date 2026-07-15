@@ -30,8 +30,12 @@ import type {
  */
 
 const BASE = "https://finnhub.io/api/v1";
-// Free tier is 60 calls/min — space requests ≥1s apart to stay under it.
-const HOST_THROTTLE_MS = 1_050;
+// Free tier is 60 calls/min. 1.05s spacing (~57/min) proved knife-edge in the
+// live fundamentals run — retries and minute-boundary jitter tipped a dozen
+// names into 429s. 1.25s (~48/min) leaves real headroom; fundamentals run via
+// chunked Inngest, so the slower pace costs minutes on a weekly cron, not a
+// user-facing wait.
+const HOST_THROTTLE_MS = 1_250;
 
 function apiKey(): string | null {
   return process.env.FINNHUB_API_KEY || null;
