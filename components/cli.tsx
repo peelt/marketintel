@@ -70,7 +70,7 @@ export function SiteHeader({ active }: { active?: "dashboard" | "reports" | "ops
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-baseline gap-4">
           <Link href="/dashboard">
-            <Wordmark size="h-7" />
+            <Wordmark size="h-10" />
           </Link>
           <span className="hidden font-mono-cli text-xs text-muted-foreground sm:inline">
             guest@investorlogical:~

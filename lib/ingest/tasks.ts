@@ -1,12 +1,8 @@
 import { seedUniverse } from "./seed-universe";
-import { ingestPriceSnapshots } from "./ingest-prices";
-import { ingestDividends } from "./ingest-dividends";
-import { ingestFinancials } from "./ingest-financials";
 import { ingestMacro } from "./ingest-macro";
 import { ingestNews } from "./ingest-news";
 import { collectPerTicker } from "./failure-report";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
-import { getPriceSource, type FallbackEvent } from "@/lib/data-sources/price-source";
 import * as fred from "@/lib/data-sources/fred";
 import * as newsRss from "@/lib/data-sources/news-rss";
 import { getErrorMessage } from "@/lib/errors";
@@ -47,6 +43,31 @@ function lookback(days: number): { from: string; to: string } {
   return { from, to };
 }
 
+/**
+ * Queue a seed-universe refresh through the chunked Inngest job rather than
+ * running it inline. At the primary provider's free-tier rate cap (Twelve Data:
+ * 8 credits/min) the full seed universe can't complete inside one serverless
+ * call — each name is spaced seconds apart. Inngest fans the work into
+ * per-chunk steps, each within the time budget, and memoises them on resume.
+ * (No explicit ticker list → chunkedIngest defaults to the seed universe.)
+ */
+async function queueSeedRefresh(
+  feed: "prices" | "dividends" | "fundamentals",
+  lookbackDays: number,
+): Promise<unknown> {
+  const { inngest } = await import("@/lib/inngest/client");
+  const count = allSeedSecurities().length;
+  await inngest.send({
+    name: "ingest/refresh.requested",
+    data: { feed, lookbackDays },
+  });
+  return {
+    queued: count,
+    feed,
+    note: `${feed} refresh queued via Inngest (chunked). Progress appears in the Inngest dashboard; at free-tier rate limits the full run takes a few minutes.`,
+  };
+}
+
 export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
   switch (task) {
     case "seed-universe": {
@@ -57,48 +78,13 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       return seedBroadUniverse();
     }
     case "prices": {
-      const fallbacks: FallbackEvent[] = [];
-      const source = await getPriceSource((e) => fallbacks.push(e));
-      const { from, to } = lookback(365);
-      const { rows, report } = await collectPerTicker(
-        "prices",
-        allSeedSecurities(),
-        (s) => source.fetchPrices({ ticker: s.ticker, exchange: s.exchange, from, to }),
-      );
-      report.fallbacks = fallbacks;
-      const ingest = await ingestPriceSnapshots(rows);
-      return { pulled: rows.length, ...ingest, report };
+      return queueSeedRefresh("prices", 365);
     }
     case "dividends": {
-      const fallbacks: FallbackEvent[] = [];
-      const source = await getPriceSource((e) => fallbacks.push(e));
-      const { from, to } = lookback(5 * 365);
-      const { rows, report } = await collectPerTicker(
-        "dividends",
-        allSeedSecurities(),
-        (s) => source.fetchDividends({ ticker: s.ticker, exchange: s.exchange, from, to }),
-      );
-      report.fallbacks = fallbacks;
-      const ingest = await ingestDividends(rows);
-      return { pulled: rows.length, ...ingest, report };
+      return queueSeedRefresh("dividends", 5 * 365);
     }
     case "fundamentals": {
-      const fallbacks: FallbackEvent[] = [];
-      const source = await getPriceSource((e) => fallbacks.push(e));
-      const { rows, report } = await collectPerTicker(
-        "fundamentals",
-        allSeedSecurities(),
-        async (s) => {
-          const snap = await source.fetchFundamentals({
-            ticker: s.ticker,
-            exchange: s.exchange,
-          });
-          return snap ? [snap] : [];
-        },
-      );
-      report.fallbacks = fallbacks;
-      const ingest = await ingestFinancials(rows);
-      return { pulled: rows.length, ...ingest, report };
+      return queueSeedRefresh("fundamentals", 365);
     }
     case "macro": {
       const { from, to } = lookback(365);
@@ -173,9 +159,8 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       };
     }
     case "status": {
-      const { listReadyAdapters, listStubbedAdapters, finnhub } = await import(
-        "@/lib/data-sources"
-      );
+      const { listReadyAdapters, listStubbedAdapters, finnhub, twelvedata } =
+        await import("@/lib/data-sources");
       const lseCoverage =
         finnhub.capabilities.readinessCheck() === null
           ? await finnhub.probeLseCoverage().catch((err: unknown) => ({
@@ -183,7 +168,17 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
               reason: getErrorMessage(err),
             }))
           : { covered: false as const, reason: "finnhub not configured" };
+      // The active price primary is the first configured link in the chain
+      // (Twelve Data → Finnhub → yfinance); yfinance is always available but
+      // blocks datacenter IPs, so it's the floor, not a real primary.
+      const pricePrimary =
+        twelvedata.capabilities.readinessCheck() === null
+          ? "twelvedata"
+          : finnhub.capabilities.readinessCheck() === null
+            ? "finnhub"
+            : "yfinance (fallback only — blocks datacenter IPs)";
       return {
+        pricePrimary,
         ready: listReadyAdapters().map((a) => a.name),
         stubbed: listStubbedAdapters().map((x) => ({
           name: x.adapter.name,

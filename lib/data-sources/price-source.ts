@@ -97,21 +97,41 @@ export function withFallback(
 }
 
 /**
- * Resolve the active price source: Finnhub primary with yfinance fallback
- * when FINNHUB_API_KEY is configured; yfinance alone otherwise. Imported
- * lazily so tests can compose sources directly without env plumbing.
+ * Resolve the active price source as a preference chain, most-capable first:
+ *
+ *   Twelve Data → Finnhub → yfinance
+ *
+ * Twelve Data leads because it's the only tier that actually serves price
+ * history from a datacenter IP (Finnhub's free tier paywalls candles entirely;
+ * scraped Yahoo/Stooq block datacenter ranges). Each configured provider wraps
+ * the next as its fallback, so a name Twelve Data can't serve still reaches
+ * Finnhub/yfinance and the degradation is reported, not swallowed. yfinance is
+ * always the last resort (no key required).
+ *
+ * Fundamentals ride the same chain: Twelve Data defers them (throws), so they
+ * resolve at Finnhub (/stock/metric) or yfinance. Imported lazily so tests can
+ * compose sources directly without env plumbing.
  */
 export async function getPriceSource(
   onFallback?: (event: FallbackEvent) => void,
 ): Promise<PriceSource> {
-  const [{ finnhubPriceSource }, { yfinancePriceSource }] = await Promise.all([
-    import("./finnhub"),
-    import("./yfinance"),
-  ]);
+  const [{ twelvedataPriceSource }, { finnhubPriceSource }, { yfinancePriceSource }] =
+    await Promise.all([
+      import("./twelvedata"),
+      import("./finnhub"),
+      import("./yfinance"),
+    ]);
+
+  // Build the chain from the bottom up: yfinance is the floor; each configured
+  // provider ahead of it becomes the new primary with the rest as fallback.
+  let source: PriceSource = yfinancePriceSource;
   if (finnhubPriceSource.readiness() === null) {
-    return withFallback(finnhubPriceSource, yfinancePriceSource, onFallback);
+    source = withFallback(finnhubPriceSource, source, onFallback);
   }
-  return yfinancePriceSource;
+  if (twelvedataPriceSource.readiness() === null) {
+    source = withFallback(twelvedataPriceSource, source, onFallback);
+  }
+  return source;
 }
 
 /** Throw the adapter's own readiness reason as a typed error. */
