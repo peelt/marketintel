@@ -31,6 +31,13 @@ export interface AgentMeta {
    * lib/anthropic/client.ts (`MODELS`) so migrations are a one-file change.
    */
   modelTier: "routine" | "deep";
+  /**
+   * "live" = implemented and filing reports; "planned" = registry metadata
+   * only. The dashboard renders live desks as signal cards and demotes
+   * planned ones to a roadmap footnote — a card that can never file a report
+   * must not look like a product surface.
+   */
+  status: "live" | "planned";
 }
 
 /**

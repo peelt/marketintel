@@ -207,18 +207,6 @@
       ]
     },
     {
-      "ticker": "BARC",
-      "exchange": "LSE",
-      "name": "Barclays plc",
-      "country": "GB",
-      "currency": "GBP",
-      "sector": "Financials",
-      "sub_sector": "Banks",
-      "tags": [
-        "high_yield_watchlist"
-      ]
-    },
-    {
       "ticker": "NWG",
       "exchange": "LSE",
       "name": "NatWest Group",
@@ -270,18 +258,6 @@
       "ticker": "IMB",
       "exchange": "LSE",
       "name": "Imperial Brands",
-      "country": "GB",
-      "currency": "GBP",
-      "sector": "Consumer Staples",
-      "sub_sector": "Tobacco",
-      "tags": [
-        "high_yield_watchlist"
-      ]
-    },
-    {
-      "ticker": "BATS",
-      "exchange": "LSE",
-      "name": "British American Tobacco",
       "country": "GB",
       "currency": "GBP",
       "sector": "Consumer Staples",

@@ -25,13 +25,15 @@ export default async function OpsPage() {
     <>
       <SiteHeader active="ops" />
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-        <div className="font-mono-cli text-sm text-il-navy">~ setup &amp; data refresh</div>
-        <h1 className="mt-1 text-3xl font-bold text-il-navy">Ops</h1>
+        <div className="font-mono-cli text-base text-il-navy">~ one-time setup</div>
+        <h1 className="mt-1 text-3xl font-bold text-il-navy">Setup</h1>
 
-        <p className="mt-2 text-sm text-muted-foreground">
-          Run these top to bottom on first setup. After that, re-run individual
-          steps whenever you want fresh data. Each step reports exactly what it
-          did — including which tickers failed and why.
+        <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          Run these top to bottom once, when the product is first stood up.
+          After that <strong>everything runs itself</strong> — prices refresh
+          every weekday evening and the desks file their reports on schedule.
+          Come back here only to re-run a step manually. Each step reports
+          exactly what it did, including which tickers failed and why.
         </p>
 
         <OpsPanel />

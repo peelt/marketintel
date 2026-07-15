@@ -14,14 +14,14 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-baseline justify-between">
             <Wordmark size="h-12" />
-            <span className="hidden font-mono-cli text-xs text-muted-foreground sm:inline">
+            <span className="hidden font-mono-cli text-sm text-muted-foreground sm:inline">
               guest@investorlogical:~
             </span>
           </div>
         </div>
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[5fr_7fr] lg:px-8">
           <div>
-            <CliTyping text="~ initialising research desk… [OK]" className="text-sm text-il-navy" />
+            <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
             <span className="tag-cli mt-4 inline-flex">evidence-backed · glass-box</span>
             <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
               Research that shows its working
@@ -44,7 +44,7 @@ export default function Home() {
           {/* Self-framing terminal panel */}
           <div className="card-cli overflow-hidden p-0">
             <CliTitleBar title="~ investorlogical.com/reports" />
-            <div className="space-y-2 p-6 font-mono-cli text-sm text-il-navy">
+            <div className="space-y-2 p-6 font-mono-cli text-base text-il-navy">
               <div className="text-muted-foreground">~ run reaction --screen sp500,ftse350</div>
               <div>
                 <Star /> 3 drops cleared the threshold this session
@@ -68,7 +68,7 @@ export default function Home() {
       {/* Agents */}
       <section className="bg-il-tint">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="font-mono-cli text-sm text-il-navy">~ the desk</div>
+          <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy lg:text-4xl">
             Six specialists, one framework discipline
           </h2>
@@ -83,8 +83,8 @@ export default function Home() {
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {a.description}
                 </p>
-                <div className="mt-4 font-mono-cli text-xs text-muted-foreground">
-                  ~ cron {a.schedule}
+                <div className="mt-4 font-mono-cli text-sm text-muted-foreground">
+                  ~ {a.status === "live" ? "live" : "planned"}
                 </div>
               </div>
             ))}
@@ -97,7 +97,7 @@ export default function Home() {
       {/* CTA */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
-          <div className="font-mono-cli text-sm text-il-navy">~ single-user preview</div>
+          <div className="font-mono-cli text-base text-il-navy">~ single-user preview</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy">
             The framework is the product
           </h2>
