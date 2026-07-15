@@ -39,9 +39,22 @@ import type {
  */
 
 const BASE = "https://api.twelvedata.com";
-// Free tier is 8 credits/min — space requests ≥7.6s apart to stay under it.
-// Disabled under test (fetch is stubbed; the throttle would blow the timeout).
-const HOST_THROTTLE_MS = process.env.VITEST ? 0 : 7_600;
+
+/**
+ * Per-request spacing is derived from the plan's credits/min so a paid plan
+ * isn't throttled at the free tier's crawl. Free "Basic" is 8/min (≥7.6s
+ * apart); "Grow" is 377/min (~160ms apart) — a full universe refresh drops
+ * from ~12 min to seconds. Set TWELVEDATA_CREDITS_PER_MIN to the plan's limit
+ * (default 8, the safe free-tier value). A ~5% margin keeps us under the cap.
+ * Disabled under test (fetch is stubbed; the throttle would blow the timeout).
+ */
+function creditsPerMin(): number {
+  const raw = Number(process.env.TWELVEDATA_CREDITS_PER_MIN);
+  return Number.isFinite(raw) && raw > 0 ? raw : 8;
+}
+const HOST_THROTTLE_MS = process.env.VITEST
+  ? 0
+  : Math.ceil((60_000 / creditsPerMin()) * 1.05);
 
 function apiKey(): string | null {
   return process.env.TWELVEDATA_API_KEY || null;
