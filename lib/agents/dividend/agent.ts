@@ -41,6 +41,9 @@ const CUT_RISK_WATCH_BELOW = 55;
 
 export class DividendAgent extends BaseAgent {
   readonly meta: AgentMeta = agentRegistry.get("dividend")!;
+  // Ranking and classification share the floor: a name too thin to classify
+  // is also too thin to compete for rank.
+  protected override coverageFloor = MIN_COVERAGE_TO_CLASSIFY;
 
   protected async collectCandidates(
     _framework: ScoringFramework,
@@ -87,7 +90,12 @@ export class DividendAgent extends BaseAgent {
     const avgCoverage =
       scored.reduce((sum, s) => sum + s.coverage, 0) / Math.max(1, scored.length);
 
-    const top = scored.slice(0, 5);
+    // Leaders = classifiable names only. Below-floor composites are shown in
+    // the ranked table (with coverage attached) but never headline a report.
+    const top = classified
+      .filter((c) => c.classification !== "insufficient_data")
+      .map((c) => c.s)
+      .slice(0, 5);
     const summaryMarkdown = [
       `${scored.length} high-yield names screened against dividend framework v${framework.version}.`,
       top.length
