@@ -43,18 +43,73 @@ function lookback(days: number): { from: string; to: string } {
   return { from, to };
 }
 
+type SeedFeed = "prices" | "dividends" | "fundamentals";
+
+// Serverless calls cap at maxDuration 300s; keep a margin for the DB writes
+// that follow the fetch loop. If the estimated fetch time is under this, run
+// inline (immediate counts + failure report); otherwise queue to Inngest.
+const INLINE_BUDGET_MS = 210_000;
+
 /**
- * Queue a seed-universe refresh through the chunked Inngest job rather than
- * running it inline. At the primary provider's free-tier rate cap (Twelve Data:
- * 8 credits/min) the full seed universe can't complete inside one serverless
- * call — each name is spaced seconds apart. Inngest fans the work into
- * per-chunk steps, each within the time budget, and memoises them on resume.
- * (No explicit ticker list → chunkedIngest defaults to the seed universe.)
+ * Refresh a seed feed. On a fast plan (Twelve Data Grow, ~160ms/name) the whole
+ * ~93-name universe fetches in seconds, so we run it inline and hand back real
+ * counts and the per-ticker failure report — the fastest way to see whether
+ * London names came back. On the free tier (~7.9s/name) the universe would blow
+ * the serverless budget, so we queue the chunked Inngest job instead.
  */
-async function queueSeedRefresh(
-  feed: "prices" | "dividends" | "fundamentals",
-  lookbackDays: number,
-): Promise<unknown> {
+async function refreshSeed(feed: SeedFeed, lookbackDays: number): Promise<unknown> {
+  const { perRequestMs } = await import("@/lib/data-sources/twelvedata");
+  const seeds = allSeedSecurities();
+  const estimateMs = seeds.length * perRequestMs();
+  if (estimateMs <= INLINE_BUDGET_MS) {
+    return fetchSeedInline(feed, lookbackDays);
+  }
+  return queueSeedRefresh(feed, lookbackDays);
+}
+
+/** Fetch a seed feed inline and persist it, returning counts + failure report. */
+async function fetchSeedInline(feed: SeedFeed, lookbackDays: number): Promise<unknown> {
+  const { getPriceSource } = await import("@/lib/data-sources/price-source");
+  const fallbacks: import("@/lib/data-sources/price-source").FallbackEvent[] = [];
+  const source = await getPriceSource((e) => fallbacks.push(e));
+  const { from, to } = lookback(lookbackDays);
+  const seeds = allSeedSecurities();
+
+  if (feed === "prices") {
+    const { ingestPriceSnapshots } = await import("./ingest-prices");
+    const { rows, report } = await collectPerTicker("prices", seeds, (s) =>
+      source.fetchPrices({ ticker: s.ticker, exchange: s.exchange, from, to }),
+    );
+    report.fallbacks = fallbacks;
+    const ingest = await ingestPriceSnapshots(rows);
+    return { pulled: rows.length, ...ingest, report };
+  }
+  if (feed === "dividends") {
+    const { ingestDividends } = await import("./ingest-dividends");
+    const { rows, report } = await collectPerTicker("dividends", seeds, (s) =>
+      source.fetchDividends({ ticker: s.ticker, exchange: s.exchange, from, to }),
+    );
+    report.fallbacks = fallbacks;
+    const ingest = await ingestDividends(rows);
+    return { pulled: rows.length, ...ingest, report };
+  }
+  const { ingestFinancials } = await import("./ingest-financials");
+  const { rows, report } = await collectPerTicker("fundamentals", seeds, async (s) => {
+    const snap = await source.fetchFundamentals({ ticker: s.ticker, exchange: s.exchange });
+    return snap ? [snap] : [];
+  });
+  report.fallbacks = fallbacks;
+  const ingest = await ingestFinancials(rows);
+  return { pulled: rows.length, ...ingest, report };
+}
+
+/**
+ * Queue a seed refresh through the chunked Inngest job — used when the plan's
+ * rate limit means the universe can't fetch inside one serverless call. Inngest
+ * fans the work into per-chunk steps, each within the time budget, memoised on
+ * resume. (No explicit ticker list → chunkedIngest defaults to the seed universe.)
+ */
+async function queueSeedRefresh(feed: SeedFeed, lookbackDays: number): Promise<unknown> {
   const { inngest } = await import("@/lib/inngest/client");
   const count = allSeedSecurities().length;
   await inngest.send({
@@ -64,7 +119,7 @@ async function queueSeedRefresh(
   return {
     queued: count,
     feed,
-    note: `${feed} refresh queued via Inngest (chunked). Progress appears in the Inngest dashboard; at free-tier rate limits the full run takes a few minutes.`,
+    note: `${feed} refresh queued via Inngest (chunked) — the plan's rate limit makes it too slow to run inline. Progress appears in the Inngest dashboard.`,
   };
 }
 
@@ -78,13 +133,13 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       return seedBroadUniverse();
     }
     case "prices": {
-      return queueSeedRefresh("prices", 365);
+      return refreshSeed("prices", 365);
     }
     case "dividends": {
-      return queueSeedRefresh("dividends", 5 * 365);
+      return refreshSeed("dividends", 5 * 365);
     }
     case "fundamentals": {
-      return queueSeedRefresh("fundamentals", 365);
+      return refreshSeed("fundamentals", 365);
     }
     case "macro": {
       const { from, to } = lookback(365);
