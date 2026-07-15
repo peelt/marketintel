@@ -13,6 +13,7 @@ import {
   zScore,
 } from "@/lib/agents/dividend/metrics";
 import { classifyDividend } from "@/lib/agents/dividend/agent";
+import { orderForRanking } from "@/lib/agents/base";
 import type { CandidateScore } from "@/lib/scoring/types";
 
 const ASOF = "2026-07-14";
@@ -221,5 +222,36 @@ describe("classifyDividend", () => {
     expect(c.verdict.toLowerCase()).not.toContain("you should");
     expect(c.verdict.toLowerCase()).not.toContain("sell");
     expect(c.verdict.toLowerCase()).not.toContain("buy");
+  });
+});
+
+describe("orderForRanking", () => {
+  it("ranks classifiable names above below-floor names regardless of composite", () => {
+    // The live failure mode: a name carrying only its yield signal posts a
+    // "perfect" redistributed composite (100.0 at 14% coverage) and tops the
+    // leaderboard over fully-evidenced names. Missing must not mean winner.
+    const scored = [
+      { securityId: "thin-high", composite: 100, coverage: 0.14 },
+      { securityId: "full-mid", composite: 64.7, coverage: 0.64 },
+      { securityId: "thin-low", composite: 7.1, coverage: 0.14 },
+      { securityId: "full-top", composite: 70.3, coverage: 0.5 },
+      { securityId: "zero", composite: 0, coverage: 0 },
+    ];
+    const ordered = orderForRanking(scored, 0.35);
+    expect(ordered.map((s) => s.securityId)).toEqual([
+      "full-top",
+      "full-mid",
+      "thin-high",
+      "thin-low",
+      "zero",
+    ]);
+  });
+
+  it("is pure composite order when the floor is 0 (base default)", () => {
+    const scored = [
+      { securityId: "a", composite: 10, coverage: 0.1 },
+      { securityId: "b", composite: 90, coverage: 0.05 },
+    ];
+    expect(orderForRanking(scored, 0).map((s) => s.securityId)).toEqual(["b", "a"]);
   });
 });

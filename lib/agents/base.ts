@@ -60,6 +60,14 @@ export abstract class BaseAgent implements Agent {
     return {};
   }
 
+  /**
+   * Coverage share (0–1) below which a candidate's composite is considered
+   * too thinly evidenced to compete for rank. Agents that withhold
+   * classification under a floor set the same value here so ranking and
+   * classification agree. Default 0 = pure composite order.
+   */
+  protected coverageFloor = 0;
+
   async run(input: AgentRunInput): Promise<RankedReport> {
     const framework = await this.resolveFramework(input);
     if (!framework) {
@@ -84,11 +92,14 @@ export abstract class BaseAgent implements Agent {
     }
 
     const resolver = this.getResolver(framework);
-    const scored = await scoreCandidates({
-      framework,
-      candidates,
-      resolver,
-    });
+    const scored = orderForRanking(
+      await scoreCandidates({
+        framework,
+        candidates,
+        resolver,
+      }),
+      this.coverageFloor,
+    );
 
     const ranked: ScoredCandidate[] = scored.map((s, idx) => {
       // Build evidence index map: the candidate's evidence items get global
@@ -155,4 +166,25 @@ export abstract class BaseAgent implements Agent {
 function roundTo(value: number, decimals: number): number {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
+}
+
+/**
+ * Rank order for a report: candidates the agent can actually classify
+ * (coverage at or above the floor) come first, composite-descending within
+ * each group. A below-floor composite is computed from a sliver of the
+ * framework — a name carrying only its yield signal can post a "perfect"
+ * redistributed composite — so letting it outrank fully-evidenced names turns
+ * missing data into a leaderboard advantage ("missing = winner"), the mirror
+ * image of the missing-≠-zero invariant. Exported for unit tests.
+ */
+export function orderForRanking<T extends { composite: number; coverage: number }>(
+  scored: T[],
+  coverageFloor: number,
+): T[] {
+  return [...scored].sort((a, b) => {
+    const aBelow = a.coverage < coverageFloor ? 1 : 0;
+    const bBelow = b.coverage < coverageFloor ? 1 : 0;
+    if (aBelow !== bBelow) return aBelow - bBelow;
+    return b.composite - a.composite;
+  });
 }
