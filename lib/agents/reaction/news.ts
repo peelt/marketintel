@@ -104,7 +104,23 @@ function pct(v: number | null): string {
   return v === null ? "n/a" : `${(v * 100).toFixed(1)}%`;
 }
 
+/**
+ * One retry on ANY failure path (API error, refusal, token exhaustion,
+ * unparseable output). The news grade is the defining input of an overshoot
+ * verdict — a name without it is excluded from the ranking entirely — so a
+ * transient failure is worth one more slow call. Persistent failure still
+ * returns null and the agent classifies the name `cause_unconfirmed`.
+ */
 export async function gradeReactionNews(
+  request: ReactionNewsRequest,
+): Promise<ReactionNewsGrade | null> {
+  const first = await attemptGrade(request);
+  if (first) return first;
+  console.warn(`gradeReactionNews: retrying ${request.ticker} after empty result`);
+  return attemptGrade(request);
+}
+
+async function attemptGrade(
   request: ReactionNewsRequest,
 ): Promise<ReactionNewsGrade | null> {
   const client = getAnthropicClient();
@@ -116,7 +132,10 @@ Research what caused this move and grade it per the discipline.`;
   try {
     const response = await client.messages.create({
       model: modelForTier("deep"),
-      max_tokens: 6_000, // web_search rounds + thinking share this budget
+      // web_search rounds + thinking share this budget; hitting the ceiling
+      // returns stop_reason=max_tokens and costs the name its verdict, so
+      // leave real headroom.
+      max_tokens: 10_000,
       output_config: {
         effort: "medium",
         format: { type: "json_schema", schema: GRADE_SCHEMA },

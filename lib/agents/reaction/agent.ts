@@ -46,6 +46,7 @@ export type ReactionClassification =
   | "mild_overshoot"
   | "proportionate"
   | "underreaction"
+  | "cause_unconfirmed"
   | "insufficient_data";
 
 export class ReactionAgent extends BaseAgent {
@@ -53,6 +54,20 @@ export class ReactionAgent extends BaseAgent {
   // Ranking and classification share the floor: a name too thin to classify
   // is also too thin to compete for rank.
   protected override coverageFloor = MIN_COVERAGE_TO_CLASSIFY;
+
+  /**
+   * The news grade is the DEFINING evidence of an overshoot verdict; a name
+   * that lacks it is classified cause_unconfirmed and must not compete with
+   * fully-evidenced names — its remaining signals are price-derived and
+   * circular (a big drop "proving" a big overshoot).
+   */
+  protected override demoteFromRanking(scored: CandidateScore): boolean {
+    if (scored.coverage < this.coverageFloor) return true;
+    return (
+      scored.criteria["earned_damage"]?.signals?.["news_damage_severity"]?.raw ==
+      null
+    );
+  }
 
   private ctx: ReactionRunContext | null = null;
   private screenSummary = { universe: 0, screened: 0, capped: 0 };
@@ -134,6 +149,9 @@ export class ReactionAgent extends BaseAgent {
         c.classification === "strong_overshoot" ||
         c.classification === "mild_overshoot",
     );
+    const unconfirmed = classified.filter(
+      (c) => c.classification === "cause_unconfirmed",
+    );
 
     const summaryMarkdown = [
       `${universe} names screened; ${screened} cleared the drop threshold${capped > 0 ? ` (top ${scored.length} by severity analysed, ${capped} deferred)` : ""}.`,
@@ -145,7 +163,14 @@ export class ReactionAgent extends BaseAgent {
               .map((c) => `**${label(c.s)}**`)
               .join(", ")}.`
           : "No screened move graded as overshoot — declines look earned or worse.",
-    ].join(" ");
+      unconfirmed.length > 0
+        ? `${unconfirmed.length} drop(s) unranked — no news grade this run: ${unconfirmed
+            .map((c) => `**${label(c.s)}**`)
+            .join(", ")}.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     const lines: string[] = [
       `# Reaction Analyser`,
@@ -202,8 +227,18 @@ export function classifyReaction(
         ? `${(stats.return1d * 100).toFixed(1)}% in a session`
         : "the screened decline";
   const damage = scored.criteria["earned_damage"]?.signals?.["news_damage_severity"]?.raw;
-  const damageNote =
-    damage != null ? ` against news damage graded ${Math.round(damage)}/100` : "";
+
+  // "Overshoot" MEANS "fell further than the news justifies" — without a news
+  // grade the claim is unsupported and the remaining price signals are
+  // circular (a big drop "proving" a big overshoot). Name the gap instead of
+  // banding the composite.
+  if (damage == null) {
+    return {
+      classification: "cause_unconfirmed",
+      verdict: `${move} cleared the screen, but no news grade is available this run — whether the move is disproportionate cannot be assessed.`,
+    };
+  }
+  const damageNote = ` against news damage graded ${Math.round(damage)}/100`;
 
   if (scored.composite >= BANDS.strongOvershootMin) {
     return {
