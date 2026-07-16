@@ -16,10 +16,20 @@ framework the user can see and edit. See the doc set:
 | `docs/SPECIFICATION.md` | Architecture, data model, scoring engine, data sources |
 | `docs/DESIGN.md` | House style — the "-logical" family Manifesto-White CLI language + Investorlogical's brand variables (indigo accent). Follow it for ALL UI work. |
 
-**Where we are:** `main` carries PR 1–3 (scaffold, data sources, scoring/agent
-base) + the docs set + PR 3.5a (foundation hardening: security floor, scoring
-semantics, tests/CI). Next per the plan: 3.5b (data layer), then PR 4
-(Dividend + dashboard slice), PR 5 (Reaction Analyser — the hero).
+**Where we are:** live on investorlogical.com. `main` carries PR 1–5 (Dividend
++ Reaction both filing real reports on live Twelve Data prices), the
+verdict-first UX pass, and PR 6a (holdings). Next: PR 6b (the intel lens —
+deltas + alerts on held names), then framework-editing UI / remaining desks.
+
+**Holdings (PR 6a, live):** `portfolios`/`holdings` tables (migration 0007,
+`user_id = auth.uid()` RLS — the first per-user data); `/portfolio` page +
+a dashboard summary section; pure valuation in `lib/holdings/valuation.ts`
+(GBp-pence trap, base-currency FX via `lib/holdings/fx.ts` → Twelve Data
+`/exchange_rate`, missing≠zero). Purchase price is display-only, never scored
+(I2). **6a scopes holdings to already-tracked securities** (~900: S&P 500 +
+FTSE 350 + curated) — on-demand resolution of untracked tickers would need a
+service-role write on a request path, so it's deferred to a follow-up that
+routes resolution through Inngest.
 
 ---
 

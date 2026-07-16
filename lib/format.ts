@@ -119,3 +119,35 @@ export function humanizeDateTime(iso: string, now: Date = new Date()): string {
 export function classificationLabel(classification: string): string {
   return classification.replace(/_/g, " ");
 }
+
+/** Money in a currency, no decimals for large sums. Null → em dash (missing ≠ zero). */
+export function formatMoney(amount: number | null, currency: string): string {
+  if (amount == null) return "—";
+  const abs = Math.abs(amount);
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: abs >= 1000 ? 0 : 2,
+  }).format(amount);
+}
+
+/** Signed money ("+£120", "−£45"). Null → em dash. */
+export function formatSignedMoney(amount: number | null, currency: string): string {
+  if (amount == null) return "—";
+  const sign = amount > 0 ? "+" : amount < 0 ? "−" : "";
+  return `${sign}${formatMoney(Math.abs(amount), currency)}`;
+}
+
+/** Signed percentage from a fraction (0.1 → "+10.0%"). Null → em dash. */
+export function formatSignedPercent(fraction: number | null): string {
+  if (fraction == null) return "—";
+  const pct = fraction * 100;
+  const sign = pct > 0 ? "+" : pct < 0 ? "−" : "";
+  return `${sign}${Math.abs(pct).toFixed(1)}%`;
+}
+
+/** Colour for a signed figure: green up, red down, muted flat/unknown. */
+export function changeColor(amount: number | null): string {
+  if (amount == null || amount === 0) return "#6b7280";
+  return amount > 0 ? "#22a87b" : "#ee1d23";
+}
