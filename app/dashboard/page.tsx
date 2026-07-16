@@ -10,11 +10,21 @@ import {
   Star,
 } from "@/components/cli";
 import {
+  changeColor,
+  formatMoney,
+  formatSignedMoney,
   humanizeDateTime,
   humanizeSchedule,
   nextRunLabel,
   stripInlineMarkdown,
 } from "@/lib/format";
+import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
+import { fetchRates } from "@/lib/holdings/fx";
+import {
+  portfolioTotals,
+  requiredRatePairs,
+  valueHolding,
+} from "@/lib/holdings/valuation";
 import type { AgentName } from "@/lib/agents/types";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +118,38 @@ export default async function DashboardPage() {
     .map((a) => ({ a, next: nextRunLabel(a.schedule) }))
     .filter((x) => x.next);
 
+  // Portfolio summary — a compact block on the desk dashboard (the full
+  // surface lives at /portfolio). Held names carrying an active desk verdict
+  // are the highest-value thing to surface here.
+  const portfolio = await loadDefaultPortfolio(supabase, user.id);
+  const held = portfolio ? await loadHeldNames(supabase, portfolio.id) : [];
+  const base = portfolio?.base_currency ?? "GBP";
+  const rates =
+    held.length > 0
+      ? await fetchRates(requiredRatePairs(held, base))
+      : new Map<string, number>();
+  const portfolioTotal = portfolioTotals(
+    held.map((h) =>
+      valueHolding(
+        {
+          quantity: h.quantity,
+          latestClose: h.latestClose,
+          priceCurrency: h.priceCurrency,
+          previousClose: h.previousClose,
+        },
+        base,
+        rates,
+      ),
+    ),
+  );
+  const flaggedHoldings = held.filter(
+    (h) =>
+      h.classification &&
+      h.classification !== "insufficient_data" &&
+      h.classification !== "resilient" &&
+      h.classification !== "proportionate",
+  );
+
   return (
     <>
       <SiteHeader active="dashboard" />
@@ -146,6 +188,69 @@ export default async function DashboardPage() {
             </span>
           ))}
         </div>
+
+        {/* My portfolio — compact summary; full surface at /portfolio */}
+        <section className="mt-8">
+          <div className="flex items-baseline justify-between">
+            <div className="font-mono-cli text-base text-il-navy">~ my portfolio</div>
+            <Link
+              href="/portfolio"
+              className="font-mono-cli text-sm text-il-accent hover:text-il-orange"
+            >
+              {held.length > 0 ? "manage holdings →" : "add holdings →"}
+            </Link>
+          </div>
+          {held.length > 0 ? (
+            <div className="card-cli mt-3 flex flex-wrap items-center gap-x-10 gap-y-3 p-5">
+              <div>
+                <div className="font-mono-cli text-sm text-muted-foreground">
+                  value ({base})
+                </div>
+                <div className="mt-0.5 text-xl font-bold text-il-navy">
+                  {formatMoney(portfolioTotal.baseValue, base)}
+                </div>
+              </div>
+              <div>
+                <div className="font-mono-cli text-sm text-muted-foreground">day</div>
+                <div
+                  className="mt-0.5 text-xl font-bold"
+                  style={{ color: changeColor(portfolioTotal.baseDayChange) }}
+                >
+                  {formatSignedMoney(portfolioTotal.baseDayChange, base)}
+                </div>
+              </div>
+              <div>
+                <div className="font-mono-cli text-sm text-muted-foreground">
+                  holdings
+                </div>
+                <div className="mt-0.5 text-xl font-bold text-il-navy">
+                  {held.length}
+                </div>
+              </div>
+              {flaggedHoldings.length > 0 && (
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <span className="font-mono-cli text-sm text-muted-foreground">
+                    flags on names you hold:
+                  </span>
+                  {flaggedHoldings.slice(0, 4).map((h) => (
+                    <Link
+                      key={h.holdingId}
+                      href={h.verdictReportId ? `/reports/${h.verdictReportId}` : "/portfolio"}
+                      className="font-mono-cli text-sm font-bold text-il-navy hover:text-il-orange"
+                    >
+                      {h.ticker}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-base text-muted-foreground">
+              Add the shares you hold to see them valued and get every desk&apos;s
+              verdicts filtered to your names.
+            </p>
+          )}
+        </section>
 
         {/* Latest signals — one card per LIVE desk, fed from its latest report */}
         <section className="mt-8">
