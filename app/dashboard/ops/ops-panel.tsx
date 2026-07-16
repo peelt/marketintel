@@ -79,6 +79,13 @@ const STEPS: StepDef[] = [
       "Screens for sharp drops, researches the news behind each, and files overshoot verdicts with cited sources.",
     eta: "2-5 minutes",
   },
+  {
+    task: "run-metals",
+    title: "Run the Precious Metals desk",
+    description:
+      "Researches each producer's cost position (AISC vs the metal price) and files position verdicts with cited sources.",
+    eta: "3-6 minutes",
+  },
 ];
 
 type StepState =
@@ -201,7 +208,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
         {summarise(task, r)}
       </p>
       <FailureList result={r} />
-      {(task === "run-dividend" || task === "run-reaction") && typeof r.reportId === "string" && (
+      {(task === "run-dividend" || task === "run-reaction" || task === "run-metals") && typeof r.reportId === "string" && (
         <p className="text-sm">
           <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
             ~ open the report →
@@ -246,7 +253,7 @@ function summarise(task: string, r: Record<string, unknown>): string {
     const untagged = num(r.untagged);
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.${untagged > 0 ? ` ${untagged} removed from curated watchlists.` : ""}`;
   }
-  if (task === "run-dividend" || task === "run-reaction") {
+  if (task === "run-dividend" || task === "run-reaction" || task === "run-metals") {
     return "Report filed successfully.";
   }
   if (task === "seed-broad-universe") {

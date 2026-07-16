@@ -233,7 +233,8 @@ describe("news evidence parsing (report presentation)", () => {
     const p = parseNewsEvidence(text);
     expect(p).not.toBeNull();
     expect(p!.ticker).toBe("AXON");
-    expect(p!.damage).toBe(15);
+    expect(p!.gradeLabel).toBe("damage");
+    expect(p!.grade).toBe(15);
     expect(p!.confidence).toBe("high");
     expect(p!.headline).toContain("speculative rally");
     expect(p!.summary).toContain("Valuation remained");

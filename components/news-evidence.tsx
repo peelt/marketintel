@@ -26,27 +26,31 @@ export function NewsEvidenceCard({
     );
   }
 
-  const damageColor =
-    parsed.damage == null
+  // Badge colour follows the grade's polarity: "damage" is bad when high
+  // (Reaction), margins/quality grades are good when high (Metals).
+  const highIsBad = parsed.gradeLabel.includes("damage");
+  const gradeColor =
+    parsed.grade == null
       ? "#6b7280"
-      : parsed.damage >= 60
+      : (highIsBad ? parsed.grade : 100 - parsed.grade) >= 60
         ? "#ee1d23"
-        : parsed.damage >= 30
+        : (highIsBad ? parsed.grade : 100 - parsed.grade) >= 30
           ? "#f6881c"
           : "#22a87b";
+  const heading = highIsBad ? "why it fell" : "cost research";
 
   return (
     <div className="rounded border border-border/60 bg-muted/20 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-xs uppercase tracking-wider text-muted-foreground">
-          why it fell
+          {heading}
         </span>
-        {parsed.damage != null && (
+        {parsed.grade != null && (
           <span
             className="rounded-full px-2.5 py-0.5 font-mono-cli text-sm"
-            style={{ color: damageColor, backgroundColor: `${damageColor}1a` }}
+            style={{ color: gradeColor, backgroundColor: `${gradeColor}1a` }}
           >
-            news damage {parsed.damage}/100
+            {highIsBad ? "news damage" : parsed.gradeLabel} {parsed.grade}/100
           </span>
         )}
         {parsed.confidence && (

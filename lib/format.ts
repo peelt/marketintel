@@ -162,7 +162,9 @@ export function changeColor(amount: number | null): string {
  */
 export interface ParsedNewsEvidence {
   ticker: string;
-  damage: number | null;
+  /** What was graded — "damage" (Reaction) or "cost margin" (Metals). */
+  gradeLabel: string;
+  grade: number | null;
   confidence: string | null;
   headline: string;
   summary: string;
@@ -170,7 +172,8 @@ export interface ParsedNewsEvidence {
 }
 
 export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
-  const head = /^\[([^\]·]+)·\s*damage\s+(\d{1,3})\/100\s*·\s*(\w+)\]\s*/.exec(text);
+  const head =
+    /^\[([^\]·]+)·\s*([a-z][a-z ]*?)\s+(\d{1,3})\/100\s*·\s*(\w+)\]\s*/.exec(text);
   if (!head) return null;
 
   const rest = text.slice(head[0].length);
@@ -200,8 +203,9 @@ export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
 
   return {
     ticker: head[1].trim(),
-    damage: Number.isFinite(Number(head[2])) ? Number(head[2]) : null,
-    confidence: head[3] ?? null,
+    gradeLabel: head[2].trim(),
+    grade: Number.isFinite(Number(head[3])) ? Number(head[3]) : null,
+    confidence: head[4] ?? null,
     headline,
     summary,
     sources,
