@@ -5,6 +5,11 @@ import { isAllowedEmail } from "@/lib/auth/allowlist";
 import { SiteHeader, ClassificationChip } from "@/components/cli";
 import { Disclaimer } from "@/components/disclaimer";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
+import { loadPortfolioIntel } from "@/lib/holdings/intel";
+import {
+  PortfolioHealthBar,
+  WhatChangedFeed,
+} from "@/components/portfolio-intel";
 import { fetchRates } from "@/lib/holdings/fx";
 import {
   portfolioTotals,
@@ -35,7 +40,12 @@ export default async function PortfolioPage() {
   if (!user || !isAllowedEmail(user.email)) redirect("/login");
 
   const portfolio = await loadDefaultPortfolio(supabase, user.id);
-  const held = portfolio ? await loadHeldNames(supabase, portfolio.id) : [];
+  const [held, intel] = portfolio
+    ? await Promise.all([
+        loadHeldNames(supabase, portfolio.id),
+        loadPortfolioIntel(supabase, portfolio.id),
+      ])
+    : [[], { items: [], attentionCount: 0, health: { covered: 0, flagged: 0, byClassification: [] } }];
   const base = portfolio?.base_currency ?? "GBP";
 
   // FX: fetch only the pairs actually needed, then value every holding.
@@ -127,6 +137,45 @@ export default async function PortfolioPage() {
               )}
             </div>
           </section>
+        )}
+
+        {/* Intel lens — what changed on your names + portfolio health */}
+        {held.length > 0 && (
+          <>
+            <section className="mt-8">
+              <div className="flex items-baseline justify-between">
+                <div className="font-mono-cli text-base text-il-navy">
+                  ~ what changed on your names
+                </div>
+                {intel.attentionCount > 0 && (
+                  <span
+                    className="font-mono-cli text-sm font-bold"
+                    style={{ color: "#ee1d23" }}
+                  >
+                    {intel.attentionCount} need
+                    {intel.attentionCount === 1 ? "s" : ""} a look
+                  </span>
+                )}
+              </div>
+              <div className="mt-3">
+                <WhatChangedFeed items={intel.items} />
+              </div>
+            </section>
+
+            <section className="card-cli mt-6 p-6">
+              <div className="font-mono-cli text-base text-il-navy">
+                ~ portfolio health
+              </div>
+              <div className="mt-3">
+                <PortfolioHealthBar health={intel.health} />
+              </div>
+              <p className="mt-3 font-mono-cli text-sm text-muted-foreground">
+                The desks&apos; classifications across the names you hold. This
+                filters the whole service to your portfolio — it never changes
+                how any security is scored.
+              </p>
+            </section>
+          </>
         )}
 
         {/* Holdings table */}
