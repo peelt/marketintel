@@ -19,6 +19,7 @@ import {
   stripInlineMarkdown,
 } from "@/lib/format";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
+import { loadPortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
 import {
   portfolioTotals,
@@ -122,7 +123,12 @@ export default async function DashboardPage() {
   // surface lives at /portfolio). Held names carrying an active desk verdict
   // are the highest-value thing to surface here.
   const portfolio = await loadDefaultPortfolio(supabase, user.id);
-  const held = portfolio ? await loadHeldNames(supabase, portfolio.id) : [];
+  const [held, intel] = portfolio
+    ? await Promise.all([
+        loadHeldNames(supabase, portfolio.id),
+        loadPortfolioIntel(supabase, portfolio.id),
+      ])
+    : [[], { items: [], attentionCount: 0, health: { covered: 0, flagged: 0, byClassification: [] } }];
   const base = portfolio?.base_currency ?? "GBP";
   const rates =
     held.length > 0
@@ -142,13 +148,8 @@ export default async function DashboardPage() {
       ),
     ),
   );
-  const flaggedHoldings = held.filter(
-    (h) =>
-      h.classification &&
-      h.classification !== "insufficient_data" &&
-      h.classification !== "resilient" &&
-      h.classification !== "proportionate",
-  );
+  // Names with a fresh flag/worsening this run — the highest-value alert.
+  const attentionItems = intel.items.filter((i) => i.delta.attention);
 
   return (
     <>
@@ -227,21 +228,28 @@ export default async function DashboardPage() {
                   {held.length}
                 </div>
               </div>
-              {flaggedHoldings.length > 0 && (
-                <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <span className="font-mono-cli text-sm text-muted-foreground">
-                    flags on names you hold:
+              {attentionItems.length > 0 && (
+                <Link
+                  href="/portfolio"
+                  className="ml-auto flex flex-wrap items-center gap-2 rounded-lg px-3 py-1.5"
+                  style={{ backgroundColor: "#ee1d231a" }}
+                >
+                  <span className="font-mono-cli text-sm font-bold" style={{ color: "#ee1d23" }}>
+                    ⚠ {attentionItems.length} change
+                    {attentionItems.length === 1 ? "" : "s"} need
+                    {attentionItems.length === 1 ? "s" : ""} a look:
                   </span>
-                  {flaggedHoldings.slice(0, 4).map((h) => (
-                    <Link
-                      key={h.holdingId}
-                      href={h.verdictReportId ? `/reports/${h.verdictReportId}` : "/portfolio"}
-                      className="font-mono-cli text-sm font-bold text-il-navy hover:text-il-orange"
-                    >
-                      {h.ticker}
-                    </Link>
-                  ))}
-                </div>
+                  {[...new Set(attentionItems.map((i) => i.ticker))]
+                    .slice(0, 4)
+                    .map((ticker) => (
+                      <span
+                        key={ticker}
+                        className="font-mono-cli text-sm font-bold text-il-navy"
+                      >
+                        {ticker}
+                      </span>
+                    ))}
+                </Link>
               )}
             </div>
           ) : (

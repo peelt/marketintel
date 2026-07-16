@@ -18,8 +18,19 @@ framework the user can see and edit. See the doc set:
 
 **Where we are:** live on investorlogical.com. `main` carries PR 1–5 (Dividend
 + Reaction both filing real reports on live Twelve Data prices), the
-verdict-first UX pass, and PR 6a (holdings). Next: PR 6b (the intel lens —
-deltas + alerts on held names), then framework-editing UI / remaining desks.
+verdict-first UX pass, and PR 6a+6b (holdings + intel lens). Next:
+framework-editing UI, remaining desks, and **scheduled email alerts** (the one
+deferred 6b piece — needs an email-provider decision: Resend/Postmark).
+
+**Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
+(per-classification concern rank; `computeDelta` → new/worsened/improved/
+resolved/steady + `attention` on a fresh flag or worsening; `describeDelta`
+stays security-scoped, never advice). `lib/holdings/intel.ts` loads each held
+name's latest+previous verdict per desk (90-day window) and diffs them.
+Surfaces: a "what changed on your names" feed + portfolio-health roll-up on
+`/portfolio`, and an attention-count alert on the dashboard strip. In-app only
+for now; the highest-value event (email a holder when a scheduled run flags an
+owned name) is the deferred piece above.
 
 **Holdings (PR 6a, live):** `portfolios`/`holdings` tables (migration 0007,
 `user_id = auth.uid()` RLS — the first per-user data); `/portfolio` page +
