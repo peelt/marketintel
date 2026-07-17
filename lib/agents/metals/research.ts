@@ -99,6 +99,7 @@ Discipline:
 - The grade is ABSOLUTE (calibrated across all producers and time), not relative to today's list.
 - State the reporting period the figure comes from. Prefer the most recent quarter/year available.
 - If no recent cost disclosure can be found, say so: grade near 50, confidence "low".
+- Report reported_aisc_usd as a PLAIN number of US dollars per ounce (e.g. 1310), in the metal's own ounce terms — never scaled, never in cents.
 - Describe the company and its costs. Never address any reader's holdings or decisions; no recommendations.`;
 
 /** One retry on any failure path — same contract as the Reaction news layer. */
@@ -183,12 +184,20 @@ export function parseMetalsGrade(text: string): MetalsResearchGrade | null {
     ) {
       return null;
     }
-    const aisc =
+    // Plausibility bound: real per-ounce costs run ~$5 (silver royalties) to
+    // low thousands (gold miners). A wildly out-of-range figure (seen live:
+    // AISC ~$2.6e28/oz on AEM, alongside a garbled headline and a grade that
+    // contradicted its own summary) marks the WHOLE generation as corrupted —
+    // reject it so the retry path gets a clean attempt, rather than salvaging
+    // a grade from a broken output.
+    const rawAisc =
       typeof c.reported_aisc_usd === "number" &&
       Number.isFinite(c.reported_aisc_usd) &&
       c.reported_aisc_usd > 0
         ? c.reported_aisc_usd
         : null;
+    if (rawAisc !== null && (rawAisc < 5 || rawAisc > 20_000)) return null;
+    const aisc = rawAisc;
     const sources = c.sources
       .filter(
         (s): s is { url: string; title: string } =>
@@ -213,4 +222,54 @@ export function parseMetalsGrade(text: string): MetalsResearchGrade | null {
 
 export function confidenceWeight(confidence: "low" | "medium" | "high"): number {
   return confidence === "high" ? 0.9 : confidence === "medium" ? 0.6 : 0.3;
+}
+
+// ---------- deterministic margin cross-check ----------
+
+/**
+ * Calibrated cost grade IMPLIED by the disclosed AISC against the current
+ * spot price — the glass-box arithmetic the LLM grade must agree with.
+ * The AISC's scale picks the metal (silver producers report ~$10–30/oz,
+ * gold producers ~$800–2,000/oz). Null when no spot is available.
+ */
+export function impliedCostGrade(
+  aiscUsd: number,
+  goldSpotUsd: number | null,
+  silverSpotUsd: number | null,
+): number | null {
+  const spot = aiscUsd < 100 ? silverSpotUsd : goldSpotUsd;
+  if (spot == null || spot <= 0) return null;
+  const margin = (spot - aiscUsd) / spot;
+  if (margin <= 0) return 5;
+  if (margin <= 0.15) return 25;
+  if (margin <= 0.3) return 45;
+  if (margin <= 0.45) return 60;
+  if (margin <= 0.6) return 75;
+  return 90;
+}
+
+/**
+ * Reconcile the LLM's grade with the arithmetic its own AISC implies. Seen
+ * live (AEM): a summary describing "one of the industry's lowest-cost
+ * producers" alongside cost_margin_grade = 1 — which classified a premier
+ * miner "vulnerable". When the disclosed AISC and the spot price imply a
+ * grade wildly different from the model's number, the arithmetic wins: the
+ * evidence card already shows the AISC and metal price, so the deterministic
+ * grade is the one the reader can verify.
+ */
+const RECONCILE_TOLERANCE = 30;
+
+export function reconcileCostGrade(
+  grade: MetalsResearchGrade,
+  goldSpotUsd: number | null,
+  silverSpotUsd: number | null,
+): MetalsResearchGrade {
+  if (grade.reportedAiscUsd == null) return grade;
+  const implied = impliedCostGrade(grade.reportedAiscUsd, goldSpotUsd, silverSpotUsd);
+  if (implied == null) return grade;
+  if (Math.abs(grade.costMarginGrade - implied) <= RECONCILE_TOLERANCE) return grade;
+  console.warn(
+    `reconcileCostGrade: model grade ${grade.costMarginGrade} contradicts AISC $${grade.reportedAiscUsd}/oz vs spot — using implied ${implied}`,
+  );
+  return { ...grade, costMarginGrade: implied };
 }
