@@ -62,6 +62,15 @@ describe("computeDelta", () => {
     expect(d.attention).toBe(true);
   });
 
+  it("a held name that dropped with UNKNOWN cause is still attention", () => {
+    const d = computeDelta(
+      snap("cause_unconfirmed", { agentName: "reaction" }),
+      null,
+    );
+    expect(d.direction).toBe("new");
+    expect(d.attention).toBe(true);
+  });
+
   it("same classification is steady", () => {
     const d = computeDelta(snap("watch"), snap("watch"));
     expect(d.direction).toBe("steady");

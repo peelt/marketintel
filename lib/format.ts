@@ -151,3 +151,78 @@ export function changeColor(amount: number | null): string {
   if (amount == null || amount === 0) return "#6b7280";
   return amount > 0 ? "#22a87b" : "#ee1d23";
 }
+
+/**
+ * Parsed structure of a Reaction news-evidence row. The agent persists these
+ * as `[TICKER · damage N/100 · confidence] headline\n\nsummary\n\nSources:\n
+ * title — url` — this parser turns that back into renderable parts so the
+ * report can show a designed card (badges, paragraphs, clickable sources)
+ * instead of a wall of text. Null when the text doesn't match (caller falls
+ * back to plain rendering) — works for already-persisted rows, no backfill.
+ */
+export interface ParsedNewsEvidence {
+  ticker: string;
+  /** What was graded — "damage" (Reaction) or "cost margin" (Metals). */
+  gradeLabel: string;
+  grade: number | null;
+  confidence: string | null;
+  headline: string;
+  summary: string;
+  sources: { title: string; url: string }[];
+}
+
+export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
+  const head =
+    /^\[([^\]·]+)·\s*([a-z][a-z ]*?)\s+(\d{1,3})\/100\s*·\s*(\w+)\]\s*/.exec(text);
+  if (!head) return null;
+
+  const rest = text.slice(head[0].length);
+  const [beforeSources, sourcesBlock] = splitOnce(rest, /\n\s*Sources:\s*\n?/);
+  const paragraphs = beforeSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const headline = paragraphs[0] ?? "";
+  const summary = paragraphs.slice(1).join("\n\n");
+
+  const sources: { title: string; url: string }[] = [];
+  if (sourcesBlock) {
+    // One per line: "Title — url". Older rows may run them together; also
+    // sweep for bare URLs so nothing is lost.
+    for (const line of sourcesBlock.split("\n")) {
+      const m = /^(.*?)\s+—\s+(https?:\/\/\S+)\s*$/.exec(line.trim());
+      if (m) sources.push({ title: m[1].trim(), url: m[2] });
+    }
+    if (sources.length === 0) {
+      const urls = sourcesBlock.match(/https?:\/\/\S+/g) ?? [];
+      const titles = sourcesBlock.split(/https?:\/\/\S+/).map((t) =>
+        t.replace(/\s*—\s*$/, "").trim(),
+      );
+      urls.forEach((url, i) =>
+        sources.push({ title: titles[i] || hostOf(url), url }),
+      );
+    }
+  }
+
+  return {
+    ticker: head[1].trim(),
+    gradeLabel: head[2].trim(),
+    grade: Number.isFinite(Number(head[3])) ? Number(head[3]) : null,
+    confidence: head[4] ?? null,
+    headline,
+    summary,
+    sources,
+  };
+}
+
+/** Hostname for display ("ts2.tech") — falls back to the raw string. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function splitOnce(text: string, re: RegExp): [string, string | null] {
+  const m = re.exec(text);
+  if (!m) return [text, null];
+  return [text.slice(0, m.index), text.slice(m.index + m[0].length)];
+}

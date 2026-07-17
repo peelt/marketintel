@@ -18,9 +18,13 @@ framework the user can see and edit. See the doc set:
 
 **Where we are:** live on investorlogical.com. `main` carries PR 1–5 (Dividend
 + Reaction both filing real reports on live Twelve Data prices), the
-verdict-first UX pass, and PR 6a+6b (holdings + intel lens). Next:
-framework-editing UI, remaining desks, and **scheduled email alerts** (the one
-deferred 6b piece — needs an email-provider decision: Resend/Postmark).
+verdict-first UX pass, PR 6a+6b (holdings + intel lens), and PR 9 (Metals desk
+— AISC-aware cost research via the reaction-style web-research pattern;
+framework migration 0008; Sat 12:00 UTC cron; classifications
+well_positioned/mixed/vulnerable; ETFs excluded from scoring). Desk-building
+is the agreed priority (no cross-desk score blending — settled); then
+framework-editing UI, and **scheduled email alerts** (the one deferred 6b
+piece — needs an email-provider decision: Resend/Postmark).
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/

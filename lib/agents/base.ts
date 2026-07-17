@@ -68,6 +68,18 @@ export abstract class BaseAgent implements Agent {
    */
   protected coverageFloor = 0;
 
+  /**
+   * Should this candidate rank BELOW fully-evidenced ones? Default: below the
+   * coverage floor. Agents override to demote on missing DEFINING evidence —
+   * e.g. Reaction demotes names whose news grade failed, because an
+   * "overshoot" composite without news is circular (a big drop scoring as a
+   * big overshoot). Must agree with the agent's classify() so ranking and
+   * classification tell one story.
+   */
+  protected demoteFromRanking(scored: CandidateScore): boolean {
+    return scored.coverage < this.coverageFloor;
+  }
+
   async run(input: AgentRunInput): Promise<RankedReport> {
     const framework = await this.resolveFramework(input);
     if (!framework) {
@@ -98,7 +110,7 @@ export abstract class BaseAgent implements Agent {
         candidates,
         resolver,
       }),
-      this.coverageFloor,
+      (s) => this.demoteFromRanking(s),
     );
 
     const ranked: ScoredCandidate[] = scored.map((s, idx) => {
@@ -169,21 +181,26 @@ function roundTo(value: number, decimals: number): number {
 }
 
 /**
- * Rank order for a report: candidates the agent can actually classify
- * (coverage at or above the floor) come first, composite-descending within
- * each group. A below-floor composite is computed from a sliver of the
- * framework — a name carrying only its yield signal can post a "perfect"
- * redistributed composite — so letting it outrank fully-evidenced names turns
- * missing data into a leaderboard advantage ("missing = winner"), the mirror
- * image of the missing-≠-zero invariant. Exported for unit tests.
+ * Rank order for a report: candidates the agent can fully stand behind come
+ * first, demoted ones after — composite-descending within each group. A
+ * demoted composite is computed from a sliver of the framework (below the
+ * coverage floor, or missing its defining evidence) — letting it outrank
+ * fully-evidenced names turns missing data into a leaderboard advantage
+ * ("missing = winner"), the mirror image of the missing-≠-zero invariant.
+ * Accepts a coverage floor or an arbitrary demotion predicate. Exported for
+ * unit tests.
  */
 export function orderForRanking<T extends { composite: number; coverage: number }>(
   scored: T[],
-  coverageFloor: number,
+  floorOrDemote: number | ((s: T) => boolean),
 ): T[] {
+  const demote =
+    typeof floorOrDemote === "number"
+      ? (s: T) => s.coverage < floorOrDemote
+      : floorOrDemote;
   return [...scored].sort((a, b) => {
-    const aBelow = a.coverage < coverageFloor ? 1 : 0;
-    const bBelow = b.coverage < coverageFloor ? 1 : 0;
+    const aBelow = demote(a) ? 1 : 0;
+    const bBelow = demote(b) ? 1 : 0;
     if (aBelow !== bBelow) return aBelow - bBelow;
     return b.composite - a.composite;
   });
