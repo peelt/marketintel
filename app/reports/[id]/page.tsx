@@ -14,6 +14,7 @@ import {
   SiteHeader,
 } from "@/components/cli";
 import { classificationLabel, humanizeDateTime } from "@/lib/format";
+import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 
 export const dynamic = "force-dynamic";
@@ -183,9 +184,17 @@ export default async function ReportDetailPage({
   const meta = agentRegistry.get(report.agent_name as AgentName);
   const moduleColor = MODULE_COLORS[report.agent_name as AgentName] ?? "#034566";
 
-  // Partition: 0%-coverage names collapse to an exclusion note; everything
-  // else stays ranked (below-floor partials sit at the bottom, by design).
-  const rankedItems = allItems.filter((i) => coverageOf(i) > 0);
+  // Partition: 0%-coverage names collapse to an exclusion note, and names
+  // whose DEFINING evidence failed (reaction's news grade → cause_unconfirmed)
+  // are pulled from the ranking into their own note — an overshoot claim
+  // without news to weigh is unsupported. Everything else stays ranked
+  // (below-floor partials sit at the bottom, by design).
+  const unconfirmedItems = allItems.filter(
+    (i) => i.classification === "cause_unconfirmed",
+  );
+  const rankedItems = allItems.filter(
+    (i) => coverageOf(i) > 0 && i.classification !== "cause_unconfirmed",
+  );
   const excludedItems = allItems.filter((i) => coverageOf(i) === 0);
 
   const classified = rankedItems.filter(
@@ -338,6 +347,36 @@ export default async function ReportDetailPage({
         </section>
       )}
 
+      {/* Drops we can't explain yet — real events, but unranked: an overshoot
+          verdict without a news grade would be unsupported */}
+      {unconfirmedItems.length > 0 && (
+        <section className="card-cli mt-6 px-5 py-4">
+          <div className="font-mono-cli text-base text-il-navy">
+            ~ {unconfirmedItems.length} drop
+            {unconfirmedItems.length === 1 ? "" : "s"} unranked — cause
+            unconfirmed
+          </div>
+          <ul className="mt-3 space-y-2">
+            {unconfirmedItems.map((it) => (
+              <li key={it.id} className="text-base leading-relaxed">
+                <span className="font-mono-cli font-bold text-il-navy">
+                  {it.security?.ticker ?? "—"}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                  {it.verdict ??
+                    "Cleared the drop screen, but no news grade is available this run."}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-muted-foreground">
+            These moves are real, but the news research behind the verdict
+            didn&apos;t complete — so no overshoot judgment is made. They
+            re-qualify automatically on the next run.
+          </p>
+        </section>
+      )}
+
       {/* Excluded names — an honest note, not two screens of dashes */}
       {excludedItems.length > 0 && (
         <details className="card-cli mt-6 px-5 py-4">
@@ -349,10 +388,9 @@ export default async function ReportDetailPage({
             {excludedItems
               .map((i) => i.security?.ticker ?? "—")
               .join(", ")}{" "}
-            had no usable data this run (most are London names — UK
-            fundamentals are a known gap on the current sources), so nothing
-            was scored or classified. They stay in the universe and fill in
-            automatically when data lands.
+            had no usable data this run, so nothing was scored or classified.
+            They stay in the universe and fill in automatically when data
+            lands.
           </p>
         </details>
       )}
@@ -437,15 +475,21 @@ export default async function ReportDetailPage({
                     {evidenceRows.length > 0 ? (
                       <ul className="space-y-2">
                         {evidenceRows.map((ev) => (
-                          <li
-                            key={ev.id}
-                            className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-sm"
-                          >
-                            <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                              <span>{ev.evidence_type.replace(/_/g, " ")}</span>
-                              <span>· confidence {ev.weight.toFixed(2)}</span>
-                            </div>
-                            <p className="leading-relaxed">{ev.source_text}</p>
+                          <li key={ev.id}>
+                            {ev.evidence_type === "news_article" ? (
+                              <NewsEvidenceCard
+                                text={ev.source_text}
+                                weight={ev.weight}
+                              />
+                            ) : (
+                              <div className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+                                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                                  <span>{ev.evidence_type.replace(/_/g, " ")}</span>
+                                  <span>· confidence {ev.weight.toFixed(2)}</span>
+                                </div>
+                                <p className="leading-relaxed">{ev.source_text}</p>
+                              </div>
+                            )}
                           </li>
                         ))}
                       </ul>

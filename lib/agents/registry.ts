@@ -62,7 +62,7 @@ const META: Record<AgentName, AgentMeta> = {
       "Buy/hold/avoid across ETFs, royalties, majors and juniors with AISC-aware valuation logic.",
     schedule: "0 12 * * 6", // Sat 12:00 UTC
     modelTier: "routine",
-    status: "planned",
+    status: "live",
   },
 };
 

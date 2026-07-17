@@ -3,6 +3,7 @@ import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { dividendScheduled } from "@/lib/inngest/functions/dividend";
 import { chunkedIngest } from "@/lib/inngest/functions/ingest";
+import { metalsScheduled } from "@/lib/inngest/functions/metals";
 import {
   dailyPriceRefresh,
   reactionScheduled,
@@ -25,7 +26,13 @@ export const maxDuration = 300;
  */
 const handler = serve({
   client: inngest,
-  functions: [dividendScheduled, chunkedIngest, reactionScheduled, dailyPriceRefresh],
+  functions: [
+    dividendScheduled,
+    chunkedIngest,
+    reactionScheduled,
+    dailyPriceRefresh,
+    metalsScheduled,
+  ],
 });
 
 type RouteHandler = (req: Request) => Promise<Response> | Response;

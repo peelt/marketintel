@@ -34,6 +34,12 @@ const SEVERITY: Record<string, Severity> = {
   underreaction: { rank: 2, flagged: true },
   mild_overshoot: { rank: 2, flagged: true },
   strong_overshoot: { rank: 3, flagged: true },
+  // it dropped hard and we don't know why — for a holder that IS attention
+  cause_unconfirmed: { rank: 2, flagged: true },
+  // metals: a weak position on a held producer deserves a look; mixed doesn't
+  well_positioned: { rank: 0, flagged: false },
+  mixed: { rank: 1, flagged: false },
+  vulnerable: { rank: 3, flagged: true },
   // shared
   insufficient_data: { rank: 0, flagged: false },
 };

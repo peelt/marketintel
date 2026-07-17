@@ -25,6 +25,7 @@ export const INGEST_TASKS = [
   "news",
   "run-dividend",
   "run-reaction",
+  "run-metals",
   "broad-prices",
 ] as const;
 
@@ -191,6 +192,17 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       ]);
       return runAgent(
         reactionAgent,
+        { reason: "manual ops trigger" },
+        { trigger: "manual" },
+      );
+    }
+    case "run-metals": {
+      const [{ metalsAgent }, { runAgent }] = await Promise.all([
+        import("@/lib/agents/metals/agent"),
+        import("@/lib/agents/run"),
+      ]);
+      return runAgent(
+        metalsAgent,
         { reason: "manual ops trigger" },
         { trigger: "manual" },
       );

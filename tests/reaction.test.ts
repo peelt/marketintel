@@ -11,6 +11,8 @@ import {
 } from "@/lib/agents/reaction/metrics";
 import { classifyReaction } from "@/lib/agents/reaction/agent";
 import { parseGrade } from "@/lib/agents/reaction/news";
+import { orderForRanking } from "@/lib/agents/base";
+import { hostOf, parseNewsEvidence } from "@/lib/format";
 import { parseConstituentsTable } from "@/lib/data-sources/index-constituents";
 import type { CandidateScore } from "@/lib/scoring/types";
 
@@ -107,6 +109,16 @@ describe("classifyReaction", () => {
     expect(c.verdict).toContain("withheld");
   });
 
+  it("refuses an overshoot verdict without a news grade — cause_unconfirmed", () => {
+    // The live failure: APP ranked #1 "strong overshoot" with NO news evidence
+    // — the remaining price signals are circular (big drop ⇒ big overshoot).
+    const c = classifyReaction(scored(80, 0.4, null), stats);
+    expect(c.classification).toBe("cause_unconfirmed");
+    expect(c.verdict).toContain("no news grade");
+    expect(c.verdict).toContain("cannot be assessed");
+    expect(c.verdict.toLowerCase()).not.toContain("the framework grades");
+  });
+
   it("verdict text is factual and impersonal (I2)", () => {
     const c = classifyReaction(scored(80), stats);
     expect(c.verdict).toContain("-14.0% over 5 sessions");
@@ -192,5 +204,52 @@ describe("constituents table parsing", () => {
         nameHeader: "issuer",
       }),
     ).toEqual([]);
+  });
+});
+
+describe("orderForRanking with a demotion predicate", () => {
+  it("demotes news-less names below fully-evidenced ones regardless of composite", () => {
+    // Mirrors ReactionAgent.demoteFromRanking: missing news grade → demoted.
+    const scored = [
+      { securityId: "no-news-high", composite: 74.3, coverage: 0.4, hasNews: false },
+      { securityId: "news-mid", composite: 69.8, coverage: 0.82, hasNews: true },
+      { securityId: "news-low", composite: 42.2, coverage: 0.4, hasNews: true },
+    ];
+    const ordered = orderForRanking(scored, (s) => !s.hasNews);
+    expect(ordered.map((s) => s.securityId)).toEqual([
+      "news-mid",
+      "news-low",
+      "no-news-high",
+    ]);
+  });
+});
+
+describe("news evidence parsing (report presentation)", () => {
+  it("parses the persisted evidence shape into headline/summary/sources", () => {
+    const text =
+      "[AXON · damage 15/100 · high] Axon fell after a speculative rally unwound.\n\n" +
+      "Shares gave back part of a preceding 40% rally with no new negative catalyst. Valuation remained the core pressure point.\n\n" +
+      "Sources:\nAxon Shares Drop $6 Billion — https://ts2.tech/en/axon-shares\nAXON Registers a Bigger Fall — https://sg.finance.yahoo.com/news/axon";
+    const p = parseNewsEvidence(text);
+    expect(p).not.toBeNull();
+    expect(p!.ticker).toBe("AXON");
+    expect(p!.gradeLabel).toBe("damage");
+    expect(p!.grade).toBe(15);
+    expect(p!.confidence).toBe("high");
+    expect(p!.headline).toContain("speculative rally");
+    expect(p!.summary).toContain("Valuation remained");
+    expect(p!.sources).toEqual([
+      { title: "Axon Shares Drop $6 Billion", url: "https://ts2.tech/en/axon-shares" },
+      { title: "AXON Registers a Bigger Fall", url: "https://sg.finance.yahoo.com/news/axon" },
+    ]);
+  });
+
+  it("returns null for non-matching text so callers fall back to plain rendering", () => {
+    expect(parseNewsEvidence("just some derived metric text")).toBeNull();
+  });
+
+  it("hostOf strips www and survives junk", () => {
+    expect(hostOf("https://www.ft.com/content/abc")).toBe("ft.com");
+    expect(hostOf("not a url")).toBe("not a url");
   });
 });
