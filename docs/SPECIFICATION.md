@@ -279,7 +279,7 @@ owner-only; only derived analysis is ever sellable (POSITIONING §8).
 |---------|------|--------|
 | **Twelve Data** | free (key) | **Primary price source.** Keyed REST API — serves US+LSE daily history from datacenter IPs where scraped sources are blocked. Free tier 8 credits/min · 800/day → full-universe refresh via chunked Inngest. Fundamentals paywalled (deferred to Finnhub). |
 | **Finnhub** | free (key) | **Fundamentals + fallback.** Free tier paywalls `/stock/candle` for every symbol class, so it is *not* the price primary; `/stock/metric` still serves fundamentals. Also carries analyst data that may reinstate the eps-revision signal. |
-| SEC EDGAR | free (UA) | Active. Known issues before the IPO agent: full-text search unpaginated (first ~10 hits); section splitter can't handle "Item 1A."/S-1s. |
+| SEC EDGAR | free (UA) | Active. The two pre-IPO-agent audit findings are FIXED (17 Jul 2026): full-text search now pages through EFTS results; the sectioniser handles "Item 1A."-style suffixes, dedupes TOC echoes, and falls back to prospectus headings (RISK FACTORS et al) for S-1s. |
 | FRED | free (key) | Active. Some curated series are third-party licensed (LBMA/ICE/Cboe) — inputs only, never redistribute values. |
 | yfinance | free (scraped) | **Fallback only.** Fundamentals work via the cookie+crumb dance (fragile by nature). Non-viable commercially. |
 | LSE RNS (Investegate), Companies House | free | Active; RNS dedupes on announcement URL since 3.5b. |
