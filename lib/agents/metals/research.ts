@@ -126,7 +126,7 @@ As of ${request.asOf}, research the latest reported costs and grade the cost pos
 
   try {
     const response = await client.messages.create({
-      model: modelForTier("deep"),
+      model: modelForTier("routine"),
       // web_search rounds + thinking share this budget; hitting the ceiling
       // costs the name its cost grade, so leave real headroom.
       max_tokens: 10_000,
@@ -138,7 +138,7 @@ As of ${request.asOf}, research the latest reported costs and grade the cost pos
         {
           type: "web_search_20250305",
           name: "web_search",
-          max_uses: 5,
+          max_uses: 3,
         },
       ],
       system: SYSTEM_PROMPT,

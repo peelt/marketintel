@@ -131,7 +131,7 @@ Research what caused this move and grade it per the discipline.`;
 
   try {
     const response = await client.messages.create({
-      model: modelForTier("deep"),
+      model: modelForTier("routine"),
       // web_search rounds + thinking share this budget; hitting the ceiling
       // returns stop_reason=max_tokens and costs the name its verdict, so
       // leave real headroom.
@@ -144,7 +144,7 @@ Research what caused this move and grade it per the discipline.`;
         {
           type: "web_search_20250305",
           name: "web_search",
-          max_uses: 5,
+          max_uses: 3,
         },
       ],
       system: SYSTEM_PROMPT,

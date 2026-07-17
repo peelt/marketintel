@@ -5,6 +5,7 @@ import {
   rsVsBenchmark,
 } from "@/lib/agents/metals/metrics";
 import { parseMetalsGrade } from "@/lib/agents/metals/research";
+import { isFresh } from "@/lib/agents/metals/research-cache";
 import { parseNewsEvidence } from "@/lib/format";
 import type { CandidateScore } from "@/lib/scoring/types";
 
@@ -109,5 +110,17 @@ describe("metals research evidence renders through the shared news card", () => 
     expect(p!.gradeLabel).toBe("cost margin");
     expect(p!.grade).toBe(85);
     expect(p!.sources).toHaveLength(1);
+  });
+});
+
+describe("research cache freshness", () => {
+  const now = new Date("2026-07-17T12:00:00Z");
+  it("serves grades inside the 30-day window and expires older ones", () => {
+    expect(isFresh("2026-07-01T00:00:00Z", now)).toBe(true);
+    expect(isFresh("2026-06-01T00:00:00Z", now)).toBe(false);
+  });
+  it("rejects junk and future timestamps", () => {
+    expect(isFresh("not a date", now)).toBe(false);
+    expect(isFresh("2026-08-01T00:00:00Z", now)).toBe(false);
   });
 });
