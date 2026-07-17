@@ -3,6 +3,7 @@ import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { dividendScheduled } from "@/lib/inngest/functions/dividend";
 import { chunkedIngest } from "@/lib/inngest/functions/ingest";
+import { ipoScheduled } from "@/lib/inngest/functions/ipo";
 import { metalsScheduled } from "@/lib/inngest/functions/metals";
 import {
   dailyPriceRefresh,
@@ -35,6 +36,7 @@ const handler = serve({
     reactionScheduled,
     dailyPriceRefresh,
     metalsScheduled,
+    ipoScheduled,
   ],
 });
 

@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { searchFilings, splitFilingSections } from "@/lib/data-sources/sec-edgar";
+import {
+  pickPrimaryDocument,
+  searchFilings,
+  splitFilingSections,
+} from "@/lib/data-sources/sec-edgar";
 
 /**
  * EDGAR reader contract tests — the two audited v1 failures, pinned:
@@ -140,5 +144,43 @@ describe("searchFilings pagination", () => {
     const filings = await searchFilings({ forms: ["S-1"], max: 15 });
     expect(filings).toHaveLength(15);
     expect(requested).toHaveLength(2);
+  });
+});
+
+describe("pickPrimaryDocument", () => {
+  it("prefers a form-named document over larger exhibits", () => {
+    expect(
+      pickPrimaryDocument([
+        { name: "0001234567-26-000001-index.htm", size: "9000" },
+        { name: "ex99-1.htm", size: "900000" },
+        { name: "forms-1.htm", size: "2500000" },
+        { name: "filingfees.htm", size: "12000" },
+      ]),
+    ).toBe("forms-1.htm");
+    expect(
+      pickPrimaryDocument([
+        { name: "d12345df1.htm", size: "1800000" },
+        { name: "graphic.jpg", size: "5000000" },
+      ]),
+    ).toBe("d12345df1.htm");
+  });
+
+  it("falls back to the largest html file when no name references the form", () => {
+    expect(
+      pickPrimaryDocument([
+        { name: "cover.htm", size: "4000" },
+        { name: "prospectus.htm", size: "3100000" },
+        { name: "R1.htm", size: "9000000" }, // XBRL viewer fragment — never the body
+      ]),
+    ).toBe("prospectus.htm");
+  });
+
+  it("returns null when the directory has no plausible document", () => {
+    expect(
+      pickPrimaryDocument([
+        { name: "0001-index.htm", size: "9000" },
+        { name: "image1.gif", size: "100" },
+      ]),
+    ).toBeNull();
   });
 });

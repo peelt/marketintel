@@ -37,7 +37,11 @@ export function NewsEvidenceCard({
         : (highIsBad ? parsed.grade : 100 - parsed.grade) >= 30
           ? "#f6881c"
           : "#22a87b";
-  const heading = highIsBad ? "why it fell" : "cost research";
+  const heading = highIsBad
+    ? "why it fell"
+    : parsed.gradeLabel.includes("cost")
+      ? "cost research"
+      : "prospectus research";
 
   return (
     <div className="rounded border border-border/60 bg-muted/20 px-4 py-3">

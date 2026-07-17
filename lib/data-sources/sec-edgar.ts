@@ -185,6 +185,76 @@ export async function searchFilings(params: {
 }
 
 /**
+ * Full-text search results point at the filing INDEX page
+ * (`{accession}-index.htm`), not the actual document — fetching that would
+ * hand the sectioniser a file listing. This resolves the real primary
+ * document via the filing directory's `index.json`.
+ */
+interface EdgarDirectoryFile {
+  name: string;
+  size?: string | number;
+}
+
+interface EdgarDirectoryResponse {
+  directory: { item: EdgarDirectoryFile[] };
+}
+
+/**
+ * Choose the primary document from a filing directory listing. Pure —
+ * exported for tests. HTML files only; index pages, exhibits (ex-*, ex99*)
+ * and XBRL viewer fragments (R1.htm…) are never the filing body. Among
+ * plausible names, one that references the form (s-1/f-1/ds1…) wins; the
+ * tiebreak is size — the prospectus is almost always the largest document in
+ * its folder.
+ */
+export function pickPrimaryDocument(
+  files: EdgarDirectoryFile[],
+): string | null {
+  const candidates = files.filter((f) => {
+    const name = f.name.toLowerCase();
+    if (!/\.html?$/.test(name)) return false;
+    if (name.includes("-index")) return false;
+    if (/^(ex|exhibit)[-_0-9]/.test(name)) return false;
+    if (/^r\d+\.htm/.test(name)) return false;
+    return true;
+  });
+  if (candidates.length === 0) return null;
+
+  const bySize = (a: EdgarDirectoryFile, b: EdgarDirectoryFile) =>
+    Number(b.size ?? 0) - Number(a.size ?? 0);
+  // "forms-1.htm", "fs12026.htm", "d123456ds1.htm" — filers name the body
+  // after the form in several conventions.
+  const formNamed = candidates.filter(
+    (f) =>
+      /(?:^|[^a-z0-9])(?:form)?[sf]-?1(?:[^0-9]|$)/i.test(f.name) ||
+      /[dst]?[sf]-?1\.html?$/i.test(f.name),
+  );
+  const pool = formNamed.length > 0 ? formNamed : candidates;
+  return [...pool].sort(bySize)[0].name;
+}
+
+/**
+ * Resolve the primary-document URL for a filing found via full-text search.
+ * Null when the directory can't identify one — callers treat that as
+ * "unreadable filing", never a crash.
+ */
+export async function resolvePrimaryDocumentUrl(
+  cik: string,
+  accessionNumber: string,
+): Promise<string | null> {
+  const accessionDashless = accessionNumber.replace(/-/g, "");
+  const dir = `${HOST_BASE}/Archives/edgar/data/${parseInt(cik, 10)}/${accessionDashless}`;
+  const data = await httpJson<EdgarDirectoryResponse>(`${dir}/index.json`, {
+    userAgent: userAgent(),
+    hostThrottleMs: HOST_THROTTLE_MS,
+    // EDGAR intermittently 403s well-formed requests; retry through it.
+    retryStatuses: [403],
+  });
+  const name = pickPrimaryDocument(data.directory?.item ?? []);
+  return name ? `${dir}/${name}` : null;
+}
+
+/**
  * Fetch the raw primary document for a filing. HTML for S-1s and 10-Ks. The
  * IPO agent extracts sections from this in PR 5 using a sectioniser, not here
  * — adapter stays dumb about content semantics.
