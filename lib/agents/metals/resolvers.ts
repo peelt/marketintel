@@ -28,7 +28,9 @@ import {
  * concurrency, mirroring the Reaction news layer.
  */
 
-const RESEARCH_CONCURRENCY = 3;
+// 23 names at width 4 ≈ 6 waves × ~60–90s — inside the Inngest route's 800s
+// budget with margin. Width 3 was ~8 waves and did not fit.
+const RESEARCH_CONCURRENCY = 4;
 /** ~126 trading sessions ≈ 6 months; ~252 ≈ the trailing year. */
 const SESSIONS_6M = 126;
 
