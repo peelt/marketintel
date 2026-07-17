@@ -128,14 +128,24 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   insufficient_data: "#9ca3af",
 };
 
-/** Coloured classification pill ("elevated cut risk", "resilient", …). */
+/**
+ * Coloured classification pill ("elevated cut risk", "resilient", …) — THE
+ * traffic-light component, used identically wherever a classification
+ * appears (reports, dashboard, portfolio, feeds). The leading dot makes the
+ * colour legible even at a glance or with impaired colour vision.
+ */
 export function ClassificationChip({ classification }: { classification: string }) {
   const color = CLASSIFICATION_COLORS[classification] ?? "#6b7280";
   return (
     <span
-      className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono-cli text-sm"
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono-cli text-sm"
       style={{ color, backgroundColor: `${color}1a` }}
     >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: color }}
+      />
       {classification.replace(/_/g, " ")}
     </span>
   );
