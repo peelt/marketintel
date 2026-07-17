@@ -14,6 +14,7 @@ import {
   SiteHeader,
 } from "@/components/cli";
 import { classificationLabel, humanizeDateTime } from "@/lib/format";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
@@ -172,18 +173,27 @@ export default async function ReportDetailPage({
           .returns<EvidenceRow[]>()
       : Promise.resolve({ data: [] as EvidenceRow[] }),
     securityIds.length
-      ? supabase
-          .from("price_snapshots")
-          .select("security_id, snapshot_date, close, currency")
-          .in("security_id", securityIds)
-          .gte(
-            "snapshot_date",
-            new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
-              .toISOString()
-              .slice(0, 10),
-          )
-          .order("snapshot_date", { ascending: true })
-          .returns<PriceHistoryRow[]>()
+      ? // N candidates × ~250 sessions exceeds PostgREST's silent 1,000-row
+        // cap — an unpaginated read here chopped the most RECENT months off
+        // every chart (dates ascending, so the tail is what got cut), showing
+        // a rising line under a verdict about a crash. Always paginate.
+        fetchAllRows<PriceHistoryRow>(
+          (from, to) =>
+            supabase
+              .from("price_snapshots")
+              .select("security_id, snapshot_date, close, currency")
+              .in("security_id", securityIds)
+              .gte(
+                "snapshot_date",
+                new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+                  .toISOString()
+                  .slice(0, 10),
+              )
+              .order("security_id", { ascending: true })
+              .order("snapshot_date", { ascending: true })
+              .range(from, to),
+          "report price history",
+        ).then((rows) => ({ data: rows }))
       : Promise.resolve({ data: [] as PriceHistoryRow[] }),
   ]);
 
@@ -527,7 +537,12 @@ export default async function ReportDetailPage({
                       <ul className="space-y-2">
                         {evidenceRows.map((ev) => (
                           <li key={ev.id}>
-                            {ev.evidence_type === "news_article" ? (
+                            {/* Structured research rows (news + prospectus
+                                evals) share one persisted shape — render the
+                                designed card for both. */}
+                            {ev.evidence_type === "news_article" ||
+                            (ev.evidence_type === "filing_section" &&
+                              ev.source_text.startsWith("[")) ? (
                               <NewsEvidenceCard
                                 text={ev.source_text}
                                 weight={ev.weight}

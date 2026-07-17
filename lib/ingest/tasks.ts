@@ -26,6 +26,7 @@ export const INGEST_TASKS = [
   "run-dividend",
   "run-reaction",
   "run-metals",
+  "run-ipo",
   "broad-prices",
 ] as const;
 
@@ -209,6 +210,20 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       return {
         queued: 23,
         note: "Metals run queued via Inngest — it researches ~23 companies' cost reporting and takes 5–10 minutes. The report appears under Reports when it finishes (progress in the Inngest dashboard).",
+      };
+    }
+    case "run-ipo": {
+      // Discovery + one prospectus evaluation per fresh filing doesn't fit a
+      // server action's time budget — hand it to the ipo-weekly Inngest
+      // function via its manual-trigger event, same code path as the cron.
+      const { inngest } = await import("@/lib/inngest/client");
+      await inngest.send({
+        name: "agent/run.requested",
+        data: { agentName: "ipo", reason: "manual ops trigger" },
+      });
+      return {
+        queued: 1,
+        note: "IPO desk run queued via Inngest — it discovers the last 30 days of S-1/F-1 filings and evaluates each prospectus (5–10 minutes). The report appears under Reports when it finishes (progress in the Inngest dashboard).",
       };
     }
     case "broad-prices": {

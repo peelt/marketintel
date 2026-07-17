@@ -86,6 +86,13 @@ const STEPS: StepDef[] = [
       "Researches each producer's cost position (AISC vs the metal price) and files position verdicts with cited sources.",
     eta: "3-6 minutes",
   },
+  {
+    task: "run-ipo",
+    title: "Run the IPO desk",
+    description:
+      "Finds the last 30 days of S-1/F-1 filings and grades each from its own prospectus — business, growth, risk, governance, offering terms.",
+    eta: "queued; 5-10 minutes in background",
+  },
 ];
 
 type StepState =
@@ -208,7 +215,11 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
         {summarise(task, r)}
       </p>
       <FailureList result={r} />
-      {(task === "run-dividend" || task === "run-reaction" || task === "run-metals") && typeof r.reportId === "string" && (
+      {(task === "run-dividend" ||
+        task === "run-reaction" ||
+        task === "run-metals" ||
+        task === "run-ipo") &&
+        typeof r.reportId === "string" && (
         <p className="text-sm">
           <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
             ~ open the report →
@@ -254,10 +265,17 @@ function summarise(task: string, r: Record<string, unknown>): string {
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.${untagged > 0 ? ` ${untagged} removed from curated watchlists.` : ""}`;
   }
   if (
-    (task === "run-dividend" || task === "run-reaction" || task === "run-metals") &&
+    (task === "run-dividend" ||
+      task === "run-reaction" ||
+      task === "run-metals" ||
+      task === "run-ipo") &&
     typeof r.queued !== "number"
   ) {
     return "Report filed successfully.";
+  }
+  // run-ipo always queues; its note is the whole story (no name count).
+  if (task === "run-ipo" && typeof r.note === "string") {
+    return r.note;
   }
   if (task === "seed-broad-universe") {
     return `Broad market loaded: ${num(r.fetched)} constituents fetched — ${num(r.inserted)} new, ${num(r.tagged)} already tracked.`;

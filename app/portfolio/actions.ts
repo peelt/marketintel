@@ -75,6 +75,9 @@ export async function searchSecurities(
       .from("securities")
       .select("id, ticker, exchange, name, currency")
       .is("delisted_at", null)
+      // Pre-listing IPO-pipeline issuers have no prices to value a holding
+      // against — they're research subjects, not holdable names.
+      .neq("exchange", "IPO")
       .or(`ticker.ilike.${safe}%,name.ilike.%${safe}%`)
       .order("ticker", { ascending: true })
       .limit(12)
@@ -121,11 +124,17 @@ export async function addHolding(
     // offers tracked names, but never trust the client's id blindly).
     const { data: sec } = await supabase
       .from("securities")
-      .select("id, currency")
+      .select("id, currency, exchange")
       .eq("id", input.securityId)
-      .maybeSingle<{ id: string; currency: string }>();
+      .maybeSingle<{ id: string; currency: string; exchange: string }>();
     if (!sec) {
       return { ok: false, error: "That security isn't tracked yet." };
+    }
+    if (sec.exchange === "IPO") {
+      return {
+        ok: false,
+        error: "That name hasn't listed yet — it can't be held.",
+      };
     }
 
     const { error } = await supabase.from("holdings").insert({

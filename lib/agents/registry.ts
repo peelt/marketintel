@@ -24,10 +24,10 @@ const META: Record<AgentName, AgentMeta> = {
     name: "ipo",
     displayName: "IPO Evaluation",
     description:
-      "Weekly league table of upcoming IPOs scored on valuation, growth, management, market timing and risk.",
+      "Weekly league table of fresh S-1/F-1 registrants, each evaluated from its own prospectus on business quality, growth, risk, governance and offering terms.",
     schedule: "0 18 * * 0", // Sun 18:00 UTC
-    modelTier: "deep",
-    status: "planned",
+    modelTier: "routine", // prospectus-grounded structured grading, no synthesis
+    status: "live",
   },
   dividend: {
     name: "dividend",

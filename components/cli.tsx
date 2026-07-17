@@ -124,6 +124,11 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   well_positioned: "#22a87b",
   mixed: "#f6881c",
   vulnerable: "#ee1d23",
+  // ipo vocabulary
+  strong_profile: "#22a87b",
+  mixed_profile: "#f6881c",
+  weak_profile: "#ee1d23",
+  shell_or_blank_check: "#6b7280",
   // shared
   insufficient_data: "#9ca3af",
 };
