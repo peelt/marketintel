@@ -18,13 +18,18 @@ framework the user can see and edit. See the doc set:
 
 **Where we are:** live on investorlogical.com. `main` carries PR 1–5 (Dividend
 + Reaction both filing real reports on live Twelve Data prices), the
-verdict-first UX pass, PR 6a+6b (holdings + intel lens), and PR 9 (Metals desk
-— AISC-aware cost research via the reaction-style web-research pattern;
-framework migration 0008; Sat 12:00 UTC cron; classifications
-well_positioned/mixed/vulnerable; ETFs excluded from scoring). Desk-building
-is the agreed priority (no cross-desk score blending — settled); then
-framework-editing UI, and **scheduled email alerts** (the one deferred 6b
-piece — needs an email-provider decision: Resend/Postmark).
+verdict-first UX pass, PR 6a+6b (holdings + intel lens), PR 9 (Metals desk
+— AISC-aware cost research; framework migrations 0008/0010; Sat 12:00 UTC
+cron; classifications well_positioned/mixed/vulnerable from absolute facts;
+ETFs excluded), and PR 8 (IPO desk — 30-day S-1/F-1 discovery via EDGAR
+full-text search, each prospectus graded by one routine-tier structured call
+with NO web search; framework migration 0011; Sun 18:00 UTC cron;
+strong/mixed/weak_profile + shell_or_blank_check; issuers as exchange-"IPO"
+securities keyed by CIK, excluded from holdings). Desk-building
+is the agreed priority (no cross-desk score blending — settled): Geopolitical
+is the last desk; then framework-editing UI, and **scheduled email alerts**
+(the one deferred 6b piece — needs an email-provider decision:
+Resend/Postmark).
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/

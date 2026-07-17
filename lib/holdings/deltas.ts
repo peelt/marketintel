@@ -40,6 +40,11 @@ const SEVERITY: Record<string, Severity> = {
   well_positioned: { rank: 0, flagged: false },
   mixed: { rank: 1, flagged: false },
   vulnerable: { rank: 3, flagged: true },
+  // ipo (pre-listing names can't be held today; mapped for completeness)
+  strong_profile: { rank: 0, flagged: false },
+  mixed_profile: { rank: 1, flagged: false },
+  weak_profile: { rank: 2, flagged: true },
+  shell_or_blank_check: { rank: 0, flagged: false },
   // shared
   insufficient_data: { rank: 0, flagged: false },
 };

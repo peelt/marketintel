@@ -19,7 +19,9 @@ export interface RadarCriterion {
   score: number | null;
 }
 
-const SIZE = 148;
+// Wide enough that a centred label at the 3/9-o'clock vertices ("repricing")
+// fits inside the viewBox — at 148px the left label clipped to "epricing".
+const SIZE = 180;
 const CENTER = SIZE / 2;
 const RADIUS = 52;
 const RINGS = [25, 50, 75, 100];

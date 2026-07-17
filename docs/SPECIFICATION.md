@@ -44,7 +44,7 @@ deprioritized.
 |---|------|-----|---------------|------|
 | 1 | **Reaction Analyser** *(hero)* | Finds sharp drops and judges overshoot vs earned fundamental damage | Tue + Fri 17:00 *(settled)* | deep |
 | 2 | **Dividend Intelligence** | High-yield names with sustainability + cut-probability flagging | Fri 18:00 | routine |
-| 3 | **IPO Evaluation** | League table of upcoming IPOs | Sun 18:00 | deep |
+| 3 | **IPO Evaluation** *(live)* | League table of fresh S-1/F-1 registrants, graded from their own prospectuses | Sun 18:00 | routine |
 | 4 | **Precious Metals** | Buy/hold/avoid across ETFs, royalties, majors, juniors | Sat 12:00 | routine |
 | 5 | **Geopolitical Scanner** | Macro/geopolitical memo with confidence levels | Sun 20:00 | deep |
 | 6 | **Energy Beneficiaries** *(deprioritized)* | Sector exposure ranking | Sat 10:00 | routine |
@@ -79,6 +79,31 @@ investigate, never a buy signal.
 **Verdict bands** (via the `classify` hook → `report_items.verdict`):
 STRONG_OVERSHOOT (>75), MILD_OVERSHOOT (60–75), PROPORTIONATE (40–60),
 UNDERREACTION (<40).
+
+### 2.2 IPO Evaluation (detail) — live 17 Jul 2026
+
+The second discovering pole: EDGAR full-text search finds the last 30 days of
+**original S-1/F-1 registrations** (amendments out of scope for v1), one per
+CIK, capped at 25 issuers. Each prospectus is resolved to its primary
+document, sectionised, and evaluated by ONE routine-tier structured-output
+call — **no web search; the filing is the evidence source**, linked from
+every candidate's rows.
+
+**Framework — `ipo` v1** (migration 0011, all sub-signals `absolute`):
+business_quality 25%, growth_prospects 25%, risk_profile 20% (higher = more
+manageable), governance 15%, offering_terms 15%. Classifications derive from
+absolute grades in code (the metals lesson): `strong_profile` /
+`mixed_profile` / `weak_profile` / `shell_or_blank_check` /
+`insufficient_data`. Shells and blank-checks are identified by the evaluation
+and set aside, never graded as operating businesses; a missing evaluation
+demotes from ranking (missing ≠ winner).
+
+**Issuer identity:** pre-listing names are `securities` rows with exchange
+`IPO` and the SEC CIK pinned in `classifications` jsonb (tickers are
+placeholders until the prospectus discloses a proposed symbol). They're
+excluded from portfolio search/holdings — research subjects, not holdable
+names. Evaluations cache in `research_cache` (kind `ipo_eval`) pinned to the
+accession number, so an amendment re-grades automatically.
 
 ---
 

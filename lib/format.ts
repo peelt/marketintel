@@ -180,6 +180,11 @@ const CRITERION_SHORT_LABELS: Record<string, string> = {
   earned_damage: "damage",
   balance_sheet_resilience: "balance",
   repricing_depth: "repricing",
+  business_quality: "biz",
+  growth_prospects: "growth",
+  risk_profile: "risk",
+  governance: "gov",
+  offering_terms: "terms",
 };
 
 export function criterionShortLabel(key: string): string {
