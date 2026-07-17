@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   classificationLabel,
+  criterionShortLabel,
+  dayChangeFraction,
   humanizeDateTime,
   humanizeSchedule,
   nextRunLabel,
   stripInlineMarkdown,
 } from "@/lib/format";
+import { radarPoints } from "@/lib/radar";
 
 describe("humanizeSchedule", () => {
   it("translates the product's real crons", () => {
@@ -70,5 +73,44 @@ describe("humanizeDateTime", () => {
 describe("classificationLabel", () => {
   it("de-snakes the vocabulary", () => {
     expect(classificationLabel("elevated_cut_risk")).toBe("elevated cut risk");
+  });
+});
+
+describe("dayChangeFraction", () => {
+  it("computes change against the prior value", () => {
+    // value 1010 after a +10 day = +10/1000 = +1%
+    expect(dayChangeFraction(1010, 10)).toBeCloseTo(0.01);
+    expect(dayChangeFraction(990, -10)).toBeCloseTo(-0.01);
+  });
+  it("nulls out rather than fabricating a percentage", () => {
+    expect(dayChangeFraction(null, 10)).toBeNull();
+    expect(dayChangeFraction(1010, null)).toBeNull();
+    expect(dayChangeFraction(5, 10)).toBeNull(); // prior would be negative
+  });
+});
+
+describe("criterionShortLabel", () => {
+  it("maps known framework criteria and falls back to the first word", () => {
+    expect(criterionShortLabel("cost_position")).toBe("cost");
+    expect(criterionShortLabel("coverage_and_sustainability")).toBe("cover");
+    expect(criterionShortLabel("some_new_criterion")).toBe("some");
+  });
+});
+
+describe("radarPoints", () => {
+  it("starts at 12 o'clock and scales by score", () => {
+    const pts = radarPoints([100, 50, 50], 50, 0);
+    // First vertex: full radius straight up from center (0,-50).
+    expect(pts[0].x).toBeCloseTo(0, 5);
+    expect(pts[0].y).toBeCloseTo(-50, 5);
+    // All points within the radius.
+    for (const p of pts) {
+      expect(Math.hypot(p.x, p.y)).toBeLessThanOrEqual(50.0001);
+    }
+  });
+  it("clamps out-of-range scores instead of drawing outside the grid", () => {
+    const pts = radarPoints([150, -20, 50], 50, 0);
+    expect(Math.hypot(pts[0].x, pts[0].y)).toBeCloseTo(50, 5);
+    expect(Math.hypot(pts[1].x, pts[1].y)).toBeCloseTo(0, 5);
   });
 });

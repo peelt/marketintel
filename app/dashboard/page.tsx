@@ -11,8 +11,10 @@ import {
 } from "@/components/cli";
 import {
   changeColor,
+  dayChangeFraction,
   formatMoney,
   formatSignedMoney,
+  formatSignedPercent,
   humanizeDateTime,
   humanizeSchedule,
   nextRunLabel,
@@ -167,30 +169,7 @@ export default async function DashboardPage() {
           </form>
         </div>
 
-        {/* Status strip — is the machine alive? */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border-2 border-border bg-il-tint px-4 py-3 font-mono-cli text-base text-il-navy">
-          <span>
-            prices to{" "}
-            <strong>
-              {pricesAsOf
-                ? new Date(pricesAsOf).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                  })
-                : "—"}
-            </strong>
-          </span>
-          <span>
-            <strong>{securitiesCount.count ?? 0}</strong> securities tracked
-          </span>
-          {nextRuns.map(({ a, next }) => (
-            <span key={a.name} className="text-muted-foreground">
-              next {a.displayName.split(" ")[0].toLowerCase()}: {next}
-            </span>
-          ))}
-        </div>
-
-        {/* My portfolio — compact summary; full surface at /portfolio */}
+        {/* My portfolio — YOUR money first; system telemetry lives at the bottom */}
         <section className="mt-8">
           <div className="flex items-baseline justify-between">
             <div className="font-mono-cli text-base text-il-navy">~ my portfolio</div>
@@ -218,6 +197,18 @@ export default async function DashboardPage() {
                   style={{ color: changeColor(portfolioTotal.baseDayChange) }}
                 >
                   {formatSignedMoney(portfolioTotal.baseDayChange, base)}
+                  {dayChangeFraction(portfolioTotal.baseValue, portfolioTotal.baseDayChange) !== null && (
+                    <span className="ml-1.5 text-base font-normal">
+                      (
+                      {formatSignedPercent(
+                        dayChangeFraction(
+                          portfolioTotal.baseValue,
+                          portfolioTotal.baseDayChange,
+                        ),
+                      )}
+                      )
+                    </span>
+                  )}
                 </div>
               </div>
               <div>
@@ -343,6 +334,24 @@ export default async function DashboardPage() {
         </section>
 
         <hr className="divider-cli my-10" />
+
+        {/* System status — quiet telemetry, deliberately below the fold */}
+        <p className="mb-6 font-mono-cli text-sm text-muted-foreground">
+          ~ prices to{" "}
+          {pricesAsOf
+            ? new Date(pricesAsOf).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+              })
+            : "—"}{" "}
+          · {securitiesCount.count ?? 0} securities tracked
+          {nextRuns.map(({ a, next }) => (
+            <span key={a.name}>
+              {" "}
+              · next {a.displayName.split(" ")[0].toLowerCase()}: {next}
+            </span>
+          ))}
+        </p>
 
         <section className="grid gap-4 sm:grid-cols-3">
           <Link href="/reports" className="card-cli block p-6">

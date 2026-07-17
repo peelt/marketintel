@@ -14,6 +14,7 @@ import {
   SiteHeader,
 } from "@/components/cli";
 import { classificationLabel, humanizeDateTime } from "@/lib/format";
+import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 
@@ -68,6 +69,24 @@ function displayComposite(it: ReportItemRow): string {
 
 function coverageOf(it: ReportItemRow): number {
   return it.scoring_breakdown?.coverage ?? 0;
+}
+
+/**
+ * Honest one-liner for an empty criterion — a glass-box product never shows
+ * unexplained absence. The known structural gap (no free UK fundamentals
+ * source) gets named; everything else states the general truth without
+ * inventing specifics.
+ */
+function noDataReason(criterionKey: string, exchange: string | null): string {
+  const fundamentalsKeys = [
+    "balance_sheet",
+    "coverage_and_sustainability",
+    "balance_sheet_resilience",
+  ];
+  if (exchange === "LSE" && fundamentalsKeys.includes(criterionKey)) {
+    return "UK fundamentals aren't served by the current data sources — a known gap. The weight redistributed to the other criteria.";
+  }
+  return "No active source had this input this run; its weight redistributed to the other criteria.";
 }
 
 interface EvidenceRow {
@@ -302,7 +321,14 @@ export default async function ReportDetailPage({
                 <tr>
                   <th className="px-4 py-2.5 text-left">#</th>
                   <th className="px-4 py-2.5 text-left">Name</th>
-                  <th className="px-4 py-2.5 text-right">Score</th>
+                  <th className="px-4 py-2.5 text-right">
+                    <abbr
+                      title="Weighted composite against the framework, out of 100. Higher is stronger."
+                      className="no-underline"
+                    >
+                      Score / 100
+                    </abbr>
+                  </th>
                   <th className="px-4 py-2.5 text-left">Coverage</th>
                   <th className="px-4 py-2.5 text-left">Classification</th>
                 </tr>
@@ -439,27 +465,52 @@ export default async function ReportDetailPage({
                     )}
 
                     {Object.keys(criteria).length > 0 && (
-                      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {Object.entries(criteria).map(([key, c]) => (
-                          <div
-                            key={key}
-                            className="rounded border border-border px-3 py-2"
-                          >
-                            <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                              {classificationLabel(key)}
-                            </div>
-                            <div className="mt-1 font-mono-cli text-base">
-                              {/* null = no data. NEVER render as 0. */}
-                              {c.score === null ? (
-                                <span className="text-muted-foreground">
-                                  no data
-                                </span>
-                              ) : (
-                                c.score.toFixed(1)
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                      <div className="mb-4 flex flex-wrap items-start gap-4">
+                        <CriteriaRadar
+                          criteria={Object.entries(criteria).map(([key, c]) => ({
+                            key,
+                            score: c.score,
+                          }))}
+                        />
+                        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                          {[...Object.entries(criteria)]
+                            .sort(([, a], [, b]) =>
+                              // Populated tiles first; empties sit last, muted.
+                              (a.score === null ? 1 : 0) - (b.score === null ? 1 : 0),
+                            )
+                            .map(([key, c]) => (
+                              <div
+                                key={key}
+                                className={`rounded border px-3 py-2 ${
+                                  c.score === null
+                                    ? "border-dashed border-border/70 opacity-70"
+                                    : "border-border"
+                                }`}
+                              >
+                                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                                  {classificationLabel(key)}
+                                </div>
+                                <div className="mt-1 font-mono-cli text-base">
+                                  {/* null = no data. NEVER render as 0. */}
+                                  {c.score === null ? (
+                                    <span className="text-muted-foreground">no data</span>
+                                  ) : (
+                                    <>
+                                      {c.score.toFixed(1)}
+                                      <span className="ml-0.5 text-sm text-muted-foreground">
+                                        /100
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                {c.score === null && (
+                                  <div className="mt-1 text-xs leading-snug text-muted-foreground">
+                                    {noDataReason(key, it.security?.exchange ?? null)}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                        </div>
                       </div>
                     )}
 

@@ -18,6 +18,7 @@ import {
 } from "@/lib/holdings/valuation";
 import {
   changeColor,
+  dayChangeFraction,
   formatMoney,
   formatSignedMoney,
   formatSignedPercent,
@@ -109,6 +110,11 @@ export default async function PortfolioPage() {
                 style={{ color: changeColor(totals.baseDayChange) }}
               >
                 {formatSignedMoney(totals.baseDayChange, base)}
+                {dayChangeFraction(totals.baseValue, totals.baseDayChange) !== null && (
+                  <span className="ml-1.5 text-lg font-normal">
+                    ({formatSignedPercent(dayChangeFraction(totals.baseValue, totals.baseDayChange))})
+                  </span>
+                )}
               </div>
             </div>
             {hasCostBasis && (
@@ -137,6 +143,13 @@ export default async function PortfolioPage() {
               )}
             </div>
           </section>
+        )}
+
+        {/* Add flow stays prominent while the book is small */}
+        {held.length > 0 && held.length < 3 && (
+          <div className="mt-6">
+            <AddHolding />
+          </div>
         )}
 
         {/* Intel lens — what changed on your names + portfolio health */}
@@ -246,11 +259,21 @@ export default async function PortfolioPage() {
                       )}
                       <td className="px-4 py-3">
                         {h.classification ? (
-                          <Link href={h.verdictReportId ? `/reports/${h.verdictReportId}` : "/reports"}>
+                          <Link
+                            href={h.verdictReportId ? `/reports/${h.verdictReportId}` : "/reports"}
+                            title={
+                              h.classification === "insufficient_data"
+                                ? "The desk saw this name but withheld a classification — not enough data behind the framework this run. Open the report to see exactly what was missing."
+                                : "The desk's latest classification — open the report for the evidence behind it."
+                            }
+                          >
                             <ClassificationChip classification={h.classification} />
                           </Link>
                         ) : (
-                          <span className="font-mono-cli text-sm text-muted-foreground">
+                          <span
+                            className="font-mono-cli text-sm text-muted-foreground"
+                            title="No desk has screened this name yet. Coverage builds automatically as the desks run on their schedules."
+                          >
                             not yet covered
                           </span>
                         )}
@@ -279,9 +302,11 @@ export default async function PortfolioPage() {
           </p>
         )}
 
-        <div className="mt-8">
-          <AddHolding />
-        </div>
+        {(held.length === 0 || held.length >= 3) && (
+          <div className="mt-8">
+            <AddHolding />
+          </div>
+        )}
 
         <Disclaimer />
       </main>
