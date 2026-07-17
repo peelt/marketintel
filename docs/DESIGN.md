@@ -66,6 +66,35 @@ sibling sites come only from the brand variables below.
   `CoverageBar` (both in components/cli.tsx). List summaries strip markdown
   (`stripInlineMarkdown`) — raw `**bold**` in the UI was a live bug.
 
+## UX review outcomes (17 Jul 2026 — external benchmark review)
+
+Adopted (all presentation-layer):
+- **One traffic-light component**: `ClassificationChip` (pill + leading dot)
+  is THE treatment for classifications everywhere. Module colours (desk
+  identity) and delta glyphs (direction) are distinct concepts and keep their
+  own treatments — they are not traffic lights.
+- **Criteria radar** (`components/criteria-radar.tsx`): the product's "score
+  shape" — a polygon of the framework's criterion scores per candidate.
+  Glass-box by construction: every vertex is a labelled criterion. Null
+  criteria are excluded, never drawn at zero; <3 populated criteria → no radar.
+- **No unexplained absence**: every "no data"/withheld state carries a
+  one-line reason (and names the UK-fundamentals gap where that's the cause).
+- **You before telemetry**: dashboard order is portfolio → signals → status
+  line (small, muted, bottom). Composite scores show their /100 scale.
+- **Reports group by desk**: latest edition prominent, prior editions
+  collapsed — successive runs are versions of one publication.
+
+Considered and REJECTED (do not re-propose without new evidence):
+- Dropping the terminal/mono aesthetic → it is the family brand language
+  (this file, top). Legibility is refined INSIDE the brand (type floor, mono
+  for machine text only).
+- A single TipRanks-style product-wide score badge → the black-box pattern
+  this product positions against; also cross-desk blending is a settled "no".
+- Dark mode → excluded by the family spec.
+
+Deferred with triggers: portfolio allocation charts + benchmark comparison
+(when holdings > 5); table filtering/sorting (when a report exceeds ~50 rows).
+
 ## Do / Don't (short form)
 
 **Do** keep white/navy/orange untouched; use mono for machine text; let

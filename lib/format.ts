@@ -153,6 +153,40 @@ export function changeColor(amount: number | null): string {
 }
 
 /**
+ * Day change as a fraction of the PRIOR value (change / (value − change)).
+ * Null when it can't be computed honestly — never a fabricated 0%.
+ */
+export function dayChangeFraction(
+  currentValue: number | null,
+  dayChange: number | null,
+): number | null {
+  if (currentValue == null || dayChange == null) return null;
+  const prior = currentValue - dayChange;
+  if (prior <= 0) return null;
+  return dayChange / prior;
+}
+
+/** Short axis label for a framework criterion key (radar + compact UIs). */
+const CRITERION_SHORT_LABELS: Record<string, string> = {
+  cost_position: "cost",
+  balance_sheet: "balance",
+  valuation_vs_history: "value",
+  shareholder_returns: "returns",
+  yield_attractiveness: "yield",
+  coverage_and_sustainability: "cover",
+  track_record: "track",
+  cut_risk_signals: "cut risk",
+  excess_decline: "decline",
+  earned_damage: "damage",
+  balance_sheet_resilience: "balance",
+  repricing_depth: "repricing",
+};
+
+export function criterionShortLabel(key: string): string {
+  return CRITERION_SHORT_LABELS[key] ?? key.split("_")[0];
+}
+
+/**
  * Parsed structure of a Reaction news-evidence row. The agent persists these
  * as `[TICKER · damage N/100 · confidence] headline\n\nsummary\n\nSources:\n
  * title — url` — this parser turns that back into renderable parts so the
