@@ -9,20 +9,34 @@ import { isFresh } from "@/lib/agents/metals/research-cache";
 import { parseNewsEvidence } from "@/lib/format";
 import type { CandidateScore } from "@/lib/scoring/types";
 
-function scored(
-  composite: number,
-  coverage = 0.8,
-  costGrade: number | null = 70,
-): CandidateScore {
+function scored(overrides: {
+  coverage?: number;
+  cost?: number | null;
+  debt?: number | null;
+  fcf?: number | null;
+  discount?: number | null;
+}): CandidateScore {
+  const { coverage = 0.8, cost = 70, debt = 1.0, fcf = 0.04, discount = 0.2 } = overrides;
   return {
     securityId: "s1",
-    composite,
+    composite: 50, // deliberately mid — the composite must NOT drive labels
     coverage,
     criteria: {
       cost_position: {
         score: 70,
+        signals: { aisc_margin_grade: { raw: cost, normalised: cost, weight: 1 } },
+      },
+      balance_sheet: {
+        score: 50,
         signals: {
-          aisc_margin_grade: { raw: costGrade, normalised: costGrade, weight: 1 },
+          debt_to_ebitda_ttm: { raw: debt, normalised: 50, weight: 0.5 },
+          fcf_yield_ttm: { raw: fcf, normalised: 50, weight: 0.5 },
+        },
+      },
+      valuation_vs_history: {
+        score: 50,
+        signals: {
+          discount_to_52w_high: { raw: discount, normalised: 50, weight: 0.6 },
         },
       },
     },
@@ -44,28 +58,51 @@ describe("metals metrics", () => {
   });
 });
 
-describe("classifyMetals", () => {
-  it("bands the composite into position verdicts", () => {
-    expect(classifyMetals(scored(75)).classification).toBe("well_positioned");
-    expect(classifyMetals(scored(55)).classification).toBe("mixed");
-    expect(classifyMetals(scored(30)).classification).toBe("vulnerable");
+describe("classifyMetals — absolute facts, never the blended composite", () => {
+  it("labels a strong cost position with a clean balance sheet well_positioned", () => {
+    const c = classifyMetals(scored({ cost: 82, debt: 0.8, fcf: 0.05 }));
+    expect(c.classification).toBe("well_positioned");
+    expect(c.verdict).toContain("82/100");
   });
 
-  it("withholds classification below the coverage floor", () => {
-    const c = classifyMetals(scored(75, 0.2));
+  it("a premier miner near its 52w high must NOT be vulnerable (the live v1 failure)", () => {
+    // Strong absolute facts + zero price discount — v1 mislabelled this.
+    const c = classifyMetals(scored({ cost: 75, debt: 0.5, fcf: 0.06, discount: 0.02 }));
+    expect(c.classification).toBe("well_positioned");
+  });
+
+  it("vulnerable requires an absolute reason: thin margin, stretched debt, or cash burn", () => {
+    expect(classifyMetals(scored({ cost: 30 })).classification).toBe("vulnerable");
+    expect(classifyMetals(scored({ cost: 75, debt: 4.2 })).classification).toBe("vulnerable");
+    expect(classifyMetals(scored({ cost: 50, fcf: -0.03 })).classification).toBe("vulnerable");
+    // strong cost + cash burn is mixed, not vulnerable
+    expect(classifyMetals(scored({ cost: 75, fcf: -0.03 })).classification).toBe("mixed");
+  });
+
+  it("middling facts are mixed", () => {
+    expect(classifyMetals(scored({ cost: 60 })).classification).toBe("mixed");
+  });
+
+  it("valuation is factual context in the verdict, never the judgment", () => {
+    const c = classifyMetals(scored({ cost: 82, debt: 0.8, discount: 0.35 }));
+    expect(c.verdict).toContain("35% below its trailing-year high");
+    expect(c.classification).toBe("well_positioned");
+  });
+
+  it("withholds below the coverage floor", () => {
+    const c = classifyMetals(scored({ coverage: 0.2 }));
     expect(c.classification).toBe("insufficient_data");
     expect(c.verdict).toContain("withheld");
   });
 
-  it("verdict names the cost grade when present, and the gap when absent", () => {
-    expect(classifyMetals(scored(75)).verdict).toContain("70/100");
-    expect(classifyMetals(scored(75, 0.8, null)).verdict).toContain(
-      "No current cost disclosure",
-    );
+  it("withholds when the cost grade is missing — price action alone must not label", () => {
+    const c = classifyMetals(scored({ cost: null }));
+    expect(c.classification).toBe("insufficient_data");
+    expect(c.verdict).toContain("No current cost disclosure");
   });
 
   it("verdict text is factual and impersonal (I2)", () => {
-    const c = classifyMetals(scored(30));
+    const c = classifyMetals(scored({ cost: 30, debt: 4.0 }));
     for (const banned of ["you should", "buy", "sell", "avoid", "your "]) {
       expect(c.verdict.toLowerCase()).not.toContain(banned);
     }
