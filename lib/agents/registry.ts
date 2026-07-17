@@ -16,7 +16,8 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
     schedule: "0 17 * * 2,5", // Tue + Fri 17:00 UTC (settled)
-    modelTier: "deep",
+    modelTier: "routine", // research runs on the routine tier since the cost-control pass
+
     status: "live",
   },
   ipo: {

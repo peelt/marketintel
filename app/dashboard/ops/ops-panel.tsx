@@ -253,7 +253,10 @@ function summarise(task: string, r: Record<string, unknown>): string {
     const untagged = num(r.untagged);
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.${untagged > 0 ? ` ${untagged} removed from curated watchlists.` : ""}`;
   }
-  if (task === "run-dividend" || task === "run-reaction" || task === "run-metals") {
+  if (
+    (task === "run-dividend" || task === "run-reaction" || task === "run-metals") &&
+    typeof r.queued !== "number"
+  ) {
     return "Report filed successfully.";
   }
   if (task === "seed-broad-universe") {

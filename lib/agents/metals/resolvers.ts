@@ -19,6 +19,7 @@ import {
   gradeMetalsCost,
   type MetalsResearchGrade,
 } from "./research";
+import { loadCachedGrades, saveCachedGrades } from "./research-cache";
 
 /**
  * Metals signal resolvers. Deterministic signals load lazily from existing
@@ -71,24 +72,46 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
   ): Promise<Map<string, MetalsResearchGrade | null>> {
     const missing = ids.filter((id) => !researchGrades.has(id));
     if (missing.length > 0) {
-      const runAll = mapWithConcurrency(missing, RESEARCH_CONCURRENCY, async (id) => {
-        const security = ctx.securities.get(id);
-        if (!security) return null;
-        return gradeMetalsCost({
-          ticker: security.ticker,
-          exchange: security.exchange,
-          name: security.name,
-          kind: security.asset_class === "royalty" ? "royalty" : "miner",
-          metalContext: ctx.metalContext,
-          asOf: ctx.asOf,
+      // Cost control: AISC changes quarterly, so serve fresh-enough grades
+      // from the 30-day cache and pay for research only on the misses.
+      const cached = await loadCachedGrades(missing);
+      for (const [id, grade] of cached) {
+        researchGrades.set(id, Promise.resolve(grade));
+      }
+      const toResearch = missing.filter((id) => !cached.has(id));
+
+      if (toResearch.length > 0) {
+        const runAll = mapWithConcurrency(
+          toResearch,
+          RESEARCH_CONCURRENCY,
+          async (id) => {
+            const security = ctx.securities.get(id);
+            if (!security) return null;
+            return gradeMetalsCost({
+              ticker: security.ticker,
+              exchange: security.exchange,
+              name: security.name,
+              kind: security.asset_class === "royalty" ? "royalty" : "miner",
+              metalContext: ctx.metalContext,
+              asOf: ctx.asOf,
+            });
+          },
+        ).then(async (grades) => {
+          const fresh = new Map<string, MetalsResearchGrade>();
+          toResearch.forEach((id, idx) => {
+            const g = grades[idx];
+            if (g) fresh.set(id, g);
+          });
+          await saveCachedGrades(fresh);
+          return grades;
         });
-      });
-      missing.forEach((id, idx) => {
-        researchGrades.set(
-          id,
-          runAll.then((grades) => grades[idx]),
-        );
-      });
+        toResearch.forEach((id, idx) => {
+          researchGrades.set(
+            id,
+            runAll.then((grades) => grades[idx]),
+          );
+        });
+      }
     }
     const out = new Map<string, MetalsResearchGrade | null>();
     for (const id of ids) {
