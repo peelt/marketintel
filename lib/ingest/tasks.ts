@@ -197,15 +197,19 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       );
     }
     case "run-metals": {
-      const [{ metalsAgent }, { runAgent }] = await Promise.all([
-        import("@/lib/agents/metals/agent"),
-        import("@/lib/agents/run"),
-      ]);
-      return runAgent(
-        metalsAgent,
-        { reason: "manual ops trigger" },
-        { trigger: "manual" },
-      );
+      // ~23 names × deep-tier web research doesn't fit a server action's time
+      // budget (the run takes 8–12 minutes) — hand it to the metals-weekly
+      // Inngest function via its manual-trigger event instead of running
+      // inline. Same code path and run-lifecycle guarantees as the cron.
+      const { inngest } = await import("@/lib/inngest/client");
+      await inngest.send({
+        name: "agent/run.requested",
+        data: { agentName: "metals", reason: "manual ops trigger" },
+      });
+      return {
+        queued: 23,
+        note: "Metals run queued via Inngest — it researches ~23 companies' cost reporting and takes 5–10 minutes. The report appears under Reports when it finishes (progress in the Inngest dashboard).",
+      };
     }
     case "broad-prices": {
       // ~850 names at provider throttle far exceeds one serverless call —

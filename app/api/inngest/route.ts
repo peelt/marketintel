@@ -9,8 +9,11 @@ import {
   reactionScheduled,
 } from "@/lib/inngest/functions/reaction";
 
-// Agent runs fan out to data providers and the LLM — allow the full budget.
-export const maxDuration = 300;
+// Agent runs fan out to data providers and the LLM. The Metals desk is the
+// long pole: ~23 deep-tier web-research calls ≈ 6–10 minutes in one
+// invocation, so take the platform's full budget (Vercel Pro + Fluid compute
+// allows 800s), not the 300s that killed the first live run.
+export const maxDuration = 800;
 
 /**
  * Inngest serves and signs invocations at this route. Functions get added to
