@@ -14,10 +14,12 @@ import {
 import { debtToEbitda, ttmDividendPerShare, trailingYield } from "@/lib/agents/dividend/metrics";
 import { fcfYield, rsVsBenchmark } from "./metrics";
 import { loadDividends, type MetalsSecurity } from "./data";
+import { isStale, latestSessionDate } from "@/lib/data-sources/staleness";
 import {
   confidenceWeight,
   gradeMetalsCost,
   reconcileCostGrade,
+  type MetalHint,
   type MetalsResearchGrade,
 } from "./research";
 import { loadCachedGrades, saveCachedGrades } from "./research-cache";
@@ -91,7 +93,11 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           async (id) => {
             const security = ctx.securities.get(id);
             if (!security) return null;
-            const graded = await gradeMetalsCost({
+            // Cache the MODEL grade untouched; reconciliation happens at the
+            // point of use (resolveBatch) against the CURRENT spot, so a grade
+            // served from the 30-day cache still reflects today's metal price,
+            // not the price at research time.
+            return gradeMetalsCost({
               ticker: security.ticker,
               exchange: security.exchange,
               name: security.name,
@@ -99,12 +105,6 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
               metalContext: ctx.metalContext,
               asOf: ctx.asOf,
             });
-            // The arithmetic the model's own AISC implies wins over a
-            // contradictory grade (the live AEM 1/100 failure). Reconciled
-            // BEFORE caching so cached grades are already consistent.
-            return graded
-              ? reconcileCostGrade(graded, ctx.goldSpotUsd, ctx.silverSpotUsd)
-              : null;
           },
         ).then(async (grades) => {
           const fresh = new Map<string, MetalsResearchGrade>();
@@ -141,12 +141,22 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
       case "metals.cost_margin_grade": {
         const grades = await researchFor(securityIds);
         for (const id of securityIds) {
-          const grade = grades.get(id);
+          const raw = grades.get(id);
           const security = ctx.securities.get(id);
-          if (!grade || !security) {
+          if (!raw || !security) {
             out.set(id, NO_DATA);
             continue;
           }
+          // Reconcile the model grade against the CURRENT spot, with the metal
+          // taken from the security (never guessed from AISC magnitude). Both
+          // the score `raw` and the evidence card use the reconciled grade, so
+          // the badge and the number scoring reads always agree.
+          const grade = reconcileCostGrade(
+            raw,
+            ctx.goldSpotUsd,
+            ctx.silverSpotUsd,
+            metalOf(security),
+          );
           out.set(id, {
             raw: grade.costMarginGrade,
             evidence: [researchEvidence(security.ticker, grade)],
@@ -204,7 +214,13 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           const s = all.get(id) ?? [];
           const security = ctx.securities.get(id);
           const value = discountToHigh(s);
-          if (value == null || !security) {
+          // Stale prices would misstate the 52-week-high discount; withhold
+          // rather than compute from a weeks-old close.
+          if (
+            value == null ||
+            !security ||
+            isStale(latestSessionDate(s), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
@@ -224,13 +240,23 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
         const all = await series(securityIds);
         const bench = ctx.goldBenchmarkId ? (all.get(ctx.goldBenchmarkId) ?? []) : [];
         const benchReturn = returnOverSessions(bench, SESSIONS_6M);
+        // A stale GLD benchmark would be subtracted from fresh stock returns,
+        // fabricating relative strength — the exact finding. If the benchmark
+        // is stale, the whole signal is unreliable for every name.
+        const benchStale = isStale(latestSessionDate(bench), ctx.asOf);
         for (const id of securityIds) {
           const security = ctx.securities.get(id);
+          const nameSeries = all.get(id) ?? [];
           const value = rsVsBenchmark(
-            returnOverSessions(all.get(id) ?? [], SESSIONS_6M),
+            returnOverSessions(nameSeries, SESSIONS_6M),
             benchReturn,
           );
-          if (value == null || !security) {
+          if (
+            value == null ||
+            !security ||
+            benchStale ||
+            isStale(latestSessionDate(nameSeries), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
@@ -261,7 +287,12 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           }));
           const dps = ttmDividendPerShare(payments, ctx.asOf);
           const value = trailingYield(dps, latestClose);
-          if (value == null || !security) {
+          // A stale close distorts the trailing yield (yield = DPS / price).
+          if (
+            value == null ||
+            !security ||
+            isStale(latestSessionDate(s), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
@@ -291,6 +322,19 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
     },
     resolveBatch,
   };
+}
+
+/**
+ * The security's metal, for the deterministic margin cross-check. Read from
+ * the sub_sector ("Gold", "Silver", "Silver/Gold" → silver); null for
+ * royalty/streaming names with no single metal, where the check falls back to
+ * the AISC-magnitude heuristic.
+ */
+function metalOf(security: MetalsSecurity): MetalHint {
+  const s = (security.sub_sector ?? "").toLowerCase();
+  if (s.includes("silver")) return "silver";
+  if (s.includes("gold")) return "gold";
+  return null;
 }
 
 function derived(text: string, weight: number): EvidenceItem {

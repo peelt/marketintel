@@ -11,6 +11,7 @@ import {
   dailyPriceRefresh,
   reactionScheduled,
 } from "@/lib/inngest/functions/reaction";
+import { weeklyDataRefresh } from "@/lib/inngest/functions/refresh";
 
 // Agent runs fan out to data providers and the LLM. The Metals desk is the
 // long pole: ~23 deep-tier web-research calls ≈ 6–10 minutes in one
@@ -37,6 +38,7 @@ const handler = serve({
     chunkedIngest,
     reactionScheduled,
     dailyPriceRefresh,
+    weeklyDataRefresh,
     metalsScheduled,
     ipoScheduled,
     geopoliticalScheduled,

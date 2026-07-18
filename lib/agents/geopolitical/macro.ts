@@ -171,6 +171,11 @@ export function parseMacroRead(text: string): MacroRead | null {
       });
     }
     if (themes.length === 0) return null;
+    // Schema asks for 3–6 themes; enforce the ceiling the model was told
+    // about. Every theme is injected into ~38 per-name prompts, so an
+    // over-long list is token bloat plus low-signal themes entering the
+    // ranking anchor. Keep the most-consequential (model returns them first).
+    const cappedThemes = themes.slice(0, 6);
     const sources = Array.isArray(c.sources)
       ? c.sources
           .filter(
@@ -182,7 +187,7 @@ export function parseMacroRead(text: string): MacroRead | null {
           )
           .slice(0, 8)
       : [];
-    return { themes, asOfNote: c.as_of_note, sources };
+    return { themes: cappedThemes, asOfNote: c.as_of_note, sources };
   } catch {
     return null;
   }

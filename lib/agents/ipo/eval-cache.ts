@@ -12,7 +12,11 @@ import type { IpoEval } from "./research";
  * Cache failures never block a run — a miss just means a live evaluation.
  */
 
-const KIND = "ipo_eval";
+// Versioned kind: a parser or prompt fix bumps this so every prior row misses
+// and re-grades through the new logic (the metals lesson — there is otherwise
+// no lever to evict a poisoned eval, because discovery only surfaces original
+// S-1/F-1 forms, never the S-1/A amendment that would change the accession).
+const KIND = "ipo_eval_v2";
 export const IPO_CACHE_MAX_AGE_DAYS = 30;
 
 export interface CachedIpoEval extends IpoEval {
@@ -25,15 +29,48 @@ interface CacheRow {
   graded_at: string;
 }
 
+/**
+ * The grade fields a usable cached payload must carry. Validating the WHOLE
+ * shape (not just accession + headline) means a future schema change — a new
+ * required field — leaves old rows failing this check and re-grading, rather
+ * than being read back with an `undefined` grade that scores as null.
+ */
+const REQUIRED_GRADE_KEYS: (keyof IpoEval)[] = [
+  "businessQualityGrade",
+  "growthGrade",
+  "riskGrade",
+  "governanceGrade",
+  "offeringTermsGrade",
+  "headline",
+  "summary",
+  "isShellOrSpac",
+  "confidence",
+];
+
 /** Pure usability check — exported for tests. */
 export function cacheUsable(
-  payload: { accession?: unknown; headline?: unknown } | null,
+  payload: (Partial<CachedIpoEval> & { accession?: unknown }) | null,
   gradedAtIso: string,
   expectedAccession: string,
   now: Date = new Date(),
 ): boolean {
   if (!payload || payload.accession !== expectedAccession) return false;
-  if (typeof payload.headline !== "string") return false;
+  // Full-shape guard: every grade field must be present and of the right type.
+  const p = payload as Record<string, unknown>;
+  for (const key of REQUIRED_GRADE_KEYS) {
+    const v = p[key];
+    if (key === "isShellOrSpac") {
+      if (typeof v !== "boolean") return false;
+    } else if (
+      key === "headline" ||
+      key === "summary" ||
+      key === "confidence"
+    ) {
+      if (typeof v !== "string") return false;
+    } else if (typeof v !== "number") {
+      return false;
+    }
+  }
   const age = now.getTime() - Date.parse(gradedAtIso);
   return (
     Number.isFinite(age) &&

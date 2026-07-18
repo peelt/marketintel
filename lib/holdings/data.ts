@@ -1,5 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
+import { getErrorMessage } from "@/lib/errors";
+
+/**
+ * How far back to look for a held name's latest verdict. All desks run at
+ * least weekly, so ~120 days always contains a recent one; bounding the read
+ * (with pagination) is what keeps report_items — which grows one row per name
+ * per weekly run forever — from silently tripping PostgREST's 1,000-row cap
+ * and dropping the last-sorted names' verdicts.
+ */
+const VERDICT_LOOKBACK_DAYS = 120;
 
 /**
  * Read model for the My Portfolio surfaces. All reads run under the caller's
@@ -84,13 +94,17 @@ export async function loadDefaultPortfolio(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<PortfolioRow | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("portfolios")
     .select("id, name, base_currency")
     .eq("user_id", userId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<PortfolioRow>();
+  // Don't let a read error masquerade as "no portfolio yet" silently.
+  if (error) {
+    throw new Error(`loadDefaultPortfolio: ${getErrorMessage(error)}`);
+  }
   return data ?? null;
 }
 
@@ -98,7 +112,7 @@ export async function loadHeldNames(
   supabase: SupabaseClient,
   portfolioId: string,
 ): Promise<HeldName[]> {
-  const { data: holdings } = await supabase
+  const { data: holdings, error: holdingsErr } = await supabase
     .from("holdings")
     .select(
       "id, security_id, quantity, purchase_price, purchase_currency, purchase_date, notes, security:securities(id, ticker, exchange, name, currency)",
@@ -106,6 +120,11 @@ export async function loadHeldNames(
     .eq("portfolio_id", portfolioId)
     .order("created_at", { ascending: true })
     .returns<HoldingBase[]>();
+  // A read error here must NOT render as an empty portfolio (a user seeing
+  // £0 and no holdings would think their positions vanished). Surface it.
+  if (holdingsErr) {
+    throw new Error(`loadHeldNames holdings: ${getErrorMessage(holdingsErr)}`);
+  }
 
   const rows = holdings ?? [];
   if (rows.length === 0) return [];
@@ -139,16 +158,31 @@ export async function loadHeldNames(
     else if (!previous.has(p.security_id)) previous.set(p.security_id, p);
   }
 
-  // Latest succeeded verdict per held security.
-  const { data: verdictData } = await supabase
-    .from("report_items")
-    .select(
-      "security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
-    )
-    .in("security_id", securityIds)
-    .eq("report.agent_runs.status", "succeeded")
-    .order("security_id", { ascending: true })
-    .returns<VerdictRow[]>();
+  // Latest succeeded verdict per held security. Date-bounded AND paginated:
+  // report_items accumulate one row per name per weekly run indefinitely, so
+  // an unbounded read silently truncates at 1,000 rows once a portfolio has
+  // run long enough, dropping whichever securities sort last. Deterministic
+  // total order (security_id, then id) makes pagination safe; the latest is
+  // still picked by generated_at in memory.
+  const verdictSinceIso = new Date(
+    Date.now() - VERDICT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const verdictData = await fetchAllRows<VerdictRow>(
+    (from, to) =>
+      supabase
+        .from("report_items")
+        .select(
+          "id, security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
+        )
+        .in("security_id", securityIds)
+        .eq("report.agent_runs.status", "succeeded")
+        .gte("report.generated_at", verdictSinceIso)
+        .order("security_id", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<VerdictRow[]>(),
+    "held verdicts",
+  );
 
   const latestVerdict = new Map<string, VerdictRow>();
   for (const v of verdictData ?? []) {

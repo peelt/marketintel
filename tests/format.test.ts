@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classificationLabel,
+  compositeDisplay,
   criterionShortLabel,
   dayChangeFraction,
   humanizeDateTime,
@@ -86,6 +87,22 @@ describe("dayChangeFraction", () => {
     expect(dayChangeFraction(null, 10)).toBeNull();
     expect(dayChangeFraction(1010, null)).toBeNull();
     expect(dayChangeFraction(5, 10)).toBeNull(); // prior would be negative
+  });
+});
+
+describe("compositeDisplay", () => {
+  it("renders a real composite to one decimal", () => {
+    expect(compositeDisplay(71.66, 0.82)).toBe("71.7");
+    expect(compositeDisplay(0, 0.5)).toBe("0.0"); // a genuine 0 WITH data stays 0.0
+  });
+  it("renders — when coverage is 0 (missing ≠ zero), never a fabricated 0.0", () => {
+    expect(compositeDisplay(0, 0)).toBe("—");
+    expect(compositeDisplay(42, 0)).toBe("—");
+  });
+  it("renders — for a null/absent composite or coverage rather than crashing", () => {
+    expect(compositeDisplay(null, 0.5)).toBe("—");
+    expect(compositeDisplay(50, null)).toBe("—");
+    expect(compositeDisplay(undefined, undefined)).toBe("—");
   });
 });
 

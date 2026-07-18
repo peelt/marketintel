@@ -12,7 +12,7 @@ import { hostOf } from "@/lib/format";
 import { loadGeopoliticalUniverse, type GeopoliticalSecurity } from "./data";
 import { researchMacroRead, themesForPrompt, type MacroRead } from "./macro";
 import { classifyGeopolitical, MIN_COVERAGE_TO_CLASSIFY } from "./metrics";
-import { gradeGeoExposure } from "./research";
+import { gradeGeoExposure, type GeoExposureGrade } from "./research";
 import {
   createGeopoliticalResolver,
   type GeoCandidate,
@@ -57,23 +57,26 @@ export class GeopoliticalAgent extends BaseAgent {
 
     // One fresh macro read anchors the whole run and grounds every grade.
     this.macro = await researchMacroRead(asOf);
-    const themesBlock = this.macro
-      ? themesForPrompt(this.macro)
-      : "No current macro read was available this run.";
 
-    const grades = await mapWithConcurrency(
-      universe,
-      EXPOSURE_CONCURRENCY,
-      (s: GeopoliticalSecurity) =>
-        gradeGeoExposure({
-          ticker: s.ticker,
-          name: s.name,
-          sector: s.sector,
-          subSector: s.sub_sector,
-          themesBlock,
-          asOf,
-        }),
-    );
+    // Without a backdrop there is nothing to grade positioning AGAINST —
+    // grading names against a "no themes available" placeholder would produce
+    // backdrop-free numbers that still drive the ranking. Withhold instead:
+    // every name resolves to null → insufficient_data, and the memo says so.
+    const grades: (GeoExposureGrade | null)[] = this.macro
+      ? await mapWithConcurrency(
+          universe,
+          EXPOSURE_CONCURRENCY,
+          (s: GeopoliticalSecurity) =>
+            gradeGeoExposure({
+              ticker: s.ticker,
+              name: s.name,
+              sector: s.sector,
+              subSector: s.sub_sector,
+              themesBlock: themesForPrompt(this.macro!),
+              asOf,
+            }),
+        )
+      : universe.map(() => null);
 
     const candidates = new Map<string, GeoCandidate>();
     universe.forEach((s, idx) => {
