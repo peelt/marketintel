@@ -122,8 +122,9 @@ routes resolution through Inngest.
 
 - Authorization is enforced **in the database**: RLS policies check
   `public.is_app_user()` against the `app_users` entitlement table
-  (migration 0003). The env-var allowlist (`AUTH_ALLOWED_EMAIL`) is the
-  app-layer half; both must agree.
+  (migration 0003). The env-var allowlist (`AUTH_ALLOWED_EMAIL`, a
+  **comma-separated list** — one or many addresses) is the app-layer half;
+  both must agree (a new user needs a list entry AND an `app_users` row).
 - **Manual Supabase steps that pair with migration 0003:** disable public
   signups (Authentication settings) and seed the owner row in `app_users`.
 - Public request-access form (login page) writes `access_requests` under the
