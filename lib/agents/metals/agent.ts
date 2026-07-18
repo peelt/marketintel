@@ -10,7 +10,7 @@ import type { CandidateScore, SignalResolverRegistry } from "@/lib/scoring/types
 import {
   goldBenchmarkId,
   loadMetalsUniverse,
-  metalSpotContext,
+  metalSpot,
   type MetalsSecurity,
 } from "./data";
 import { classifyMetals, MIN_COVERAGE_TO_CLASSIFY } from "./metrics";
@@ -38,10 +38,10 @@ export class MetalsAgent extends BaseAgent {
     _framework: ScoringFramework,
     _input: AgentRunInput,
   ): Promise<string[]> {
-    const [universe, benchmark, context] = await Promise.all([
+    const [universe, benchmark, spot] = await Promise.all([
       loadMetalsUniverse(),
       goldBenchmarkId(),
-      metalSpotContext(),
+      metalSpot(),
     ]);
 
     const securities = new Map<string, MetalsSecurity>();
@@ -50,7 +50,9 @@ export class MetalsAgent extends BaseAgent {
     this.ctx = {
       securities,
       goldBenchmarkId: benchmark,
-      metalContext: context,
+      metalContext: spot.label,
+      goldSpotUsd: spot.goldUsd,
+      silverSpotUsd: spot.silverUsd,
       asOf: new Date().toISOString().slice(0, 10),
     };
     return universe.map((s) => s.id);

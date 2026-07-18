@@ -10,7 +10,12 @@ import type { MetalsResearchGrade } from "./research";
  * researched live, exactly as before the cache existed.
  */
 
-const KIND = "metals_cost";
+// v2 key: v1 entries pre-date the AISC plausibility bound and the
+// grade-vs-AISC reconciliation, and at least one poisoned grade (AEM at
+// 1/100 with a nonsense AISC) was cached under v1. Bumping the kind makes
+// every v1 row a miss — names re-research through the new guards and the
+// old rows age out harmlessly.
+const KIND = "metals_cost_v2";
 export const METALS_CACHE_MAX_AGE_DAYS = 30;
 
 interface CacheRow {

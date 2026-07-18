@@ -17,6 +17,7 @@ import { loadDividends, type MetalsSecurity } from "./data";
 import {
   confidenceWeight,
   gradeMetalsCost,
+  reconcileCostGrade,
   type MetalsResearchGrade,
 } from "./research";
 import { loadCachedGrades, saveCachedGrades } from "./research-cache";
@@ -41,6 +42,9 @@ export interface MetalsRunContext {
   goldBenchmarkId: string | null;
   /** Spot context for the research prompt ("gold ~$2,610/oz"). */
   metalContext: string | null;
+  /** Numeric spots for the deterministic margin cross-check. */
+  goldSpotUsd: number | null;
+  silverSpotUsd: number | null;
   asOf: string;
 }
 
@@ -87,7 +91,7 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           async (id) => {
             const security = ctx.securities.get(id);
             if (!security) return null;
-            return gradeMetalsCost({
+            const graded = await gradeMetalsCost({
               ticker: security.ticker,
               exchange: security.exchange,
               name: security.name,
@@ -95,6 +99,12 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
               metalContext: ctx.metalContext,
               asOf: ctx.asOf,
             });
+            // The arithmetic the model's own AISC implies wins over a
+            // contradictory grade (the live AEM 1/100 failure). Reconciled
+            // BEFORE caching so cached grades are already consistent.
+            return graded
+              ? reconcileCostGrade(graded, ctx.goldSpotUsd, ctx.silverSpotUsd)
+              : null;
           },
         ).then(async (grades) => {
           const fresh = new Map<string, MetalsResearchGrade>();
