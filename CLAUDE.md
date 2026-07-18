@@ -126,6 +126,10 @@ routes resolution through Inngest.
   app-layer half; both must agree.
 - **Manual Supabase steps that pair with migration 0003:** disable public
   signups (Authentication settings) and seed the owner row in `app_users`.
+- Public request-access form (login page) writes `access_requests` under the
+  ANON role — the table is insert-only by RLS (migration 0014), read only via
+  the dashboard. Honeypot + DB-level shape checks; owner notified via
+  Postmark; users are still added manually (signups stay disabled).
 - `/api/dev/ingest` is POST-only, and in production requires
   `DEV_INGEST_SECRET` via the `x-dev-ingest-secret` header.
 - `/api/inngest` fails closed in production without `INNGEST_SIGNING_KEY`.
