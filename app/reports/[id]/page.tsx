@@ -330,7 +330,7 @@ export default async function ReportDetailPage({
           Geopolitical hybrid desk (never collapsed like other analyst notes) */}
       {isMacroMemo && (
         <section className="card-cli mt-8 p-6">
-          <article className="prose max-w-none prose-headings:text-il-navy prose-h1:sr-only">
+          <article className="md">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {report.body_markdown}
             </ReactMarkdown>
@@ -381,64 +381,205 @@ export default async function ReportDetailPage({
         </section>
       )}
 
-      {/* Ranked table */}
+      {/* Ranked candidates — one scannable table whose rows OPEN into the
+          evidence behind each score. (Previously this was two stacked lists
+          repeating the same names; the ranking and its evidence are one thing,
+          so they're one thing here.) */}
       {rankedItems.length > 0 && (
         <section className="mt-10">
           <div className="font-mono-cli text-base text-il-navy">~ ranked candidates</div>
+          <p className="mt-1 text-base text-muted-foreground">
+            Ranked by composite. Open any row to see the framework read behind
+            its score — criteria, price, and every cited source.
+          </p>
           <div className="card-cli mt-3 overflow-x-auto p-0">
-            <table className="w-full text-base">
-              <thead className="bg-il-tint font-mono-cli text-sm text-il-navy">
-                <tr>
-                  <th className="px-4 py-2.5 text-left">#</th>
-                  <th className="px-4 py-2.5 text-left">Name</th>
-                  <th className="px-4 py-2.5 text-right">
-                    <abbr
-                      title="Weighted composite against the framework, out of 100. Higher is stronger."
-                      className="no-underline"
-                    >
-                      Score / 100
-                    </abbr>
-                  </th>
-                  <th className="px-4 py-2.5 text-left">Coverage</th>
-                  <th className="px-4 py-2.5 text-left">Classification</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankedItems.map((it) => (
-                  <tr key={it.id} className="border-t border-border">
-                    <td className="px-4 py-2.5 font-mono-cli text-sm text-muted-foreground">
-                      {it.rank}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className="font-mono-cli font-bold text-il-navy">
-                        {it.security?.ticker ?? "—"}
+            <div className="min-w-[720px]">
+              {/* Column header — shares the row grid so cells line up */}
+              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_5rem_6.5rem_9rem_1.25rem] items-center gap-3 border-b border-border bg-il-tint px-4 py-2.5 font-mono-cli text-sm text-il-navy">
+                <span>#</span>
+                <span>Name</span>
+                <span className="text-right">
+                  <abbr
+                    title="Weighted composite against the framework, out of 100. Higher is stronger."
+                    className="no-underline"
+                  >
+                    Score
+                  </abbr>
+                </span>
+                <span>Coverage</span>
+                <span>Classification</span>
+                <span aria-hidden />
+              </div>
+
+              {rankedItems.map((it) => {
+                const evidenceRows = evidenceByItem.get(it.id) ?? [];
+                const prices = it.security_id
+                  ? (pricesBySecurity.get(it.security_id) ?? [])
+                  : [];
+                const points: PricePoint[] = prices.map((p) => ({
+                  date: p.snapshot_date,
+                  close: p.close,
+                }));
+                const currency =
+                  prices.find((p) => p.currency)?.currency ?? null;
+                const criteria = it.scoring_breakdown?.criteria ?? {};
+
+                return (
+                  <details
+                    key={it.id}
+                    className="group border-t border-border first:border-t-0"
+                  >
+                    <summary className="grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_5rem_6.5rem_9rem_1.25rem] items-center gap-3 px-4 py-2.5 text-base marker:content-none hover:bg-il-tint/60">
+                      <span className="font-mono-cli text-sm text-muted-foreground">
+                        {it.rank}
                       </span>
-                      <span className="ml-2 text-muted-foreground">
-                        {it.security?.name ?? ""}
+                      <span className="min-w-0 truncate">
+                        <span className="font-mono-cli font-bold text-il-navy">
+                          {it.security?.ticker ?? "—"}
+                        </span>
+                        <span className="ml-2 text-muted-foreground">
+                          {it.security?.name ?? ""}
+                        </span>
                       </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono-cli">
-                      {displayComposite(it)}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <CoverageBar coverage={coverageOf(it)} />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {it.classification ? (
-                        <ClassificationChip classification={it.classification} />
-                      ) : (
-                        "—"
+                      <span className="text-right font-mono-cli">
+                        {displayComposite(it)}
+                      </span>
+                      <span>
+                        <CoverageBar coverage={coverageOf(it)} />
+                      </span>
+                      <span>
+                        {it.classification ? (
+                          <ClassificationChip classification={it.classification} />
+                        ) : (
+                          "—"
+                        )}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="justify-self-end font-mono-cli text-muted-foreground transition-transform group-open:rotate-90"
+                      >
+                        ›
+                      </span>
+                    </summary>
+
+                    <div className="border-t border-border bg-il-tint/40 px-4 py-4">
+                      {it.verdict && (
+                        <p className="mb-4 text-base leading-relaxed">
+                          {it.verdict}
+                        </p>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+                      {Object.keys(criteria).length > 0 && (
+                        <div className="mb-4 flex flex-wrap items-start gap-4">
+                          <CriteriaRadar
+                            criteria={Object.entries(criteria).map(
+                              ([key, c]) => ({ key, score: c.score }),
+                            )}
+                          />
+                          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                            {[...Object.entries(criteria)]
+                              .sort(
+                                ([, a], [, b]) =>
+                                  (a.score === null ? 1 : 0) -
+                                  (b.score === null ? 1 : 0),
+                              )
+                              .map(([key, c]) => (
+                                <div
+                                  key={key}
+                                  className={`rounded border px-3 py-2 ${
+                                    c.score === null
+                                      ? "border-dashed border-border/70 opacity-70"
+                                      : "border-border"
+                                  }`}
+                                >
+                                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                                    {classificationLabel(key)}
+                                  </div>
+                                  <div className="mt-1 font-mono-cli text-base">
+                                    {c.score === null ? (
+                                      <span className="text-muted-foreground">
+                                        no data
+                                      </span>
+                                    ) : (
+                                      <>
+                                        {c.score.toFixed(1)}
+                                        <span className="ml-0.5 text-sm text-muted-foreground">
+                                          /100
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                  {c.score === null && (
+                                    <div className="mt-1 text-xs leading-snug text-muted-foreground">
+                                      {noDataReason(
+                                        key,
+                                        it.security?.exchange ?? null,
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {points.length >= 2 && (
+                        <div className="mb-4">
+                          <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                            Price — trailing year
+                          </div>
+                          <PriceChart points={points} currency={currency} />
+                        </div>
+                      )}
+
+                      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        {evidenceRows.length} cited source
+                        {evidenceRows.length === 1 ? "" : "s"}
+                      </div>
+                      {evidenceRows.length > 0 ? (
+                        <ul className="space-y-2">
+                          {evidenceRows.map((ev) => (
+                            <li key={ev.id}>
+                              {ev.evidence_type === "news_article" ||
+                              ((ev.evidence_type === "filing_section" ||
+                                ev.evidence_type === "macro_indicator") &&
+                                ev.source_text.startsWith("[")) ? (
+                                <NewsEvidenceCard
+                                  text={ev.source_text}
+                                  weight={ev.weight}
+                                />
+                              ) : (
+                                <div className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+                                  <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                                    <span>
+                                      {ev.evidence_type.replace(/_/g, " ")}
+                                    </span>
+                                    <span>· confidence {ev.weight.toFixed(2)}</span>
+                                  </div>
+                                  <p className="leading-relaxed">
+                                    {ev.source_text}
+                                  </p>
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No evidence rows persisted for this candidate.
+                        </p>
+                      )}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             Score = weighted composite against the framework (higher is
             stronger). Coverage = how much of the framework had data for that
-            name; classifications are withheld below 35%.
+            name; classifications are withheld below 35%. Every score is
+            defensible from the sources inside its row.
           </p>
         </section>
       )}
@@ -491,149 +632,6 @@ export default async function ReportDetailPage({
         </details>
       )}
 
-      {/* Evidence, per candidate */}
-      {rankedItems.length > 0 && (
-        <section className="mt-10">
-          <div className="font-mono-cli text-base text-il-navy">~ evidence by candidate</div>
-          <p className="mt-1 text-base text-muted-foreground">
-            Every score is defensible from the rows below — open a candidate to
-            see exactly what the framework read.
-          </p>
-          <div className="mt-3 space-y-2">
-            {rankedItems.map((it) => {
-              const evidenceRows = evidenceByItem.get(it.id) ?? [];
-              const prices = it.security_id
-                ? (pricesBySecurity.get(it.security_id) ?? [])
-                : [];
-              const points: PricePoint[] = prices.map((p) => ({
-                date: p.snapshot_date,
-                close: p.close,
-              }));
-              const currency = prices.find((p) => p.currency)?.currency ?? null;
-              const criteria = it.scoring_breakdown?.criteria ?? {};
-
-              return (
-                <details key={it.id} className="card-cli group">
-                  <summary className="flex cursor-pointer items-baseline justify-between gap-3 px-4 py-3 text-base marker:content-none">
-                    <span>
-                      <span className="font-mono-cli font-bold text-il-navy">
-                        {it.security?.ticker ?? "—"}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">
-                        {it.security?.name ?? ""}
-                      </span>
-                    </span>
-                    <span className="whitespace-nowrap font-mono-cli text-sm text-muted-foreground">
-                      #{it.rank} · {displayComposite(it)} ·{" "}
-                      {evidenceRows.length} source
-                      {evidenceRows.length === 1 ? "" : "s"}
-                    </span>
-                  </summary>
-                  <div className="border-t border-border px-4 py-4">
-                    {it.verdict && (
-                      <p className="mb-4 text-base leading-relaxed">{it.verdict}</p>
-                    )}
-
-                    {Object.keys(criteria).length > 0 && (
-                      <div className="mb-4 flex flex-wrap items-start gap-4">
-                        <CriteriaRadar
-                          criteria={Object.entries(criteria).map(([key, c]) => ({
-                            key,
-                            score: c.score,
-                          }))}
-                        />
-                        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-                          {[...Object.entries(criteria)]
-                            .sort(([, a], [, b]) =>
-                              // Populated tiles first; empties sit last, muted.
-                              (a.score === null ? 1 : 0) - (b.score === null ? 1 : 0),
-                            )
-                            .map(([key, c]) => (
-                              <div
-                                key={key}
-                                className={`rounded border px-3 py-2 ${
-                                  c.score === null
-                                    ? "border-dashed border-border/70 opacity-70"
-                                    : "border-border"
-                                }`}
-                              >
-                                <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                                  {classificationLabel(key)}
-                                </div>
-                                <div className="mt-1 font-mono-cli text-base">
-                                  {/* null = no data. NEVER render as 0. */}
-                                  {c.score === null ? (
-                                    <span className="text-muted-foreground">no data</span>
-                                  ) : (
-                                    <>
-                                      {c.score.toFixed(1)}
-                                      <span className="ml-0.5 text-sm text-muted-foreground">
-                                        /100
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                                {c.score === null && (
-                                  <div className="mt-1 text-xs leading-snug text-muted-foreground">
-                                    {noDataReason(key, it.security?.exchange ?? null)}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {points.length >= 2 && (
-                      <div className="mb-4">
-                        <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
-                          Price — trailing year
-                        </div>
-                        <PriceChart points={points} currency={currency} />
-                      </div>
-                    )}
-
-                    {evidenceRows.length > 0 ? (
-                      <ul className="space-y-2">
-                        {evidenceRows.map((ev) => (
-                          <li key={ev.id}>
-                            {/* Structured research rows (news, prospectus
-                                evals, geopolitical exposure) share one
-                                persisted shape — render the designed card
-                                for any that carries the [TICKER · grade] head. */}
-                            {ev.evidence_type === "news_article" ||
-                            ((ev.evidence_type === "filing_section" ||
-                              ev.evidence_type === "macro_indicator") &&
-                              ev.source_text.startsWith("[")) ? (
-                              <NewsEvidenceCard
-                                text={ev.source_text}
-                                weight={ev.weight}
-                              />
-                            ) : (
-                              <div className="rounded border border-border/60 bg-muted/20 px-3 py-2 text-sm">
-                                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                                  <span>{ev.evidence_type.replace(/_/g, " ")}</span>
-                                  <span>· confidence {ev.weight.toFixed(2)}</span>
-                                </div>
-                                <p className="leading-relaxed">{ev.source_text}</p>
-                              </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No evidence rows persisted for this candidate.
-                      </p>
-                    )}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* The agent's prose, demoted to an appendix — except the Geopolitical
           desk, whose write-up is the macro read already shown open at the top. */}
       {!isMacroMemo && (
@@ -641,7 +639,7 @@ export default async function ReportDetailPage({
           <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
             ~ analyst note — the desk&apos;s full write-up
           </summary>
-          <article className="prose mt-4 max-w-none prose-headings:text-il-navy">
+          <article className="md mt-4">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {report.body_markdown}
             </ReactMarkdown>
