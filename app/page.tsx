@@ -24,19 +24,20 @@ export default function Home() {
             <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
             <span className="tag-cli mt-4 inline-flex">evidence-backed · glass-box</span>
             <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
-              Research that shows its working
+              Glass-box investment research
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Scheduled specialist agents file ranked reports against scoring
-              frameworks you can see and edit. Every score is defensible from
-              the evidence it cites — nothing is a black box.
+              Scheduled specialist desks screen and score the market against
+              frameworks you can see in full. Every verdict links to the
+              evidence behind it — nothing assumed, nothing advised. Add the
+              names you own and each run tells you what changed.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
                 sign in
               </Link>
-              <Link href="/reports" className="btn-cli-outline btn-cli-lg">
-                view reports
+              <Link href="/login" className="btn-cli-outline btn-cli-lg">
+                request access
               </Link>
             </div>
           </div>
@@ -94,20 +95,60 @@ export default function Home() {
 
       <hr className="divider-cli" />
 
+      {/* Holdings + alerts */}
+      <section className="bg-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[7fr_5fr] lg:px-8">
+          <div>
+            <div className="font-mono-cli text-base text-il-navy">~ your holdings</div>
+            <h2 className="mt-2 text-3xl font-bold text-il-navy lg:text-4xl">
+              It watches the names you own
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+              Add your positions and the intel lens diffs every scheduled run
+              against the last — what&apos;s new, what worsened, what resolved.
+              When a desk flags a name you hold, an email finds you. No tips, no
+              advice: only what changed, with the evidence behind it.
+            </p>
+          </div>
+
+          <div className="card-cli overflow-hidden p-0">
+            <CliTitleBar title="~ holding-alerts" />
+            <div className="space-y-2 p-6 font-mono-cli text-base text-il-navy">
+              <div className="text-muted-foreground">~ metals-weekly filed a report</div>
+              <div>
+                <Star /> AEM · well positioned → vulnerable
+              </div>
+              <div>
+                <Star /> 1 held name needs a look · evidence attached
+              </div>
+              <div className="text-muted-foreground">
+                ~ emailing you now <span className="cursor-blink" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr className="divider-cli" />
+
       {/* CTA */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:px-6">
-          <div className="font-mono-cli text-base text-il-navy">~ single-user preview</div>
+          <div className="font-mono-cli text-base text-il-navy">~ access by request</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy">
             The framework is the product
           </h2>
           <p className="mt-3 text-muted-foreground">
             Weights, thresholds and verdict bands are data you can inspect.
-            Reports pin the framework version that scored them.
+            Reports pin the framework version that scored them. Access is
+            granted by request during the preview.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex justify-center gap-3">
             <Link href="/login" className="btn-cli btn-cli-lg">
               sign in
+            </Link>
+            <Link href="/login" className="btn-cli-outline btn-cli-lg">
+              request access
             </Link>
           </div>
         </div>

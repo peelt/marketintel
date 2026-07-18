@@ -21,7 +21,7 @@ const ubuntuMono = Ubuntu_Mono({
 export const metadata: Metadata = {
   title: "Investorlogical",
   description:
-    "Glass-box investment research: scheduled specialist agents file ranked, evidence-backed reports against scoring frameworks you can see and edit.",
+    "Glass-box investment research: scheduled specialist desks file ranked, evidence-backed reports against scoring frameworks you can see in full — every score traceable to the sources behind it.",
 };
 
 export default function RootLayout({
