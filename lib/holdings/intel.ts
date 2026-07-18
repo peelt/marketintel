@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
+import { getErrorMessage } from "@/lib/errors";
 import {
   computeDelta,
   severityOf,
@@ -57,11 +59,14 @@ export async function loadPortfolioIntel(
   supabase: SupabaseClient,
   portfolioId: string,
 ): Promise<PortfolioIntel> {
-  const { data: holdings } = await supabase
+  const { data: holdings, error: holdingsErr } = await supabase
     .from("holdings")
     .select("security_id, security:securities(ticker, name)")
     .eq("portfolio_id", portfolioId)
     .returns<HeldSecurity[]>();
+  if (holdingsErr) {
+    throw new Error(`loadPortfolioIntel holdings: ${getErrorMessage(holdingsErr)}`);
+  }
 
   const rows = holdings ?? [];
   if (rows.length === 0) {
@@ -80,15 +85,26 @@ export async function loadPortfolioIntel(
   // Recent succeeded verdicts for the held names. 90 days covers "latest +
   // previous" for weekly (dividend) and twice-weekly (reaction) desks.
   const sinceIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: verdicts } = await supabase
-    .from("report_items")
-    .select(
-      "security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
-    )
-    .in("security_id", securityIds)
-    .eq("report.agent_runs.status", "succeeded")
-    .gte("report.generated_at", sinceIso)
-    .returns<VerdictRow[]>();
+  // Paginated with a deterministic total order (security_id, then id): even
+  // inside the 90-day window a large portfolio's report_items can exceed
+  // 1,000 rows, and an unbounded read would silently drop the last-sorted
+  // names' deltas — which feed both the dashboard strip and the alert emails.
+  const verdicts = await fetchAllRows<VerdictRow>(
+    (from, to) =>
+      supabase
+        .from("report_items")
+        .select(
+          "id, security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
+        )
+        .in("security_id", securityIds)
+        .eq("report.agent_runs.status", "succeeded")
+        .gte("report.generated_at", sinceIso)
+        .order("security_id", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<VerdictRow[]>(),
+    "intel verdicts",
+  );
 
   // Bucket by (security, agent), newest first.
   const buckets = new Map<string, VerdictSnapshot[]>();

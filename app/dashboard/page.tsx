@@ -11,6 +11,7 @@ import {
 } from "@/components/cli";
 import {
   changeColor,
+  compositeDisplay,
   dayChangeFraction,
   formatMoney,
   formatSignedMoney,
@@ -108,7 +109,11 @@ export default async function DashboardPage() {
             "rank, composite_score, classification, scoring_breakdown, security:securities(ticker)",
           )
           .eq("report_id", report!.id)
-          .neq("classification", "insufficient_data")
+          // Exclude both insufficient_data AND cause_unconfirmed: the report
+          // page deliberately pulls cause_unconfirmed names OUT of the ranking
+          // (an overshoot claim without a news grade is unsupported), so the
+          // dashboard must not promote them to headline verdicts.
+          .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
           .order("rank", { ascending: true })
           .limit(3)
           .returns<TopItem[]>();
@@ -297,7 +302,12 @@ export default async function DashboardPage() {
                               <span className="font-mono-cli text-base text-il-navy">
                                 {item.security?.ticker ?? "—"}
                                 <span className="ml-2 text-muted-foreground">
-                                  {item.composite_score.toFixed(1)}
+                                  {/* Missing ≠ zero — shared rule with the
+                                      report page so the two never disagree. */}
+                                  {compositeDisplay(
+                                    item.composite_score,
+                                    item.scoring_breakdown?.coverage,
+                                  )}
                                 </span>
                               </span>
                               {item.classification && (
