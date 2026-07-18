@@ -42,10 +42,10 @@ const META: Record<AgentName, AgentMeta> = {
     name: "geopolitical",
     displayName: "Geopolitical Scanner",
     description:
-      "Memo on macro and geopolitical shifts with source-weighted signals and explicit confidence levels.",
+      "Weekly macro read of the geopolitical backdrop with confidence levels, over a ranked table of names scored on how they're positioned for it.",
     schedule: "0 20 * * 0", // Sun 20:00 UTC
-    modelTier: "deep",
-    status: "planned",
+    modelTier: "routine", // web-researched macro read + structured per-name grading
+    status: "live",
   },
   energy: {
     name: "energy",

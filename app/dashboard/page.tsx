@@ -327,10 +327,12 @@ export default async function DashboardPage() {
               );
             })}
           </div>
-          <p className="mt-3 font-mono-cli text-sm text-muted-foreground">
-            ~ roadmap:{" "}
-            {plannedAgents.map((a) => a.displayName.toLowerCase()).join(" · ")}
-          </p>
+          {plannedAgents.length > 0 && (
+            <p className="mt-3 font-mono-cli text-sm text-muted-foreground">
+              ~ roadmap:{" "}
+              {plannedAgents.map((a) => a.displayName.toLowerCase()).join(" · ")}
+            </p>
+          )}
         </section>
 
         <hr className="divider-cli my-10" />

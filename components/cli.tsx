@@ -129,7 +129,11 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   mixed_profile: "#f6881c",
   weak_profile: "#ee1d23",
   shell_or_blank_check: "#6b7280",
-  // shared
+  // geopolitical vocabulary
+  beneficiary: "#22a87b",
+  at_risk: "#ee1d23",
+  insulated: "#034566",
+  // shared (mixed reused by metals + geopolitical)
   insufficient_data: "#9ca3af",
 };
 

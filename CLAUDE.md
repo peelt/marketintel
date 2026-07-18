@@ -25,11 +25,22 @@ ETFs excluded), and PR 8 (IPO desk — 30-day S-1/F-1 discovery via EDGAR
 full-text search, each prospectus graded by one routine-tier structured call
 with NO web search; framework migration 0011; Sun 18:00 UTC cron;
 strong/mixed/weak_profile + shell_or_blank_check; issuers as exchange-"IPO"
-securities keyed by CIK, excluded from holdings). Desk-building
-is the agreed priority (no cross-desk score blending — settled): Geopolitical
-is the last desk; then framework-editing UI, and **scheduled email alerts**
-(the one deferred 6b piece — needs an email-provider decision:
-Resend/Postmark).
+securities keyed by CIK, excluded from holdings), and PR 10 (Geopolitical
+desk — the last desk; a hybrid macro-read memo over a ranked table; one fresh
+web-researched macro call per run grounds a routine-tier no-search grade per
+name over the `geopolitical_exposed` universe; framework migration 0012; Sun
+20:00 UTC cron; beneficiary/mixed/at_risk/insulated from absolute facts,
+materiality-gated; uncached for weekly freshness). **All six desks are now
+live.** With desk-building complete (no cross-desk score blending — settled),
+**email alerts are in** (the deferred 6b piece; provider settled: **Postmark**,
+the MXMG family standard — `report/generated` event → `holding-alerts` Inngest
+function → intel-lens deltas → Postmark; dedupe via `alert_emails`, migration
+0013; fail-soft: alerting never fails a run). **Framework-editing UI is
+DROPPED** (Peel: "I don't want to have to do this" — bad labels get structural
+fixes, never manual tuning; transparency ≠ editing). A Monthly Brief
+(records/catalysts/concentration digest benchmarked against a human
+newsletter) is analysed and parked for the marketing era. Remaining roadmap:
+London fundamentals decision, on-demand tickers via Inngest, paid gate.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/
@@ -154,6 +165,6 @@ routes resolution through Inngest.
 Never commit secrets. `.env.example` is the authoritative variable list —
 Supabase (3), `AUTH_ALLOWED_EMAIL`, `ANTHROPIC_API_KEY`, Inngest (2),
 `FINNHUB_API_KEY`, `SEC_EDGAR_USER_AGENT`, `FRED_API_KEY`,
-`COMPANIES_HOUSE_API_KEY`, `DEV_INGEST_SECRET`. Set in `.env.local`, Vercel,
-and the Claude Code environment settings (so agent sessions can run
-integration checks).
+`COMPANIES_HOUSE_API_KEY`, `POSTMARK_SERVER_TOKEN`, `POSTMARK_FROM_EMAIL`,
+`DEV_INGEST_SECRET`. Set in `.env.local`, Vercel, and the Claude Code
+environment settings (so agent sessions can run integration checks).

@@ -185,6 +185,9 @@ const CRITERION_SHORT_LABELS: Record<string, string> = {
   risk_profile: "risk",
   governance: "gov",
   offering_terms: "terms",
+  positioning: "position",
+  resilience: "resilience",
+  materiality: "material",
 };
 
 export function criterionShortLabel(key: string): string {
