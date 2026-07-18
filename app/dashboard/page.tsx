@@ -258,16 +258,23 @@ export default async function DashboardPage() {
         <section className="mt-8">
           <div className="font-mono-cli text-base text-il-navy">~ latest signals</div>
           <div className="mt-3 grid gap-4 lg:grid-cols-2">
-            {latestReports.map(({ agent, report }) => {
+            {latestReports.map(({ agent, report }, idx) => {
               const top = report ? (topItemsByReport.get(report.id) ?? []) : [];
               const headline = report
                 ? stripInlineMarkdown(report.summary_markdown).split(". ")[0]
                 : null;
+              // An odd desk count would leave the last card orphaned beside an
+              // empty cell — let it span the full row instead.
+              const spanFull =
+                latestReports.length % 2 === 1 &&
+                idx === latestReports.length - 1;
               return (
                 <Link
                   key={agent.name}
                   href={report ? `/reports/${report.id}` : "/reports"}
-                  className="card-cli card-cli-module block p-6"
+                  className={`card-cli card-cli-module block p-6 ${
+                    spanFull ? "lg:col-span-2" : ""
+                  }`}
                   style={
                     {
                       "--module-color": MODULE_COLORS[agent.name as AgentName],
