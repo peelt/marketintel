@@ -12,6 +12,7 @@ import { discoverIpoFilings, readProspectus } from "./discovery";
 import { loadCachedEvals, saveCachedEvals, type CachedIpoEval } from "./eval-cache";
 import { applyProposedTicker, upsertIpoIssuers } from "./issuers";
 import { classifyIpo, MIN_COVERAGE_TO_CLASSIFY } from "./metrics";
+import { isPlaceholderTicker } from "@/lib/format";
 import { evaluateProspectus, type IpoEval } from "./research";
 import { createIpoResolver, type IpoCandidate, type IpoRunContext } from "./resolvers";
 
@@ -160,8 +161,13 @@ export class IpoAgent extends BaseAgent {
     evidence: EvidenceItem[];
   }): Promise<{ summaryMarkdown: string; bodyMarkdown: string }> {
     const { framework, scored } = input;
-    const label = (s: CandidateScore) =>
-      this.ctx?.candidates.get(s.securityId)?.ticker ?? "UNKNOWN";
+    // Lead with the company name while the ticker is still a CIK placeholder —
+    // a raw CIK is meaningless in a report a human reads.
+    const label = (s: CandidateScore) => {
+      const c = this.ctx?.candidates.get(s.securityId);
+      if (!c) return "UNKNOWN";
+      return isPlaceholderTicker(c.ticker) ? c.name : c.ticker;
+    };
     const classified = scored.map((s) => ({
       s,
       ...classifyIpo(s, this.classifyFacts(s.securityId)),

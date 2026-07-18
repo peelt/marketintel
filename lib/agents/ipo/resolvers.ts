@@ -1,5 +1,6 @@
 import type { EvidenceItem } from "@/lib/agents/types";
 import type { SignalResolverRegistry, SignalValue } from "@/lib/scoring/types";
+import { isPlaceholderTicker } from "@/lib/format";
 import { confidenceWeight, type IpoEval } from "./research";
 
 /**
@@ -113,13 +114,20 @@ export function createIpoResolver(ctx: IpoRunContext): SignalResolverRegistry {
  * research rows so the report page renders the designed card (badges,
  * paragraphs, a real link to the filing) instead of a wall of text.
  */
+/** Evidence-text label: the name while the ticker is still a CIK placeholder. */
+function evidenceLabel(candidate: IpoCandidate): string {
+  return isPlaceholderTicker(candidate.ticker)
+    ? candidate.name
+    : candidate.ticker;
+}
+
 function evalCard(candidate: IpoCandidate, evaluation: IpoEval): EvidenceItem {
   const filedDate = candidate.filedAt.slice(0, 10);
   return {
     type: "filing_section",
     sourceTable: "sec_edgar",
     sourceId: candidate.accession,
-    text: `[${candidate.ticker} · business quality ${evaluation.businessQualityGrade}/100 · ${evaluation.confidence}] ${evaluation.headline}\n\n${evaluation.summary}\n\n${evaluation.businessQualityNote}\n\nSources:\n${candidate.filingType} filing (${filedDate}) — ${candidate.filingUrl}`,
+    text: `[${evidenceLabel(candidate)} · business quality ${evaluation.businessQualityGrade}/100 · ${evaluation.confidence}] ${evaluation.headline}\n\n${evaluation.summary}\n\n${evaluation.businessQualityNote}\n\nSources:\n${candidate.filingType} filing (${filedDate}) — ${candidate.filingUrl}`,
     weight: confidenceWeight(evaluation.confidence),
     securityId: candidate.securityId,
   };
@@ -134,7 +142,7 @@ function gradeNote(
     type: "filing_section",
     sourceTable: "sec_edgar",
     sourceId: candidate.accession,
-    text: `${candidate.ticker}: ${signal.label} graded ${evaluation[signal.grade]}/100 from the prospectus — ${evaluation[signal.note]}`,
+    text: `${evidenceLabel(candidate)}: ${signal.label} graded ${evaluation[signal.grade]}/100 from the prospectus — ${evaluation[signal.note]}`,
     weight: confidenceWeight(evaluation.confidence),
     securityId: candidate.securityId,
   };

@@ -3,11 +3,14 @@ import {
   classificationLabel,
   compositeDisplay,
   criterionShortLabel,
+  isPlaceholderTicker,
   priceChangeSummary,
   dayChangeFraction,
   humanizeDateTime,
   humanizeSchedule,
   nextRunLabel,
+  securityDisplayLabel,
+  securitySecondaryLabel,
   stripInlineMarkdown,
 } from "@/lib/format";
 import { radarPoints } from "@/lib/radar";
@@ -145,5 +148,33 @@ describe("radarPoints", () => {
     const pts = radarPoints([150, -20, 50], 50, 0);
     expect(Math.hypot(pts[0].x, pts[0].y)).toBeCloseTo(50, 5);
     expect(Math.hypot(pts[1].x, pts[1].y)).toBeCloseTo(0, 5);
+  });
+});
+
+describe("security display labels (CIK placeholders)", () => {
+  const listed = { ticker: "NVDA", name: "NVIDIA Corporation" };
+  const preListing = { ticker: "CIK2102720", name: "Benzai Holdings" };
+
+  it("recognises CIK placeholder tickers only", () => {
+    expect(isPlaceholderTicker("CIK2102720")).toBe(true);
+    expect(isPlaceholderTicker("NVDA")).toBe(false);
+    // A real ticker that merely starts with CIK-ish letters is not a placeholder.
+    expect(isPlaceholderTicker("CIK")).toBe(false);
+    expect(isPlaceholderTicker("CIKX1")).toBe(false);
+  });
+
+  it("listed names lead with the ticker, name as the secondary", () => {
+    expect(securityDisplayLabel(listed)).toBe("NVDA");
+    expect(securitySecondaryLabel(listed)).toBe("NVIDIA Corporation");
+  });
+
+  it("pre-listing issuers lead with the company name — never a raw CIK", () => {
+    expect(securityDisplayLabel(preListing)).toBe("Benzai Holdings");
+    expect(securitySecondaryLabel(preListing)).toBe("pre-listing · no ticker yet");
+  });
+
+  it("falls back to the raw ticker when no name exists (never blank)", () => {
+    expect(securityDisplayLabel({ ticker: "CIK99", name: null })).toBe("CIK99");
+    expect(securitySecondaryLabel({ ticker: "CIK99", name: null })).toBe("CIK99");
   });
 });

@@ -120,6 +120,46 @@ export function classificationLabel(classification: string): string {
   return classification.replace(/_/g, " ");
 }
 
+/**
+ * Pre-listing IPO issuers carry a placeholder ticker derived from their SEC
+ * CIK ("CIK2102720") until the prospectus discloses a proposed symbol. A raw
+ * CIK is meaningless to a reader, so display surfaces should lead with the
+ * company name instead.
+ */
+export function isPlaceholderTicker(ticker: string): boolean {
+  return /^CIK\d+$/.test(ticker);
+}
+
+/**
+ * What to print in a security's bold "ticker" slot: the ticker — unless it's
+ * a CIK placeholder, in which case the company name (the only legible
+ * identity the issuer has yet).
+ */
+export function securityDisplayLabel(security: {
+  ticker: string;
+  name?: string | null;
+}): string {
+  if (isPlaceholderTicker(security.ticker) && security.name) {
+    return security.name;
+  }
+  return security.ticker;
+}
+
+/**
+ * The muted secondary line next to the bold label: the name — unless the name
+ * IS the label (CIK placeholder), where repeating it says nothing and the
+ * honest annotation is that no symbol exists yet.
+ */
+export function securitySecondaryLabel(security: {
+  ticker: string;
+  name?: string | null;
+}): string {
+  if (isPlaceholderTicker(security.ticker)) {
+    return security.name ? "pre-listing · no ticker yet" : security.ticker;
+  }
+  return security.name ?? "";
+}
+
 /** Money in a currency, no decimals for large sums. Null → em dash (missing ≠ zero). */
 export function formatMoney(amount: number | null, currency: string): string {
   if (amount == null) return "—";
