@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/server";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
@@ -155,7 +156,7 @@ export default async function ReportDetailPage({
     const meta = agentRegistry.get(report.agent_name as AgentName);
     return (
       <>
-        <SiteHeader active="reports" userEmail={user.email} />
+        <SiteHeader active="reports" userEmail={user.email} isOwner={isOwnerEmail(user.email)} />
         <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           <Link
             href="/reports"
@@ -296,7 +297,7 @@ export default async function ReportDetailPage({
 
   return (
     <>
-    <SiteHeader active="reports" userEmail={user.email} />
+    <SiteHeader active="reports" userEmail={user.email} isOwner={isOwnerEmail(user.email)} />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header>
         <Link

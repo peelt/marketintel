@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
@@ -37,7 +38,11 @@ export default async function ReportsPage() {
 
   return (
     <>
-    <SiteHeader active="reports" userEmail={user.email} />
+    <SiteHeader
+      active="reports"
+      userEmail={user.email}
+      isOwner={isOwnerEmail(user.email)}
+    />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="font-mono-cli text-base text-il-navy">~ filed by the desk</div>
       <h1 className="mt-1 text-3xl font-bold text-il-navy">Reports</h1>
