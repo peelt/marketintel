@@ -14,7 +14,13 @@ import {
   MODULE_COLORS,
   SiteHeader,
 } from "@/components/cli";
-import { classificationLabel, compositeDisplay, humanizeDateTime } from "@/lib/format";
+import {
+  classificationLabel,
+  compositeDisplay,
+  humanizeDateTime,
+  securityDisplayLabel,
+  securitySecondaryLabel,
+} from "@/lib/format";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
@@ -362,10 +368,10 @@ export default async function ReportDetailPage({
               {topVerdicts.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-mono-cli text-lg font-bold text-il-navy">
-                    {item.security?.ticker ?? "—"}
+                    {item.security ? securityDisplayLabel(item.security) : "—"}
                   </span>
                   <span className="text-base text-muted-foreground">
-                    {item.security?.name}
+                    {item.security ? securitySecondaryLabel(item.security) : ""}
                   </span>
                   {item.classification && (
                     <ClassificationChip classification={item.classification} />
@@ -436,10 +442,10 @@ export default async function ReportDetailPage({
                       </span>
                       <span className="min-w-0 truncate">
                         <span className="font-mono-cli font-bold text-il-navy">
-                          {it.security?.ticker ?? "—"}
+                          {it.security ? securityDisplayLabel(it.security) : "—"}
                         </span>
                         <span className="ml-2 text-muted-foreground">
-                          {it.security?.name ?? ""}
+                          {it.security ? securitySecondaryLabel(it.security) : ""}
                         </span>
                       </span>
                       <span className="text-right font-mono-cli">
@@ -598,7 +604,7 @@ export default async function ReportDetailPage({
             {unconfirmedItems.map((it) => (
               <li key={it.id} className="text-base leading-relaxed">
                 <span className="font-mono-cli font-bold text-il-navy">
-                  {it.security?.ticker ?? "—"}
+                  {it.security ? securityDisplayLabel(it.security) : "—"}
                 </span>
                 <span className="ml-2 text-muted-foreground">
                   {it.verdict ??
@@ -624,7 +630,7 @@ export default async function ReportDetailPage({
           </summary>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
             {excludedItems
-              .map((i) => i.security?.ticker ?? "—")
+              .map((i) => (i.security ? securityDisplayLabel(i.security) : "—"))
               .join(", ")}{" "}
             had no usable data this run, so nothing was scored or classified.
             They stay in the universe and fill in automatically when data

@@ -84,7 +84,7 @@ export function SiteHeader({
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center">
-            <Wordmark size="h-9" />
+            <Wordmark size="h-12" />
           </Link>
           <span className="hidden font-mono-cli text-sm text-muted-foreground md:inline">
             {promptUser}@investorlogical:~
