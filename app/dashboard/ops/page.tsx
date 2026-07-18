@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { listAccessRequests } from "@/lib/auth/access-admin";
 import { OpsPanel } from "./ops-panel";
+import { AccessRequests } from "./access-requests";
 import { SiteHeader } from "@/components/cli";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +21,9 @@ export default async function OpsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+  if (!user || !isOwnerEmail(user.email)) redirect("/login");
+
+  const accessRequests = await listAccessRequests();
 
   return (
     <>
@@ -35,6 +39,8 @@ export default async function OpsPage() {
           Come back here only to re-run a step manually. Each step reports
           exactly what it did, including which tickers failed and why.
         </p>
+
+        <AccessRequests requests={accessRequests} />
 
         <OpsPanel />
       </main>

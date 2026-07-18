@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
@@ -23,7 +23,7 @@ export default async function ReportsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
 
   // Inner-join on the run and filter to succeeded — failed or half-persisted
   // runs must never render as legitimate reports.

@@ -1,17 +1,27 @@
 /**
- * Single-user auth: only the email in AUTH_ALLOWED_EMAIL may sign in.
+ * OWNER identities (env). AUTH_ALLOWED_EMAIL is a comma-separated list of the
+ * product's owners/admins — the bootstrap identities that can always sign in
+ * AND administer (Setup, approving other users). This list changes rarely (a
+ * redeploy for a new owner is fine).
  *
- * Supabase Auth itself doesn't enforce an allowlist — anyone could request a
- * magic link to any address. We enforce here before sending the OTP and again
- * in the auth callback before issuing the session.
+ * Everyday users are NOT here — they live in the `app_users` table and are
+ * approved with one click in Setup (see lib/auth/entitlement.ts). So the
+ * env var is just the owner set; onboarding a user never touches it.
  */
-export function isAllowedEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const allowed = process.env.AUTH_ALLOWED_EMAIL?.trim().toLowerCase();
-  if (!allowed) return false;
-  return email.trim().toLowerCase() === allowed;
+export function ownerEmails(): string[] {
+  return (process.env.AUTH_ALLOWED_EMAIL ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
 }
 
-export function getAllowedEmail(): string | null {
-  return process.env.AUTH_ALLOWED_EMAIL?.trim().toLowerCase() ?? null;
+/** True when the email is a configured OWNER (can administer). */
+export function isOwnerEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ownerEmails().includes(email.trim().toLowerCase());
+}
+
+/** First owner address, for the dev-hint display. Null when none configured. */
+export function getOwnerEmail(): string | null {
+  return ownerEmails()[0] ?? null;
 }
