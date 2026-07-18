@@ -14,6 +14,7 @@ import {
 import { debtToEbitda, ttmDividendPerShare, trailingYield } from "@/lib/agents/dividend/metrics";
 import { fcfYield, rsVsBenchmark } from "./metrics";
 import { loadDividends, type MetalsSecurity } from "./data";
+import { isStale, latestSessionDate } from "@/lib/data-sources/staleness";
 import {
   confidenceWeight,
   gradeMetalsCost,
@@ -213,7 +214,13 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           const s = all.get(id) ?? [];
           const security = ctx.securities.get(id);
           const value = discountToHigh(s);
-          if (value == null || !security) {
+          // Stale prices would misstate the 52-week-high discount; withhold
+          // rather than compute from a weeks-old close.
+          if (
+            value == null ||
+            !security ||
+            isStale(latestSessionDate(s), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
@@ -233,13 +240,23 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
         const all = await series(securityIds);
         const bench = ctx.goldBenchmarkId ? (all.get(ctx.goldBenchmarkId) ?? []) : [];
         const benchReturn = returnOverSessions(bench, SESSIONS_6M);
+        // A stale GLD benchmark would be subtracted from fresh stock returns,
+        // fabricating relative strength — the exact finding. If the benchmark
+        // is stale, the whole signal is unreliable for every name.
+        const benchStale = isStale(latestSessionDate(bench), ctx.asOf);
         for (const id of securityIds) {
           const security = ctx.securities.get(id);
+          const nameSeries = all.get(id) ?? [];
           const value = rsVsBenchmark(
-            returnOverSessions(all.get(id) ?? [], SESSIONS_6M),
+            returnOverSessions(nameSeries, SESSIONS_6M),
             benchReturn,
           );
-          if (value == null || !security) {
+          if (
+            value == null ||
+            !security ||
+            benchStale ||
+            isStale(latestSessionDate(nameSeries), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
@@ -270,7 +287,12 @@ export function createMetalsResolver(ctx: MetalsRunContext): SignalResolverRegis
           }));
           const dps = ttmDividendPerShare(payments, ctx.asOf);
           const value = trailingYield(dps, latestClose);
-          if (value == null || !security) {
+          // A stale close distorts the trailing yield (yield = DPS / price).
+          if (
+            value == null ||
+            !security ||
+            isStale(latestSessionDate(s), ctx.asOf)
+          ) {
             out.set(id, NO_DATA);
             continue;
           }
