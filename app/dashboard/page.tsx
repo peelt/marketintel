@@ -20,6 +20,7 @@ import {
   humanizeDateTime,
   humanizeSchedule,
   nextRunLabel,
+  securityDisplayLabel,
   stripInlineMarkdown,
 } from "@/lib/format";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
@@ -54,7 +55,7 @@ interface TopItem {
   composite_score: number;
   classification: string | null;
   scoring_breakdown: { coverage?: number } | null;
-  security: { ticker: string } | null;
+  security: { ticker: string; name: string | null } | null;
 }
 
 export default async function DashboardPage() {
@@ -111,7 +112,7 @@ export default async function DashboardPage() {
         const { data } = await supabase
           .from("report_items")
           .select(
-            "rank, composite_score, classification, scoring_breakdown, security:securities(ticker)",
+            "rank, composite_score, classification, scoring_breakdown, security:securities(ticker, name)",
           )
           .eq("report_id", report!.id)
           // Exclude both insufficient_data AND cause_unconfirmed: the report
@@ -304,8 +305,13 @@ export default async function DashboardPage() {
                               key={item.rank}
                               className="flex items-center justify-between gap-3"
                             >
-                              <span className="font-mono-cli text-base text-il-navy">
-                                {item.security?.ticker ?? "—"}
+                              <span className="min-w-0 truncate font-mono-cli text-base text-il-navy">
+                                {/* CIK placeholders (pre-listing IPO issuers)
+                                    display as the company name — a raw CIK
+                                    means nothing to a reader. */}
+                                {item.security
+                                  ? securityDisplayLabel(item.security)
+                                  : "—"}
                                 <span className="ml-2 text-muted-foreground">
                                   {/* Missing ≠ zero — shared rule with the
                                       report page so the two never disagree. */}
