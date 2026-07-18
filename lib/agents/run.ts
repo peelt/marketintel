@@ -71,6 +71,21 @@ export async function runAgent(
       .update({ status: "succeeded", finished_at: new Date().toISOString() })
       .eq("id", run.id);
 
+    // Fan out to the alerting layer (holding alerts email portfolio owners
+    // whose names this report flagged). Best-effort by design: a notification
+    // failure must never fail a run whose report is already persisted.
+    try {
+      const { inngest } = await import("@/lib/inngest/client");
+      await inngest.send({
+        name: "report/generated",
+        data: { reportId, agentName: agent.meta.name },
+      });
+    } catch (err) {
+      console.warn(
+        `runAgent: report/generated event emit failed (alerts skipped): ${getErrorMessage(err)}`,
+      );
+    }
+
     return { reportId, runId: run.id };
   } catch (err) {
     await supabase
