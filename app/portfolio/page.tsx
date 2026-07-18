@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { SiteHeader, ClassificationChip } from "@/components/cli";
 import { Disclaimer } from "@/components/disclaimer";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
@@ -38,7 +38,7 @@ export default async function PortfolioPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
 
   const portfolio = await loadDefaultPortfolio(supabase, user.id);
   const [held, intel] = portfolio

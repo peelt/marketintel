@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 
@@ -12,7 +12,7 @@ export default async function DiagnosticsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+  if (!user || !isOwnerEmail(user.email)) redirect("/login");
 
   const ready = listReadyAdapters();
   const stubbed = listStubbedAdapters();

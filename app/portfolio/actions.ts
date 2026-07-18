@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { loadDefaultPortfolio, type PortfolioRow } from "@/lib/holdings/data";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -27,7 +27,7 @@ async function requireUser() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) {
+  if (!user || !(await isEntitledEmail(user.email))) {
     throw new Error("not authorized");
   }
   return { supabase, user };

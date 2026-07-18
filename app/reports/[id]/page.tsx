@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
@@ -123,7 +123,7 @@ export default async function ReportDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) redirect("/login");
+  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
 
   const { data: report, error: reportErr } = await supabase
     .from("reports")

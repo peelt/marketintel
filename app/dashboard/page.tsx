@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { agentRegistry } from "@/lib/agents/registry";
 import {
   ClassificationChip,
@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isAllowedEmail(user.email)) {
+  if (!user || !(await isEntitledEmail(user.email))) {
     redirect("/login");
   }
 

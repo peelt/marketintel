@@ -1,9 +1,43 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
+import {
+  approveAccessRequestEmail,
+  revokeAccessEmail,
+} from "@/lib/auth/access-admin";
 import { isIngestTask, runIngestTask } from "@/lib/ingest/tasks";
 import { getErrorMessage } from "@/lib/errors";
+
+/** True when the caller is a configured owner (can administer). */
+async function requireOwner(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return !!user && isOwnerEmail(user.email);
+}
+
+/**
+ * Approve an access request: one click gives the address an app_users row,
+ * which is all it takes to be entitled — the user is auto-provisioned on their
+ * first magic-link login. Owner-only. No env change, no redeploy, no SQL.
+ */
+export async function approveAccessRequest(formData: FormData): Promise<void> {
+  if (!(await requireOwner())) return;
+  const email = String(formData.get("email") ?? "");
+  await approveAccessRequestEmail(email);
+  revalidatePath("/dashboard/ops");
+}
+
+/** Revoke access (remove the app_users row). Owner-only. */
+export async function revokeAccessRequest(formData: FormData): Promise<void> {
+  if (!(await requireOwner())) return;
+  const email = String(formData.get("email") ?? "");
+  await revokeAccessEmail(email);
+  revalidatePath("/dashboard/ops");
+}
 
 /**
  * Server action behind the Ops panel. Same authorization as every other
@@ -19,7 +53,7 @@ export async function runOpsTask(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAllowedEmail(user.email)) {
+  if (!user || !isOwnerEmail(user.email)) {
     return { ok: false, error: "forbidden" };
   }
   if (!isIngestTask(task)) {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail, getAllowedEmail } from "@/lib/auth/allowlist";
+import { getOwnerEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { CliTitleBar, Wordmark } from "@/components/cli";
 
 export default async function LoginPage({
@@ -20,7 +21,7 @@ export default async function LoginPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user && isAllowedEmail(user.email)) {
+  if (user && (await isEntitledEmail(user.email))) {
     redirect("/dashboard");
   }
 
@@ -137,9 +138,9 @@ export default async function LoginPage({
         </div>
       </div>
 
-      {process.env.NODE_ENV !== "production" && getAllowedEmail() && (
+      {process.env.NODE_ENV !== "production" && getOwnerEmail() && (
         <p className="mt-12 text-center font-mono-cli text-xs text-muted-foreground">
-          ~ dev hint: allowlist = {getAllowedEmail()}
+          ~ dev hint: owner = {getOwnerEmail()}
         </p>
       )}
     </main>
@@ -150,13 +151,11 @@ async function sendMagicLink(formData: FormData) {
   "use server";
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
 
-  // Pretend-success on disallowed emails so we don't leak the allowlist.
-  // The disallowed branch previously returned instantly while the allowed
-  // branch waited on a Supabase round-trip — a timing oracle. Pad it into the
-  // same latency band. (Defence in depth: signups are also disabled
-  // server-side and RLS is entitlement-gated, so a probed address alone is
-  // worth little.)
-  if (!isAllowedEmail(email)) {
+  // Pretend-success for any address that isn't entitled (an owner, or an
+  // approved app_users row) so we don't leak who's allowed. The un-entitled
+  // branch previously returned instantly while the entitled branch waited on a
+  // round-trip — a timing oracle. Pad it into the same latency band.
+  if (!(await isEntitledEmail(email))) {
     await sleep(350 + Math.random() * 900);
     redirect("/login?sent=1");
   }
@@ -169,10 +168,11 @@ async function sendMagicLink(formData: FormData) {
     email,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
-      // The owner's auth.users row is provisioned once; never mint users from
-      // the login form. (Direct-to-Supabase signups are disabled in the
-      // dashboard — this keeps the app's own path consistent with that.)
-      shouldCreateUser: false,
+      // Auto-provision the auth.users row on first login. Safe because we
+      // already confirmed the address is entitled above (approved in
+      // app_users, or an owner) — so an approved user needs NO manual Supabase
+      // user-creation step; their first magic link mints the row.
+      shouldCreateUser: true,
     },
   });
 
@@ -229,7 +229,7 @@ async function requestAccess(formData: FormData) {
         `Email: ${validated.email}`,
         validated.note ? `Note: ${validated.note}` : `Note: (none)`,
         ``,
-        `To grant access: add the user in Supabase (Auth → invite / create), seed public.app_users, and update AUTH_ALLOWED_EMAIL handling as needed.`,
+        `To grant access: open Setup (dashboard → Setup → access requests) and click Approve. That's it — they can sign in immediately.`,
       ].join("\n"),
     });
   }
