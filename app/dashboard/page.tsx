@@ -173,109 +173,102 @@ export default async function DashboardPage() {
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
         </div>
 
-        {/* My portfolio — YOUR money first; system telemetry lives at the bottom */}
-        <section className="mt-8">
-          <div className="flex items-baseline justify-between">
-            <div className="font-mono-cli text-base text-il-navy">~ my portfolio</div>
-            <Link
-              href="/portfolio"
-              className="font-mono-cli text-sm text-il-accent hover:text-il-orange"
-            >
-              {held.length > 0 ? "manage holdings →" : "add holdings →"}
-            </Link>
-          </div>
-          {held.length > 0 ? (
-            <div className="card-cli mt-3 flex flex-wrap items-center gap-x-10 gap-y-3 p-5">
-              <div>
-                <div className="font-mono-cli text-sm text-muted-foreground">
-                  value ({base})
-                </div>
-                <div className="mt-0.5 text-xl font-bold text-il-navy">
-                  {formatMoney(portfolioTotal.baseValue, base)}
-                </div>
-              </div>
-              <div>
-                <div className="font-mono-cli text-sm text-muted-foreground">day</div>
-                <div
-                  className="mt-0.5 text-xl font-bold"
-                  style={{ color: changeColor(portfolioTotal.baseDayChange) }}
-                >
-                  {formatSignedMoney(portfolioTotal.baseDayChange, base)}
-                  {dayChangeFraction(portfolioTotal.baseValue, portfolioTotal.baseDayChange) !== null && (
-                    <span className="ml-1.5 text-base font-normal">
-                      (
-                      {formatSignedPercent(
-                        dayChangeFraction(
-                          portfolioTotal.baseValue,
-                          portfolioTotal.baseDayChange,
-                        ),
-                      )}
-                      )
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="font-mono-cli text-sm text-muted-foreground">
-                  holdings
-                </div>
-                <div className="mt-0.5 text-xl font-bold text-il-navy">
-                  {held.length}
-                </div>
-              </div>
-              {attentionItems.length > 0 && (
-                <Link
-                  href="/portfolio"
-                  className="ml-auto flex flex-wrap items-center gap-2 rounded-lg px-3 py-1.5"
-                  style={{ backgroundColor: "#ee1d231a" }}
-                >
-                  <span className="font-mono-cli text-sm font-bold" style={{ color: "#ee1d23" }}>
-                    ⚠ {attentionItems.length} change
-                    {attentionItems.length === 1 ? "" : "s"} need
-                    {attentionItems.length === 1 ? "s" : ""} a look:
-                  </span>
-                  {[...new Set(attentionItems.map((i) => i.ticker))]
-                    .slice(0, 4)
-                    .map((ticker) => (
-                      <span
-                        key={ticker}
-                        className="font-mono-cli text-sm font-bold text-il-navy"
-                      >
-                        {ticker}
-                      </span>
-                    ))}
-                </Link>
-              )}
-            </div>
-          ) : (
-            <p className="mt-3 text-base text-muted-foreground">
-              Add the shares you hold to see them valued and get every desk&apos;s
-              verdicts filtered to your names.
-            </p>
-          )}
-        </section>
-
-        {/* Latest signals — one card per LIVE desk, fed from its latest report */}
+        {/* The desk grid — My Portfolio leads (YOUR money first), then one
+            card per LIVE desk. Six cards: two rows of three on desktop. */}
         <section className="mt-8">
           <div className="font-mono-cli text-base text-il-navy">~ latest signals</div>
-          <div className="mt-3 grid gap-4 lg:grid-cols-2">
-            {latestReports.map(({ agent, report }, idx) => {
+          <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Link
+              href="/portfolio"
+              className="card-cli card-cli-module block p-6"
+              style={{ "--module-color": "#00b5e2" } as React.CSSProperties}
+            >
+              <div className="flex items-baseline justify-between gap-4">
+                <div className="text-lg font-bold text-il-navy">My Portfolio</div>
+                <div className="font-mono-cli text-sm text-muted-foreground">
+                  {held.length > 0
+                    ? `${held.length} holding${held.length === 1 ? "" : "s"}`
+                    : "empty"}
+                </div>
+              </div>
+
+              {held.length > 0 ? (
+                <>
+                  <p className="mt-3 text-base leading-relaxed text-foreground">
+                    <span className="font-bold text-il-navy">
+                      {formatMoney(portfolioTotal.baseValue, base)}
+                    </span>
+                    <span
+                      className="ml-2 font-bold"
+                      style={{ color: changeColor(portfolioTotal.baseDayChange) }}
+                    >
+                      {formatSignedMoney(portfolioTotal.baseDayChange, base)}
+                      {dayChangeFraction(
+                        portfolioTotal.baseValue,
+                        portfolioTotal.baseDayChange,
+                      ) !== null && (
+                        <>
+                          {" "}
+                          (
+                          {formatSignedPercent(
+                            dayChangeFraction(
+                              portfolioTotal.baseValue,
+                              portfolioTotal.baseDayChange,
+                            ),
+                          )}
+                          )
+                        </>
+                      )}
+                    </span>
+                  </p>
+                  {attentionItems.length > 0 ? (
+                    <ul className="mt-4 space-y-2">
+                      {[...new Set(attentionItems.map((i) => i.ticker))]
+                        .slice(0, 3)
+                        .map((ticker) => (
+                          <li
+                            key={ticker}
+                            className="flex items-center gap-2 font-mono-cli text-base"
+                          >
+                            <span style={{ color: "#ee1d23" }}>⚠</span>
+                            <span className="font-bold text-il-navy">{ticker}</span>
+                            <span className="text-muted-foreground">
+                              changed — needs a look
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-4 text-base text-muted-foreground">
+                      No changes on your names since the last runs.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+                  Add the shares you hold to see them valued and get every
+                  desk&apos;s verdicts filtered to your names.
+                </p>
+              )}
+
+              <div className="mt-4 flex items-baseline justify-between font-mono-cli text-sm text-muted-foreground">
+                <span>valued daily, {base}</span>
+                <span className="text-il-accent">
+                  {held.length > 0 ? "manage holdings →" : "add holdings →"}
+                </span>
+              </div>
+            </Link>
+
+            {latestReports.map(({ agent, report }) => {
               const top = report ? (topItemsByReport.get(report.id) ?? []) : [];
               const headline = report
                 ? stripInlineMarkdown(report.summary_markdown).split(". ")[0]
                 : null;
-              // An odd desk count would leave the last card orphaned beside an
-              // empty cell — let it span the full row instead.
-              const spanFull =
-                latestReports.length % 2 === 1 &&
-                idx === latestReports.length - 1;
               return (
                 <Link
                   key={agent.name}
                   href={report ? `/reports/${report.id}` : "/reports"}
-                  className={`card-cli card-cli-module block p-6 ${
-                    spanFull ? "lg:col-span-2" : ""
-                  }`}
+                  className="card-cli card-cli-module block p-6"
                   style={
                     {
                       "--module-color": MODULE_COLORS[agent.name as AgentName],
