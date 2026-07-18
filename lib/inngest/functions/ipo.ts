@@ -9,7 +9,9 @@ import { runAgent } from "@/lib/agents/run";
  * guarantees.
  */
 export const ipoScheduled = inngest.createFunction(
-  { id: "ipo-weekly", retries: 2 },
+  // concurrency 1: singleton agent with mutable run-context — serialise
+  // overlapping manual + cron triggers.
+  { id: "ipo-weekly", retries: 2, concurrency: { limit: 1 } },
   [
     { cron: ipoAgent.meta.schedule },
     { event: "agent/run.requested", if: "event.data.agentName == 'ipo'" },

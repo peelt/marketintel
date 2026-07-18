@@ -1,3 +1,5 @@
+import { priceChangeSummary } from "@/lib/format";
+
 /**
  * Dependency-free server-rendered price line. Pure SVG — no client JS, no
  * chart library; the report page stays a fully static server component.
@@ -47,8 +49,12 @@ export function PriceChart({
 
   const first = sampled[0];
   const last = sampled[sampled.length - 1];
-  const change = (last.close - first.close) / first.close;
-  const rising = change >= 0;
+  const { pct: changePct, direction } = priceChangeSummary(
+    first.close,
+    last.close,
+  );
+  const changeColor =
+    direction === "up" ? "#8DC73F" : direction === "down" ? "#EE1D23" : "#6b7280";
 
   return (
     <figure>
@@ -73,9 +79,10 @@ export function PriceChart({
           {first.date} · {formatClose(first.close)}
           {currency ? ` ${currency}` : ""}
         </span>
-        <span style={{ color: rising ? "#8DC73F" : "#EE1D23" }}>
-          {rising ? "+" : ""}
-          {(change * 100).toFixed(1)}%
+        <span style={{ color: changeColor }}>
+          {changePct === null
+            ? "—"
+            : `${direction === "up" ? "+" : direction === "down" ? "−" : ""}${Math.abs(changePct).toFixed(1)}%`}
         </span>
         <span>
           {last.date} · {formatClose(last.close)}

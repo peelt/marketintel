@@ -181,6 +181,24 @@ export function compositeDisplay(
   return composite.toFixed(1);
 }
 
+/**
+ * Percentage change over a price series' endpoints, for the chart caption.
+ * Pure + tested because the naive `(last-first)/first` throws off a glitched
+ * or suspended first close of 0 ("+Infinity%"/"NaN%" under a real verdict).
+ * `pct` is null when the base is non-positive (caption shows "—"); a change
+ * that rounds to zero reads "flat" (neutral), never a false green/red +0.0%.
+ */
+export function priceChangeSummary(
+  firstClose: number,
+  lastClose: number,
+): { pct: number | null; direction: "up" | "down" | "flat" } {
+  const pct =
+    firstClose > 0 ? ((lastClose - firstClose) / firstClose) * 100 : null;
+  const direction =
+    pct === null || Math.abs(pct) < 0.05 ? "flat" : pct > 0 ? "up" : "down";
+  return { pct, direction };
+}
+
 /** Short axis label for a framework criterion key (radar + compact UIs). */
 const CRITERION_SHORT_LABELS: Record<string, string> = {
   cost_position: "cost",
@@ -193,7 +211,6 @@ const CRITERION_SHORT_LABELS: Record<string, string> = {
   cut_risk_signals: "cut risk",
   excess_decline: "decline",
   earned_damage: "damage",
-  balance_sheet_resilience: "balance",
   repricing_depth: "repricing",
   business_quality: "biz",
   growth_prospects: "growth",

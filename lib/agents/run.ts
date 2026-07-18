@@ -66,10 +66,20 @@ export async function runAgent(
       bodyMarkdown: options.bodyMarkdown ?? report.bodyMarkdown,
     });
 
-    await supabase
+    // This write is what makes the report visible (the UI filters on
+    // status='succeeded'). If it fails, the report is persisted but stranded
+    // invisibly — so fail loudly and let Inngest retry the whole run rather
+    // than swallow it. (A retry mints a fresh run + report; the orphan stays
+    // hidden behind the status filter.)
+    const { error: succeedErr } = await supabase
       .from("agent_runs")
       .update({ status: "succeeded", finished_at: new Date().toISOString() })
       .eq("id", run.id);
+    if (succeedErr) {
+      throw new Error(
+        `runAgent: report persisted but marking run succeeded failed: ${getErrorMessage(succeedErr)}`,
+      );
+    }
 
     // Fan out to the alerting layer (holding alerts email portfolio owners
     // whose names this report flagged). Best-effort by design: a notification
