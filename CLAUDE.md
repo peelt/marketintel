@@ -25,11 +25,16 @@ ETFs excluded), and PR 8 (IPO desk — 30-day S-1/F-1 discovery via EDGAR
 full-text search, each prospectus graded by one routine-tier structured call
 with NO web search; framework migration 0011; Sun 18:00 UTC cron;
 strong/mixed/weak_profile + shell_or_blank_check; issuers as exchange-"IPO"
-securities keyed by CIK, excluded from holdings). Desk-building
-is the agreed priority (no cross-desk score blending — settled): Geopolitical
-is the last desk; then framework-editing UI, and **scheduled email alerts**
-(the one deferred 6b piece — needs an email-provider decision:
-Resend/Postmark).
+securities keyed by CIK, excluded from holdings), and PR 10 (Geopolitical
+desk — the last desk; a hybrid macro-read memo over a ranked table; one fresh
+web-researched macro call per run grounds a routine-tier no-search grade per
+name over the `geopolitical_exposed` universe; framework migration 0012; Sun
+20:00 UTC cron; beneficiary/mixed/at_risk/insulated from absolute facts,
+materiality-gated; uncached for weekly freshness). **All six desks are now
+live.** With desk-building complete (no cross-desk score blending — settled),
+the remaining roadmap is: **framework-editing UI** (PR 7), **scheduled email
+alerts** (the deferred 6b piece — needs an email-provider decision:
+Resend/Postmark), London fundamentals, and on-demand tickers via Inngest.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/

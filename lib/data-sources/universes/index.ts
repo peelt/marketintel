@@ -2,6 +2,7 @@ import { z } from "zod";
 import metalsRaw from "./metals.json";
 import energyRaw from "./energy.json";
 import dividendRaw from "./dividend.json";
+import geopoliticalRaw from "./geopolitical.json";
 
 /**
  * Curated starter universes. Each agent draws from one or more.
@@ -45,12 +46,19 @@ export type UniverseFile = z.infer<typeof UniverseFileZ>;
 export const metalsUniverse: UniverseFile = UniverseFileZ.parse(metalsRaw);
 export const energyUniverse: UniverseFile = UniverseFileZ.parse(energyRaw);
 export const dividendUniverse: UniverseFile = UniverseFileZ.parse(dividendRaw);
+export const geopoliticalUniverse: UniverseFile =
+  UniverseFileZ.parse(geopoliticalRaw);
 
 export function allSeedSecurities(): SeedSecurity[] {
   // Dedup on (ticker, exchange) — RIO appears in both metals and dividend etc.
   const seen = new Set<string>();
   const out: SeedSecurity[] = [];
-  for (const u of [metalsUniverse, energyUniverse, dividendUniverse]) {
+  for (const u of [
+    metalsUniverse,
+    energyUniverse,
+    dividendUniverse,
+    geopoliticalUniverse,
+  ]) {
     for (const s of u.securities) {
       const key = `${s.ticker}::${s.exchange}`;
       if (seen.has(key)) {

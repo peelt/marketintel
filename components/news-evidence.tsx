@@ -41,7 +41,11 @@ export function NewsEvidenceCard({
     ? "why it fell"
     : parsed.gradeLabel.includes("cost")
       ? "cost research"
-      : "prospectus research";
+      : parsed.gradeLabel.includes("positioning")
+        ? "geopolitical position"
+        : parsed.gradeLabel.includes("business")
+          ? "prospectus research"
+          : "research";
 
   return (
     <div className="rounded border border-border/60 bg-muted/20 px-4 py-3">

@@ -45,7 +45,11 @@ const SEVERITY: Record<string, Severity> = {
   mixed_profile: { rank: 1, flagged: false },
   weak_profile: { rank: 2, flagged: true },
   shell_or_blank_check: { rank: 0, flagged: false },
-  // shared
+  // geopolitical: a held name graded at_risk against the backdrop deserves a look
+  beneficiary: { rank: 0, flagged: false },
+  at_risk: { rank: 3, flagged: true },
+  insulated: { rank: 0, flagged: false },
+  // shared (mixed reused by metals + geopolitical)
   insufficient_data: { rank: 0, flagged: false },
 };
 

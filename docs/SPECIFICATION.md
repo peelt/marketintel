@@ -46,7 +46,7 @@ deprioritized.
 | 2 | **Dividend Intelligence** | High-yield names with sustainability + cut-probability flagging | Fri 18:00 | routine |
 | 3 | **IPO Evaluation** *(live)* | League table of fresh S-1/F-1 registrants, graded from their own prospectuses | Sun 18:00 | routine |
 | 4 | **Precious Metals** | Buy/hold/avoid across ETFs, royalties, majors, juniors | Sat 12:00 | routine |
-| 5 | **Geopolitical Scanner** | Macro/geopolitical memo with confidence levels | Sun 20:00 | deep |
+| 5 | **Geopolitical Scanner** *(live)* | Weekly macro read (confidence per theme) over a ranked table of names scored on positioning | Sun 20:00 | routine |
 | 6 | **Energy Beneficiaries** *(deprioritized)* | Sector exposure ranking | Sat 10:00 | routine |
 
 ### 2.1 Reaction Analyser (detail)
@@ -104,6 +104,30 @@ placeholders until the prospectus discloses a proposed symbol). They're
 excluded from portfolio search/holdings — research subjects, not holdable
 names. Evaluations cache in `research_cache` (kind `ipo_eval`) pinned to the
 accession number, so an amendment re-grades automatically.
+
+### 2.3 Geopolitical Scanner (detail) — live 18 Jul 2026, the last desk
+
+A **hybrid**: a macro read (the memo) over a ranked table. One fresh
+web-research call per run surveys the current backdrop and returns 3–6
+themes, each with an explicit confidence level and the sectors it bears on —
+rendered prominently (open, above the table) on the report page and NOT
+cached (geopolitics moves weekly). Those themes then ground one routine-tier
+structured call per name over a curated cross-sector universe (tag
+`geopolitical_exposed` — defense, semis, energy, critical minerals,
+agriculture, shipping, China-exposed tech, ~38 names). The per-name call uses
+**no web search** — the themes are already researched and a company's
+structural exposures are stable — so positioning always reflects THIS week's
+themes while the desk stays cheap; per-name grades are uncached for the same
+freshness reason.
+
+**Framework — `geopolitical` v1** (migration 0012, all sub-signals
+`absolute`): positioning 55% (beneficiary high / threatened low), resilience
+35% (how insulated), materiality 10% (how much geopolitics bears on the name
+at all). Classifications derive from absolute grades in code: `beneficiary` /
+`mixed` / `at_risk` / `insulated` / `insufficient_data`. **Materiality is the
+gate** — a low-materiality domestic name is marked `insulated`, never forced
+into a beneficiary/casualty call. The desk grades exposure to the backdrop as
+it stands; it never bets on an outcome (I2).
 
 ---
 

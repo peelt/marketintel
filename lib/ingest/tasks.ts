@@ -27,6 +27,7 @@ export const INGEST_TASKS = [
   "run-reaction",
   "run-metals",
   "run-ipo",
+  "run-geopolitical",
   "broad-prices",
 ] as const;
 
@@ -224,6 +225,21 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       return {
         queued: 1,
         note: "IPO desk run queued via Inngest — it discovers the last 30 days of S-1/F-1 filings and evaluates each prospectus (5–10 minutes). The report appears under Reports when it finishes (progress in the Inngest dashboard).",
+      };
+    }
+    case "run-geopolitical": {
+      // One fresh macro web-research call + one grade per ~38 names doesn't fit
+      // a server action's time budget — hand it to the geopolitical-weekly
+      // Inngest function via its manual-trigger event, same code path as the
+      // cron.
+      const { inngest } = await import("@/lib/inngest/client");
+      await inngest.send({
+        name: "agent/run.requested",
+        data: { agentName: "geopolitical", reason: "manual ops trigger" },
+      });
+      return {
+        queued: 1,
+        note: "Geopolitical run queued via Inngest — it researches the current backdrop and grades each name's positioning (5–10 minutes). The report appears under Reports when it finishes (progress in the Inngest dashboard).",
       };
     }
     case "broad-prices": {
