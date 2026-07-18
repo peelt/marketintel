@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { SiteHeader, ClassificationChip } from "@/components/cli";
 import { Disclaimer } from "@/components/disclaimer";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
@@ -75,7 +76,11 @@ export default async function PortfolioPage() {
 
   return (
     <>
-      <SiteHeader active="portfolio" userEmail={user.email} />
+      <SiteHeader
+        active="portfolio"
+        userEmail={user.email}
+        isOwner={isOwnerEmail(user.email)}
+      />
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <div className="flex items-baseline justify-between">
           <div>
