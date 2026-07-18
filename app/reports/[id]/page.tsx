@@ -13,7 +13,7 @@ import {
   MODULE_COLORS,
   SiteHeader,
 } from "@/components/cli";
-import { classificationLabel, humanizeDateTime } from "@/lib/format";
+import { classificationLabel, compositeDisplay, humanizeDateTime } from "@/lib/format";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
@@ -63,9 +63,7 @@ interface ReportItemRow {
  * worst-possible score (missing ≠ zero). Render "—" instead.
  */
 function displayComposite(it: ReportItemRow): string {
-  const coverage = it.scoring_breakdown?.coverage ?? 0;
-  if (coverage === 0) return "—";
-  return it.composite_score.toFixed(1);
+  return compositeDisplay(it.composite_score, it.scoring_breakdown?.coverage);
 }
 
 function coverageOf(it: ReportItemRow): number {
@@ -127,24 +125,67 @@ export default async function ReportDetailPage({
   } = await supabase.auth.getUser();
   if (!user || !isAllowedEmail(user.email)) redirect("/login");
 
-  const { data: report } = await supabase
+  const { data: report, error: reportErr } = await supabase
     .from("reports")
     .select(
       "id, agent_run_id, agent_name, generated_at, summary_markdown, body_markdown",
     )
     .eq("id", id)
     .maybeSingle<ReportRow>();
+  // A read error must not masquerade as "not found" (404) — surface it.
+  if (reportErr) throw new Error(`report load: ${reportErr.message}`);
   if (!report) notFound();
 
-  const { data: run } = await supabase
+  const { data: run, error: runErr } = await supabase
     .from("agent_runs")
     .select(
       "framework_id, started_at, finished_at, status, framework:scoring_frameworks(version)",
     )
     .eq("id", report.agent_run_id)
     .maybeSingle<RunRow>();
+  if (runErr) throw new Error(`report run load: ${runErr.message}`);
 
-  const { data: items } = await supabase
+  // Invariant: a report whose run did not SUCCEED must never render its
+  // ranked table, verdicts, or evidence — a half-persisted artefact would
+  // read as a real report. (The list and dashboard already hide these; this
+  // guards the directly-reachable URL.) Show an honest notice instead. A run
+  // we couldn't load is treated the same way — we can't confirm success.
+  const succeeded = run?.status === "succeeded";
+  if (!succeeded) {
+    const meta = agentRegistry.get(report.agent_name as AgentName);
+    return (
+      <>
+        <SiteHeader active="reports" />
+        <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+          <Link
+            href="/reports"
+            className="font-mono-cli text-sm text-muted-foreground hover:text-il-orange"
+          >
+            ← reports
+          </Link>
+          <h1 className="mt-4 text-3xl font-bold text-il-navy">
+            {meta?.displayName ?? report.agent_name}
+          </h1>
+          <p className="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-base text-amber-700">
+            This report isn&apos;t available — its run{" "}
+            {run ? (
+              <>finished with status <strong>{run.status}</strong></>
+            ) : (
+              "record could not be loaded"
+            )}
+            , so nothing here is shown. Scored reports appear under{" "}
+            <Link href="/reports" className="underline">
+              reports
+            </Link>{" "}
+            once a run completes successfully.
+          </p>
+          <Disclaimer />
+        </main>
+      </>
+    );
+  }
+
+  const { data: items, error: itemsErr } = await supabase
     .from("report_items")
     .select(
       "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name)",
@@ -152,6 +193,9 @@ export default async function ReportDetailPage({
     .eq("report_id", report.id)
     .order("rank", { ascending: true })
     .returns<ReportItemRow[]>();
+  // Don't let an errored items read render as a report with zero candidates
+  // (indistinguishable from a genuinely empty one).
+  if (itemsErr) throw new Error(`report items load: ${itemsErr.message}`);
 
   // Evidence + 1y price history for the evidence viewer — the whole point of
   // the architecture (I1/I4): every score defensible from its cited rows.
@@ -161,7 +205,8 @@ export default async function ReportDetailPage({
     .map((i) => i.security_id)
     .filter((v): v is string => v !== null);
 
-  const [{ data: evidence }, { data: priceHistory }] = await Promise.all([
+  const [{ data: evidence, error: evidenceErr }, { data: priceHistory }] =
+    await Promise.all([
     itemIds.length
       ? supabase
           .from("evidence")
@@ -171,7 +216,7 @@ export default async function ReportDetailPage({
           .in("report_item_id", itemIds)
           .order("weight", { ascending: false })
           .returns<EvidenceRow[]>()
-      : Promise.resolve({ data: [] as EvidenceRow[] }),
+      : Promise.resolve({ data: [] as EvidenceRow[], error: null }),
     securityIds.length
       ? // N candidates × ~250 sessions exceeds PostgREST's silent 1,000-row
         // cap — an unpaginated read here chopped the most RECENT months off
@@ -196,6 +241,9 @@ export default async function ReportDetailPage({
         ).then((rows) => ({ data: rows }))
       : Promise.resolve({ data: [] as PriceHistoryRow[] }),
   ]);
+  // Evidence is the glass-box promise — a report silently rendering WITHOUT
+  // the rows behind its scores is worse than an error page. Surface it.
+  if (evidenceErr) throw new Error(`report evidence load: ${evidenceErr.message}`);
 
   const evidenceByItem = new Map<string, EvidenceRow[]>();
   for (const ev of evidence ?? []) {
@@ -275,12 +323,8 @@ export default async function ReportDetailPage({
         </div>
       </header>
 
-      {run && run.status !== "succeeded" && (
-        <p className="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-base text-amber-700">
-          This run finished with status <strong>{run.status}</strong> — the
-          report below may be incomplete and is excluded from the reports list.
-        </p>
-      )}
+      {/* (Non-succeeded runs never reach here — they return the "not
+          available" notice above, so no partial report can render.) */}
 
       {/* Macro read — the memo, shown open above everything for the
           Geopolitical hybrid desk (never collapsed like other analyst notes) */}

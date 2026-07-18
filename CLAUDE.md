@@ -148,6 +148,12 @@ routes resolution through Inngest.
   Twelve Data → Finnhub → yfinance (`getPriceSource`); Finnhub stays for
   fundamentals (`/stock/metric`) + fallback, yfinance is the floor only.
   Full-universe refresh runs via chunked Inngest, never inline (rate cap).
+  **Freshness (audit fix):** the daily price refresh covers broad ∪ all desk
+  universes + the GLD benchmark (not just index members); a weekly
+  fundamentals+dividends cron (Fri 15:00 UTC) refreshes the dividend+metals
+  names ahead of their runs; a 10-day price-staleness gate nulls
+  price-dependent signals when a refresh has failed (honest low coverage, not
+  a stale-but-confident number).
 - Design-for-paid, no billing yet; **sell derived analysis only**; thin
   dashboard from PR 4; Reaction Analyser is the hero pole; Energy deprioritized.
 - **Holdings (PR 6):** user-entered positions with *optional* purchase price →

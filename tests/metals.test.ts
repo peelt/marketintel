@@ -184,6 +184,17 @@ describe("cost-grade reconciliation — arithmetic beats a contradictory grade",
     expect(reconcileCostGrade(grade(1, null), 4000, 31).costMarginGrade).toBe(1);
     expect(reconcileCostGrade(grade(1, 1300), null, null).costMarginGrade).toBe(1);
   });
+
+  it("uses the security's metal, not AISC magnitude, to pick the spot (the fix's own blind spot)", () => {
+    // A gold AISC mangled below the $100 silver threshold ($1,450 → $145):
+    // magnitude-only reads it as silver and craters the implied grade.
+    expect(impliedCostGrade(98, 4000, 31)).toBe(5); // no hint → silver path (the trap)
+    expect(impliedCostGrade(98, 4000, 31, "gold")).toBe(90); // metal known → gold spot, wide margin
+    // With the metal known, a correct model grade is NOT wrongly overridden…
+    expect(reconcileCostGrade(grade(60, 98), 4000, 31, "gold").costMarginGrade).toBe(60);
+    // …whereas magnitude-only would have cratered it to the silver-implied 5.
+    expect(reconcileCostGrade(grade(60, 98), 4000, 31).costMarginGrade).toBe(5);
+  });
 });
 
 describe("metals research evidence renders through the shared news card", () => {

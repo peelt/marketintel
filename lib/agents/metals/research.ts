@@ -2,9 +2,10 @@ import { getAnthropicClient, modelForTier } from "@/lib/anthropic/client";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
- * Cost-position research for the Metals desk: one deep-tier call per producer
- * with the native web_search tool and structured output (the same proven
- * pattern as the Reaction news layer).
+ * Cost-position research for the Metals desk: one routine-tier call per
+ * producer with the native web_search tool and structured output (the same
+ * proven pattern as the Reaction news layer). Runs on the routine model since
+ * the cost-control pass — the docstring said "deep" before that change.
  *
  * AISC (all-in sustaining cost, $/oz) is the desk's anchor and lives only in
  * company reporting — no free API serves it. The model researches the latest
@@ -226,18 +227,34 @@ export function confidenceWeight(confidence: "low" | "medium" | "high"): number 
 
 // ---------- deterministic margin cross-check ----------
 
+export type MetalHint = "gold" | "silver" | null;
+
 /**
  * Calibrated cost grade IMPLIED by the disclosed AISC against the current
  * spot price — the glass-box arithmetic the LLM grade must agree with.
- * The AISC's scale picks the metal (silver producers report ~$10–30/oz,
- * gold producers ~$800–2,000/oz). Null when no spot is available.
+ *
+ * The metal is taken from the SECURITY when known (`metal`), not guessed from
+ * the AISC's magnitude: a gold AISC that lost a digit ($1,450 → $145) would
+ * otherwise be read as silver, compared to silver spot, imply a deeply
+ * negative margin, and wrongly override a correct grade to ~5. Magnitude is
+ * only a last-resort fallback when the metal is unknown (royalty/streaming
+ * names with no single metal). Null when no usable spot is available.
  */
 export function impliedCostGrade(
   aiscUsd: number,
   goldSpotUsd: number | null,
   silverSpotUsd: number | null,
+  metal: MetalHint = null,
 ): number | null {
-  const spot = aiscUsd < 100 ? silverSpotUsd : goldSpotUsd;
+  const spot =
+    metal === "gold"
+      ? goldSpotUsd
+      : metal === "silver"
+        ? silverSpotUsd
+        : // Unknown metal: fall back to the magnitude heuristic.
+          aiscUsd < 100
+          ? silverSpotUsd
+          : goldSpotUsd;
   if (spot == null || spot <= 0) return null;
   const margin = (spot - aiscUsd) / spot;
   if (margin <= 0) return 5;
@@ -263,9 +280,15 @@ export function reconcileCostGrade(
   grade: MetalsResearchGrade,
   goldSpotUsd: number | null,
   silverSpotUsd: number | null,
+  metal: MetalHint = null,
 ): MetalsResearchGrade {
   if (grade.reportedAiscUsd == null) return grade;
-  const implied = impliedCostGrade(grade.reportedAiscUsd, goldSpotUsd, silverSpotUsd);
+  const implied = impliedCostGrade(
+    grade.reportedAiscUsd,
+    goldSpotUsd,
+    silverSpotUsd,
+    metal,
+  );
   if (implied == null) return grade;
   if (Math.abs(grade.costMarginGrade - implied) <= RECONCILE_TOLERANCE) return grade;
   console.warn(

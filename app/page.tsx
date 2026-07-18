@@ -13,7 +13,7 @@ export default function Home() {
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-baseline justify-between">
-            <Wordmark size="h-12" />
+            <Wordmark size="h-16 lg:h-20" />
             <span className="hidden font-mono-cli text-sm text-muted-foreground sm:inline">
               guest@investorlogical:~
             </span>

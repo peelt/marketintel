@@ -209,8 +209,25 @@ describe("assembleProspectusExcerpt", () => {
   });
 });
 
-describe("ipo eval cache — accession-aware", () => {
-  const payload = { accession: "0001-26-000001", headline: "h" };
+describe("ipo eval cache — accession-aware + full-shape", () => {
+  const payload = {
+    accession: "0001-26-000001",
+    businessQualityGrade: 70,
+    businessQualityNote: "n",
+    growthGrade: 60,
+    growthNote: "n",
+    riskGrade: 55,
+    riskNote: "n",
+    governanceGrade: 50,
+    governanceNote: "n",
+    offeringTermsGrade: 60,
+    offeringTermsNote: "n",
+    headline: "h",
+    summary: "s",
+    proposedTicker: null,
+    isShellOrSpac: false,
+    confidence: "medium" as const,
+  };
   const now = new Date("2026-07-17T12:00:00Z");
 
   it("serves only a fresh entry whose accession still matches", () => {
@@ -221,12 +238,12 @@ describe("ipo eval cache — accession-aware", () => {
     expect(cacheUsable(payload, "2026-07-10T00:00:00Z", "0001-26-000009", now)).toBe(false);
   });
 
-  it("misses when stale or malformed", () => {
+  it("misses when stale, null, or missing a grade field (schema-change eviction)", () => {
     expect(cacheUsable(payload, "2026-05-01T00:00:00Z", "0001-26-000001", now)).toBe(false);
     expect(cacheUsable(null, "2026-07-10T00:00:00Z", "0001-26-000001", now)).toBe(false);
-    expect(
-      cacheUsable({ accession: "0001-26-000001" }, "2026-07-10T00:00:00Z", "0001-26-000001", now),
-    ).toBe(false);
+    // Accession matches but the grade shape is incomplete → re-grade.
+    const { riskGrade: _dropped, ...missing } = payload;
+    expect(cacheUsable(missing, "2026-07-10T00:00:00Z", "0001-26-000001", now)).toBe(false);
   });
 });
 

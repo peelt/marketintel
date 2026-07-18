@@ -166,6 +166,21 @@ export function dayChangeFraction(
   return dayChange / prior;
 }
 
+/**
+ * How a composite score renders anywhere it's shown (report page, dashboard).
+ * Missing ≠ zero: at 0% coverage there is no data behind the number, so a
+ * "0.0" would fabricate a worst-possible score — render "—" instead. One
+ * function so every surface tells the same story (the report page and the
+ * dashboard once drifted here). Null composite is also "—", never a crash.
+ */
+export function compositeDisplay(
+  composite: number | null | undefined,
+  coverage: number | null | undefined,
+): string {
+  if (composite == null || (coverage ?? 0) === 0) return "—";
+  return composite.toFixed(1);
+}
+
 /** Short axis label for a framework criterion key (radar + compact UIs). */
 const CRITERION_SHORT_LABELS: Record<string, string> = {
   cost_position: "cost",
