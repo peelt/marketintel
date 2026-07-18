@@ -93,6 +93,13 @@ const STEPS: StepDef[] = [
       "Finds the last 30 days of S-1/F-1 filings and grades each from its own prospectus — business, growth, risk, governance, offering terms.",
     eta: "queued; 5-10 minutes in background",
   },
+  {
+    task: "run-geopolitical",
+    title: "Run the Geopolitical Scanner",
+    description:
+      "Researches the current geopolitical backdrop, then grades each exposed name on how it's positioned — files a macro read over a ranked table.",
+    eta: "queued; 5-10 minutes in background",
+  },
 ];
 
 type StepState =
@@ -218,7 +225,8 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
       {(task === "run-dividend" ||
         task === "run-reaction" ||
         task === "run-metals" ||
-        task === "run-ipo") &&
+        task === "run-ipo" ||
+        task === "run-geopolitical") &&
         typeof r.reportId === "string" && (
         <p className="text-sm">
           <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
@@ -268,13 +276,14 @@ function summarise(task: string, r: Record<string, unknown>): string {
     (task === "run-dividend" ||
       task === "run-reaction" ||
       task === "run-metals" ||
-      task === "run-ipo") &&
+      task === "run-ipo" ||
+      task === "run-geopolitical") &&
     typeof r.queued !== "number"
   ) {
     return "Report filed successfully.";
   }
-  // run-ipo always queues; its note is the whole story (no name count).
-  if (task === "run-ipo" && typeof r.note === "string") {
+  // run-ipo / run-geopolitical always queue; the note is the whole story.
+  if ((task === "run-ipo" || task === "run-geopolitical") && typeof r.note === "string") {
     return r.note;
   }
   if (task === "seed-broad-universe") {

@@ -212,6 +212,10 @@ export default async function ReportDetailPage({
 
   const meta = agentRegistry.get(report.agent_name as AgentName);
   const moduleColor = MODULE_COLORS[report.agent_name as AgentName] ?? "#034566";
+  // The Geopolitical desk is a hybrid: its body_markdown IS the macro read
+  // (the memo), shown prominently ABOVE the table rather than collapsed at
+  // the bottom like other desks' analyst notes.
+  const isMacroMemo = report.agent_name === "geopolitical";
 
   // Partition: 0%-coverage names collapse to an exclusion note, and names
   // whose DEFINING evidence failed (reaction's news grade → cause_unconfirmed)
@@ -276,6 +280,18 @@ export default async function ReportDetailPage({
           This run finished with status <strong>{run.status}</strong> — the
           report below may be incomplete and is excluded from the reports list.
         </p>
+      )}
+
+      {/* Macro read — the memo, shown open above everything for the
+          Geopolitical hybrid desk (never collapsed like other analyst notes) */}
+      {isMacroMemo && (
+        <section className="card-cli mt-8 p-6">
+          <article className="prose max-w-none prose-headings:text-il-navy prose-h1:sr-only">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {report.body_markdown}
+            </ReactMarkdown>
+          </article>
+        </section>
       )}
 
       {/* Verdict band — the conclusion, before anything else */}
@@ -537,11 +553,13 @@ export default async function ReportDetailPage({
                       <ul className="space-y-2">
                         {evidenceRows.map((ev) => (
                           <li key={ev.id}>
-                            {/* Structured research rows (news + prospectus
-                                evals) share one persisted shape — render the
-                                designed card for both. */}
+                            {/* Structured research rows (news, prospectus
+                                evals, geopolitical exposure) share one
+                                persisted shape — render the designed card
+                                for any that carries the [TICKER · grade] head. */}
                             {ev.evidence_type === "news_article" ||
-                            (ev.evidence_type === "filing_section" &&
+                            ((ev.evidence_type === "filing_section" ||
+                              ev.evidence_type === "macro_indicator") &&
                               ev.source_text.startsWith("[")) ? (
                               <NewsEvidenceCard
                                 text={ev.source_text}
@@ -572,17 +590,20 @@ export default async function ReportDetailPage({
         </section>
       )}
 
-      {/* The agent's prose, demoted to an appendix */}
-      <details className="card-cli mt-10 px-5 py-4">
-        <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
-          ~ analyst note — the desk&apos;s full write-up
-        </summary>
-        <article className="prose mt-4 max-w-none prose-headings:text-il-navy">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {report.body_markdown}
-          </ReactMarkdown>
-        </article>
-      </details>
+      {/* The agent's prose, demoted to an appendix — except the Geopolitical
+          desk, whose write-up is the macro read already shown open at the top. */}
+      {!isMacroMemo && (
+        <details className="card-cli mt-10 px-5 py-4">
+          <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
+            ~ analyst note — the desk&apos;s full write-up
+          </summary>
+          <article className="prose mt-4 max-w-none prose-headings:text-il-navy">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {report.body_markdown}
+            </ReactMarkdown>
+          </article>
+        </details>
+      )}
 
       <Disclaimer />
     </main>
