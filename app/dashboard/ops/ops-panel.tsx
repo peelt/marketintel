@@ -29,7 +29,7 @@ const STEPS: StepDef[] = [
     task: "seed-universe",
     title: "Load the security universe",
     description:
-      "Fills the securities table from the curated dividend, metals and energy lists. Safe to re-run.",
+      "Fills the securities table from the curated dividend, metals, energy and geopolitical lists — and applies each desk's tags. Re-run after a new desk universe ships, or its desk files empty reports. Safe to re-run.",
     eta: "~10 seconds",
   },
   {

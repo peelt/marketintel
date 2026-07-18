@@ -215,22 +215,26 @@ async function requestAccess(formData: FormData) {
     redirect("/login?requested=1");
   }
 
-  // First-time request: notify the owner. Fail-soft — the row is already
-  // persisted, so a mail hiccup loses nothing.
+  // First-time request: notify the owner with a branded email. Fail-soft —
+  // the row is already persisted, so a mail hiccup loses nothing.
   const { sendEmail } = await import("@/lib/email/postmark");
   const to = process.env.POSTMARK_FROM_EMAIL;
   if (to) {
+    const { composeAccessRequestNotice } = await import(
+      "@/lib/email/access-emails"
+    );
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://investorlogical.com";
+    const composed = composeAccessRequestNotice({
+      requesterEmail: validated.email,
+      note: validated.note,
+      appUrl,
+    });
     await sendEmail({
       to,
-      subject: `Access request — ${validated.email}`,
-      textBody: [
-        `New access request on investorlogical.com`,
-        ``,
-        `Email: ${validated.email}`,
-        validated.note ? `Note: ${validated.note}` : `Note: (none)`,
-        ``,
-        `To grant access: open Setup (dashboard → Setup → access requests) and click Approve. That's it — they can sign in immediately.`,
-      ].join("\n"),
+      subject: composed.subject,
+      textBody: composed.textBody,
+      htmlBody: composed.htmlBody,
     });
   }
 

@@ -75,7 +75,7 @@ export default async function PortfolioPage() {
 
   return (
     <>
-      <SiteHeader active="portfolio" />
+      <SiteHeader active="portfolio" userEmail={user.email} />
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <div className="flex items-baseline justify-between">
           <div>

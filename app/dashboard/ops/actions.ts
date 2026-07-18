@@ -28,6 +28,28 @@ export async function approveAccessRequest(formData: FormData): Promise<void> {
   if (!(await requireOwner())) return;
   const email = String(formData.get("email") ?? "");
   await approveAccessRequestEmail(email);
+
+  // Welcome the newly-approved user with a branded email so they know they can
+  // sign in. Fail-soft — the entitlement is already written, so a mail hiccup
+  // never blocks approval (the owner can always tell them directly).
+  try {
+    const { sendEmail } = await import("@/lib/email/postmark");
+    const { composeApprovalNotice } = await import(
+      "@/lib/email/access-emails"
+    );
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ?? "https://investorlogical.com";
+    const composed = composeApprovalNotice({ appUrl });
+    await sendEmail({
+      to: email.trim().toLowerCase(),
+      subject: composed.subject,
+      textBody: composed.textBody,
+      htmlBody: composed.htmlBody,
+    });
+  } catch {
+    // Best-effort; approval already succeeded.
+  }
+
   revalidatePath("/dashboard/ops");
 }
 
