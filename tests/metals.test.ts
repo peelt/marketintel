@@ -4,7 +4,11 @@ import {
   fcfYield,
   rsVsBenchmark,
 } from "@/lib/agents/metals/metrics";
-import { parseMetalsGrade } from "@/lib/agents/metals/research";
+import {
+  impliedCostGrade,
+  parseMetalsGrade,
+  reconcileCostGrade,
+} from "@/lib/agents/metals/research";
 import { isFresh } from "@/lib/agents/metals/research-cache";
 import { parseNewsEvidence } from "@/lib/format";
 import type { CandidateScore } from "@/lib/scoring/types";
@@ -133,6 +137,52 @@ describe("parseMetalsGrade", () => {
     ).toBeNull();
     expect(parseMetalsGrade(JSON.stringify({ ...valid, cost_margin_grade: 130 }))).toBeNull();
     expect(parseMetalsGrade("prose, not json")).toBeNull();
+  });
+
+  it("rejects the ENTIRE generation on an implausible AISC (the live AEM corruption)", () => {
+    // Seen live: AISC ~$2.65e28/oz beside a garbled headline and a 1/100
+    // grade contradicting its own summary — a corrupted output, not a fact.
+    expect(
+      parseMetalsGrade(JSON.stringify({ ...valid, reported_aisc_usd: 2.651e28 })),
+    ).toBeNull();
+    expect(
+      parseMetalsGrade(JSON.stringify({ ...valid, reported_aisc_usd: 0.5 })),
+    ).toBeNull();
+    // Silver-scale AISC is plausible and must survive.
+    expect(
+      parseMetalsGrade(JSON.stringify({ ...valid, reported_aisc_usd: 14 }))!
+        .reportedAiscUsd,
+    ).toBe(14);
+  });
+});
+
+describe("cost-grade reconciliation — arithmetic beats a contradictory grade", () => {
+  const grade = (costMarginGrade: number, aisc: number | null) => ({
+    costMarginGrade,
+    reportedAiscUsd: aisc,
+    headline: "h",
+    summary: "s",
+    sources: [],
+    confidence: "medium" as const,
+  });
+
+  it("impliedCostGrade maps margin bands monotonically and picks the metal by scale", () => {
+    expect(impliedCostGrade(1300, 4000, 31)).toBe(90); // gold, ~68% margin
+    expect(impliedCostGrade(3800, 4000, 31)).toBe(25); // thin gold margin
+    expect(impliedCostGrade(4500, 4000, 31)).toBe(5); // underwater
+    expect(impliedCostGrade(14, 4000, 31)).toBe(75); // silver-scale AISC → silver spot
+    expect(impliedCostGrade(1300, null, 31)).toBeNull(); // no spot → no check
+  });
+
+  it("overrides the live AEM failure: grade 1/100 beside AISC $1,300 vs gold $4,000", () => {
+    const fixed = reconcileCostGrade(grade(1, 1300), 4000, 31);
+    expect(fixed.costMarginGrade).toBe(90);
+  });
+
+  it("leaves consistent grades and AISC-less (royalty) grades untouched", () => {
+    expect(reconcileCostGrade(grade(80, 1300), 4000, 31).costMarginGrade).toBe(80);
+    expect(reconcileCostGrade(grade(1, null), 4000, 31).costMarginGrade).toBe(1);
+    expect(reconcileCostGrade(grade(1, 1300), null, null).costMarginGrade).toBe(1);
   });
 });
 

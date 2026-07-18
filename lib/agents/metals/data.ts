@@ -83,26 +83,37 @@ export async function goldBenchmarkId(): Promise<string | null> {
   return data?.id ?? null;
 }
 
+export interface MetalSpot {
+  /** Prompt context line ("gold ~$2,610/oz · silver ~$31/oz"), null if none. */
+  label: string | null;
+  goldUsd: number | null;
+  silverUsd: number | null;
+}
+
 /**
- * Spot-price context line for the research prompt ("gold ~$2,610/oz ·
- * silver ~$31/oz"). Best-effort via Twelve Data forex (XAU/XAG are on the
- * same key as prices); null when unavailable — the research prompt simply
- * omits the context rather than guessing.
+ * Spot prices for the research prompt AND the deterministic margin
+ * cross-check (reconcileCostGrade). Best-effort via Twelve Data forex
+ * (XAU/XAG are on the same key as prices); nulls when unavailable — the
+ * prompt omits the context and the cross-check simply doesn't run.
  */
-export async function metalSpotContext(): Promise<string | null> {
+export async function metalSpot(): Promise<MetalSpot> {
   try {
     const rates = await fetchRates([
       { from: "XAU", to: "USD" },
       { from: "XAG", to: "USD" },
     ]);
-    const gold = rates.get(rateKey("XAU", "USD"));
-    const silver = rates.get(rateKey("XAG", "USD"));
+    const gold = rates.get(rateKey("XAU", "USD")) ?? null;
+    const silver = rates.get(rateKey("XAG", "USD")) ?? null;
     const parts: string[] = [];
     if (gold != null) parts.push(`gold ~$${Math.round(gold).toLocaleString("en-US")}/oz`);
     if (silver != null) parts.push(`silver ~$${silver.toFixed(2)}/oz`);
-    return parts.length > 0 ? parts.join(" · ") : null;
+    return {
+      label: parts.length > 0 ? parts.join(" · ") : null,
+      goldUsd: gold,
+      silverUsd: silver,
+    };
   } catch (err) {
-    console.warn(`metalSpotContext unavailable: ${getErrorMessage(err)}`);
-    return null;
+    console.warn(`metalSpot unavailable: ${getErrorMessage(err)}`);
+    return { label: null, goldUsd: null, silverUsd: null };
   }
 }
