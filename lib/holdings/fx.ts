@@ -11,19 +11,23 @@ import { getErrorMessage } from "@/lib/errors";
  * rather than inventing a total (missing ≠ zero). A portfolio is usually one or
  * two currencies against the base, so this is a handful of calls at most.
  *
- * Process-cached for the request's lifetime keyed by pair — rates move slowly
- * relative to a page load, and we never want a valuation to fan out dozens of
- * identical calls.
+ * Process-cached keyed by pair — rates move slowly relative to a page load,
+ * and we never want a valuation to fan out dozens of identical calls. The
+ * cache carries a TTL so a long-lived serverless process doesn't keep serving
+ * a rate for hours (the old comment said "request's lifetime" but the Map is
+ * process-global); a mid-day move is picked up on the next fetch after expiry.
  */
 
 const BASE = "https://api.twelvedata.com";
+/** Cached rates expire after this long, so a long-lived process stays current. */
+const FX_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const RateZ = z.object({
   rate: z.number().optional(),
   symbol: z.string().optional(),
 });
 
-const cache = new Map<string, number>();
+const cache = new Map<string, { rate: number; at: number }>();
 
 function apiKey(): string | null {
   return process.env.TWELVEDATA_API_KEY || null;
@@ -43,8 +47,8 @@ export async function fetchRates(
   for (const { from, to } of pairs) {
     const k = rateKey(from, to);
     const cached = cache.get(k);
-    if (cached != null) {
-      rates.set(k, cached);
+    if (cached != null && Date.now() - cached.at < FX_TTL_MS) {
+      rates.set(k, cached.rate);
       continue;
     }
     if (!key) continue; // no key → no rates; caller degrades gracefully
@@ -57,7 +61,7 @@ export async function fetchRates(
       if (!res.ok) continue;
       const parsed = RateZ.safeParse(await res.json());
       if (parsed.success && typeof parsed.data.rate === "number") {
-        cache.set(k, parsed.data.rate);
+        cache.set(k, { rate: parsed.data.rate, at: Date.now() });
         rates.set(k, parsed.data.rate);
       }
     } catch (err) {

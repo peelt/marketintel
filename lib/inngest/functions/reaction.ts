@@ -31,7 +31,9 @@ export function dailyPriceUniverse(
  * lifecycle (failed runs always leave an auditable row).
  */
 export const reactionScheduled = inngest.createFunction(
-  { id: "reaction-twice-weekly", retries: 1 },
+  // concurrency 1: serialise an overlapping manual + cron trigger of the
+  // same agent (shared run-context).
+  { id: "reaction-twice-weekly", retries: 1, concurrency: { limit: 1 } },
   [
     { cron: reactionAgent.meta.schedule },
     { event: "agent/run.requested", if: "event.data.agentName == 'reaction'" },

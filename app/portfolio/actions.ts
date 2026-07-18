@@ -124,9 +124,14 @@ export async function addHolding(
     // offers tracked names, but never trust the client's id blindly).
     const { data: sec } = await supabase
       .from("securities")
-      .select("id, currency, exchange")
+      .select("id, currency, exchange, delisted_at")
       .eq("id", input.securityId)
-      .maybeSingle<{ id: string; currency: string; exchange: string }>();
+      .maybeSingle<{
+        id: string;
+        currency: string;
+        exchange: string;
+        delisted_at: string | null;
+      }>();
     if (!sec) {
       return { ok: false, error: "That security isn't tracked yet." };
     }
@@ -135,6 +140,11 @@ export async function addHolding(
         ok: false,
         error: "That name hasn't listed yet — it can't be held.",
       };
+    }
+    // The picker already filters delisted names; reject a raw client-supplied
+    // id for one too (defence in depth).
+    if (sec.delisted_at) {
+      return { ok: false, error: "That security has been delisted." };
     }
 
     const { error } = await supabase.from("holdings").insert({

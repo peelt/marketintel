@@ -5,6 +5,7 @@ import type {
 } from "@/lib/scoring/types";
 import type { DividendDataset } from "./data";
 import { loadDividendDataset } from "./data";
+import { isStale } from "@/lib/data-sources/staleness";
 import {
   annualDividendSeries,
   debtToEbitda,
@@ -64,8 +65,16 @@ function computeCandidate(
   const payments = divRows.map((d) => ({ exDate: d.ex_date, amount: d.amount }));
   const latest = priceRows.length ? priceRows[priceRows.length - 1] : null;
 
+  // Staleness backstop (parity with the metals desk): trailing yield is
+  // DPS / price, so a weeks-old close (a failed price refresh) would misstate
+  // it and the sector-relative yield built on it. Treat a stale close as no
+  // price — yield_ttm goes null, its signals redistribute, coverage drops
+  // honestly. Currency doesn't go stale, so it's still read for display.
+  const latestFresh =
+    latest && !isStale(latest.snapshot_date, dataset.asOf) ? latest : null;
+
   const ttmDps = ttmDividendPerShare(payments, dataset.asOf);
-  const yieldTtm = trailingYield(ttmDps, latest?.close ?? null);
+  const yieldTtm = trailingYield(ttmDps, latestFresh?.close ?? null);
 
   const series = annualDividendSeries(payments, dataset.asOf);
 
@@ -107,7 +116,7 @@ function computeCandidate(
   return {
     yield_ttm: yieldTtm,
     ttmDps,
-    latestPrice: latest?.close ?? null,
+    latestPrice: latestFresh?.close ?? null,
     priceCurrency: latest?.currency ?? null,
     paymentsInTtm,
     payout_ratio_ttm: payoutRatio(latestFin?.dividends_paid, latestFin?.net_income),

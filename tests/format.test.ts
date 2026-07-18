@@ -3,6 +3,7 @@ import {
   classificationLabel,
   compositeDisplay,
   criterionShortLabel,
+  priceChangeSummary,
   dayChangeFraction,
   humanizeDateTime,
   humanizeSchedule,
@@ -103,6 +104,21 @@ describe("compositeDisplay", () => {
     expect(compositeDisplay(null, 0.5)).toBe("—");
     expect(compositeDisplay(50, null)).toBe("—");
     expect(compositeDisplay(undefined, undefined)).toBe("—");
+  });
+});
+
+describe("priceChangeSummary", () => {
+  it("computes a normal change with direction", () => {
+    expect(priceChangeSummary(100, 110)).toEqual({ pct: 10, direction: "up" });
+    expect(priceChangeSummary(100, 90)).toEqual({ pct: -10, direction: "down" });
+  });
+  it("guards a zero/negative first close — no Infinity/NaN%", () => {
+    expect(priceChangeSummary(0, 50)).toEqual({ pct: null, direction: "flat" });
+    expect(priceChangeSummary(-5, 50)).toEqual({ pct: null, direction: "flat" });
+  });
+  it("reads a rounding-to-zero change as flat, not a false up/down", () => {
+    expect(priceChangeSummary(100, 100).direction).toBe("flat");
+    expect(priceChangeSummary(100, 100.02).direction).toBe("flat"); // +0.02% → flat
   });
 });
 

@@ -13,7 +13,9 @@ import { runAgent } from "@/lib/agents/run";
  * half-persisted report.
  */
 export const dividendScheduled = inngest.createFunction(
-  { id: "dividend-weekly", retries: 2 },
+  // concurrency 1: serialise an overlapping manual + cron trigger of the
+  // same agent (shared run-context).
+  { id: "dividend-weekly", retries: 2, concurrency: { limit: 1 } },
   [
     { cron: dividendAgent.meta.schedule },
     { event: "agent/run.requested", if: "event.data.agentName == 'dividend'" },

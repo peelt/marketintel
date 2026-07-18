@@ -9,7 +9,9 @@ import { runAgent } from "@/lib/agents/run";
  * run-lifecycle guarantees.
  */
 export const geopoliticalScheduled = inngest.createFunction(
-  { id: "geopolitical-weekly", retries: 2 },
+  // concurrency 1: singleton agent with mutable run-context — serialise
+  // overlapping manual + cron triggers.
+  { id: "geopolitical-weekly", retries: 2, concurrency: { limit: 1 } },
   [
     { cron: geopoliticalAgent.meta.schedule },
     { event: "agent/run.requested", if: "event.data.agentName == 'geopolitical'" },

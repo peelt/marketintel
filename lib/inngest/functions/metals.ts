@@ -9,7 +9,9 @@ import { runAgent } from "@/lib/agents/run";
  * run-lifecycle guarantees.
  */
 export const metalsScheduled = inngest.createFunction(
-  { id: "metals-weekly", retries: 2 },
+  // concurrency 1: the agent is a module singleton with mutable run-context,
+  // so a manual trigger overlapping the cron would race it. Serialise.
+  { id: "metals-weekly", retries: 2, concurrency: { limit: 1 } },
   [
     { cron: metalsAgent.meta.schedule },
     { event: "agent/run.requested", if: "event.data.agentName == 'metals'" },
