@@ -27,7 +27,7 @@ export default async function OpsPage() {
 
   return (
     <>
-      <SiteHeader active="ops" />
+      <SiteHeader active="ops" userEmail={user.email} />
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <div className="font-mono-cli text-base text-il-navy">~ one-time setup</div>
         <h1 className="mt-1 text-3xl font-bold text-il-navy">Setup</h1>

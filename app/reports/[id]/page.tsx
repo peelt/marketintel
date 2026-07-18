@@ -155,7 +155,7 @@ export default async function ReportDetailPage({
     const meta = agentRegistry.get(report.agent_name as AgentName);
     return (
       <>
-        <SiteHeader active="reports" />
+        <SiteHeader active="reports" userEmail={user.email} />
         <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           <Link
             href="/reports"
@@ -296,7 +296,7 @@ export default async function ReportDetailPage({
 
   return (
     <>
-    <SiteHeader active="reports" />
+    <SiteHeader active="reports" userEmail={user.email} />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header>
         <Link

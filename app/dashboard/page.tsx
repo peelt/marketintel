@@ -160,18 +160,11 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <SiteHeader active="dashboard" />
+      <SiteHeader active="dashboard" userEmail={user.email} />
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
-            <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
-          </div>
-          <form action={signOut}>
-            <button type="submit" className="btn-cli-outline btn-cli-sm">
-              sign out
-            </button>
-          </form>
+        <div>
+          <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
+          <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
         </div>
 
         {/* My portfolio — YOUR money first; system telemetry lives at the bottom */}
@@ -397,11 +390,4 @@ export default async function DashboardPage() {
       </main>
     </>
   );
-}
-
-async function signOut() {
-  "use server";
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  redirect("/login");
 }

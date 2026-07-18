@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { AgentName } from "@/lib/agents/types";
+import { signOut } from "@/lib/auth/session-actions";
 
 /**
  * Manifesto-White CLI building blocks (family design language).
@@ -54,8 +55,11 @@ export function CliEyebrow({ children }: { children: React.ReactNode }) {
  */
 export function SiteHeader({
   active,
+  userEmail,
 }: {
   active?: "dashboard" | "reports" | "ops" | "portfolio";
+  /** Signed-in address — personalizes the CLI prompt and shows sign-out. */
+  userEmail?: string | null;
 }) {
   const link = (href: string, key: string, label: string) => (
     <Link
@@ -69,15 +73,18 @@ export function SiteHeader({
       {label}
     </Link>
   );
+  // `user@investorlogical:~` — the CLI prompt motif, personalized to the local
+  // part of the signed-in address (falls back to "guest" when signed out).
+  const promptUser = userEmail ? userEmail.split("@")[0] : "guest";
   return (
     <header className="border-b-2 border-border bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-baseline gap-4">
-          <Link href="/dashboard">
-            <Wordmark size="h-10" />
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center">
+            <Wordmark size="h-9" />
           </Link>
-          <span className="hidden font-mono-cli text-sm text-muted-foreground sm:inline">
-            guest@investorlogical:~
+          <span className="hidden font-mono-cli text-sm text-muted-foreground md:inline">
+            {promptUser}@investorlogical:~
           </span>
         </div>
         <nav className="flex items-center gap-5">
@@ -85,6 +92,21 @@ export function SiteHeader({
           {link("/portfolio", "portfolio", "portfolio")}
           {link("/reports", "reports", "reports")}
           {link("/dashboard/ops", "ops", "setup")}
+          {userEmail && (
+            <>
+              <span aria-hidden className="text-border">
+                |
+              </span>
+              <form action={signOut} className="flex">
+                <button
+                  type="submit"
+                  className="font-mono-cli text-base text-muted-foreground hover:text-il-orange"
+                >
+                  sign out
+                </button>
+              </form>
+            </>
+          )}
         </nav>
       </div>
     </header>
