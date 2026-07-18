@@ -56,10 +56,13 @@ export function CliEyebrow({ children }: { children: React.ReactNode }) {
 export function SiteHeader({
   active,
   userEmail,
+  isOwner = false,
 }: {
   active?: "dashboard" | "reports" | "ops" | "portfolio";
   /** Signed-in address — personalizes the CLI prompt and shows sign-out. */
   userEmail?: string | null;
+  /** Owner-only surfaces (Setup) appear in the nav only when true. */
+  isOwner?: boolean;
 }) {
   const link = (href: string, key: string, label: string) => (
     <Link
@@ -91,7 +94,7 @@ export function SiteHeader({
           {link("/dashboard", "dashboard", "dashboard")}
           {link("/portfolio", "portfolio", "portfolio")}
           {link("/reports", "reports", "reports")}
-          {link("/dashboard/ops", "ops", "setup")}
+          {isOwner && link("/dashboard/ops", "ops", "setup")}
           {userEmail && (
             <>
               <span aria-hidden className="text-border">

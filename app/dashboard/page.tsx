@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import {
   ClassificationChip,
@@ -65,6 +66,10 @@ export default async function DashboardPage() {
   if (!user || !(await isEntitledEmail(user.email))) {
     redirect("/login");
   }
+  // Setup and Data health are owner-only admin surfaces (both pages redirect
+  // non-owners) — so they must not appear as nav links or cards for everyday
+  // users, who'd only bounce off them.
+  const isOwner = isOwnerEmail(user.email);
 
   const liveAgents = agentRegistry.list().filter((a) => a.status === "live");
   const plannedAgents = agentRegistry
@@ -160,7 +165,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <SiteHeader active="dashboard" userEmail={user.email} />
+      <SiteHeader active="dashboard" userEmail={user.email} isOwner={isOwner} />
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div>
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
@@ -358,7 +363,9 @@ export default async function DashboardPage() {
           ))}
         </p>
 
-        <section className="grid gap-4 sm:grid-cols-3">
+        <section
+          className={`grid gap-4 ${isOwner ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        >
           <Link href="/reports" className="card-cli block p-6">
             <div className="font-mono-cli text-base">
               <Star /> <span className="font-bold text-il-navy">reports</span>
@@ -368,24 +375,29 @@ export default async function DashboardPage() {
               them.
             </p>
           </Link>
-          <Link href="/dashboard/ops" className="card-cli block p-6">
+          <Link href="/portfolio" className="card-cli block p-6">
             <div className="font-mono-cli text-base">
-              <Star /> <span className="font-bold text-il-navy">setup</span>
+              <Star /> <span className="font-bold text-il-navy">portfolio</span>
             </div>
             <p className="mt-2 text-base text-muted-foreground">
-              One-time setup and manual re-runs. Day to day, everything runs on
-              schedule by itself.
+              Your holdings, valued daily, and what changed on them since the
+              last run.
             </p>
           </Link>
-          <Link href="/dashboard/diagnostics" className="card-cli block p-6">
-            <div className="font-mono-cli text-base">
-              <Star /> <span className="font-bold text-il-navy">data health</span>
-            </div>
-            <p className="mt-2 text-base text-muted-foreground">
-              Source readiness and row counts. UK fundamentals are a known gap
-              on current sources.
-            </p>
-          </Link>
+          {/* Owner-only admin surfaces — hidden from everyday users, who'd only
+              be redirected away. */}
+          {isOwner && (
+            <Link href="/dashboard/diagnostics" className="card-cli block p-6">
+              <div className="font-mono-cli text-base">
+                <Star />{" "}
+                <span className="font-bold text-il-navy">data health</span>
+              </div>
+              <p className="mt-2 text-base text-muted-foreground">
+                Source readiness and row counts. UK fundamentals are a known gap
+                on current sources.
+              </p>
+            </Link>
+          )}
         </section>
       </main>
     </>
