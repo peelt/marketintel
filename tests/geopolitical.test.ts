@@ -149,6 +149,20 @@ describe("parseMacroRead", () => {
     ).toBeNull();
     expect(parseMacroRead("not json")).toBeNull();
   });
+
+  it("caps at 6 themes — the schema ceiling every theme fans into ~38 prompts", () => {
+    const many = {
+      ...valid,
+      themes: Array.from({ length: 9 }, (_, i) => ({
+        title: `Theme ${i}`,
+        summary: "s",
+        confidence: "low",
+        direction: "d",
+        affected_sectors: [],
+      })),
+    };
+    expect(parseMacroRead(JSON.stringify(many))!.themes).toHaveLength(6);
+  });
 });
 
 describe("geopolitical evidence card shape", () => {

@@ -2,8 +2,9 @@ import { getAnthropicClient, modelForTier } from "@/lib/anthropic/client";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
- * News layer for the Reaction Analyser: one deep-tier call per screened
- * name, with the native web_search server tool and structured outputs.
+ * News layer for the Reaction Analyser: one routine-tier call per screened
+ * name, with the native web_search server tool and structured outputs. (Runs
+ * on the routine model since the cost-control pass — was "deep" before.)
  *
  * The model researches WHY the name dropped and returns two calibrated 0–100
  * grades:
