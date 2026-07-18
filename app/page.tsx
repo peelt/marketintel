@@ -24,13 +24,13 @@ export default function Home() {
             <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
             <span className="tag-cli mt-4 inline-flex">evidence-backed · glass-box</span>
             <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
-              Research that shows its working
+              Investment research, nothing hidden
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Scheduled specialist desks file ranked reports against scoring
-              frameworks you can see in full — every score defensible from the
-              evidence it cites, nothing a black box. Track the names you own
-              and each run tells you what changed on them.
+              Scheduled specialist desks screen and score the market against
+              frameworks you can see in full. Every verdict links to the
+              evidence behind it — never a black box, never advice. Add the
+              names you own and each run tells you what changed.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
