@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isEntitledEmail } from "@/lib/auth/entitlement";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Belt-and-braces allowlist check after the session is established.
+  // Belt-and-braces entitlement check after the session is established.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!isAllowedEmail(user?.email)) {
+  if (!(await isEntitledEmail(user?.email))) {
     await supabase.auth.signOut();
     return NextResponse.redirect(`${origin}/login?error=not_allowed`);
   }

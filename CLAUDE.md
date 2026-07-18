@@ -122,14 +122,23 @@ routes resolution through Inngest.
 
 - Authorization is enforced **in the database**: RLS policies check
   `public.is_app_user()` against the `app_users` entitlement table
-  (migration 0003). The env-var allowlist (`AUTH_ALLOWED_EMAIL`) is the
-  app-layer half; both must agree.
+  (migration 0003), which is the **live allowlist**. `AUTH_ALLOWED_EMAIL`
+  (comma-separated) is now only the **OWNER list** — admins who can run Setup
+  and approve users; it changes rarely. Entitlement = owner OR an `app_users`
+  row (`lib/auth/entitlement.ts` `isEntitledEmail`, service-role read); owner
+  admin = `lib/auth/allowlist.ts` `isOwnerEmail` (env). **Onboarding is one
+  click:** a request-access submission lands in `access_requests`; the owner
+  clicks Approve in Setup (`app/dashboard/ops`), which upserts an `app_users`
+  row; login is DB-gated and `shouldCreateUser: true`, so the user is
+  auto-provisioned in `auth.users` on first magic link — no env change, no
+  redeploy, no SQL, no manual Supabase user creation.
 - **Manual Supabase steps that pair with migration 0003:** disable public
   signups (Authentication settings) and seed the owner row in `app_users`.
 - Public request-access form (login page) writes `access_requests` under the
-  ANON role — the table is insert-only by RLS (migration 0014), read only via
-  the dashboard. Honeypot + DB-level shape checks; owner notified via
-  Postmark; users are still added manually (signups stay disabled).
+  ANON role — the table is insert-only by RLS (migration 0014). Honeypot +
+  DB-level shape checks; owner notified via Postmark; the owner approves each
+  request with one click in Setup (writes `app_users`). Direct Supabase
+  signups stay disabled — approval is the only path in.
 - `/api/dev/ingest` is POST-only, and in production requires
   `DEV_INGEST_SECRET` via the `x-dev-ingest-secret` header.
 - `/api/inngest` fails closed in production without `INNGEST_SIGNING_KEY`.

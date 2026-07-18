@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isAllowedEmail } from "@/lib/auth/allowlist";
+import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { isIngestTask, runIngestTask } from "@/lib/ingest/tasks";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!isAllowedEmail(user?.email)) {
+  if (!isOwnerEmail(user?.email)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
