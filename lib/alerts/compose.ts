@@ -1,5 +1,6 @@
 import { describeDelta, type Delta } from "@/lib/holdings/deltas";
 import { classificationLabel } from "@/lib/format";
+import { renderBrandedEmail, escapeHtml as esc } from "@/lib/email/layout";
 
 /**
  * Pure email composition for holding alerts — fully unit-testable, no I/O.
@@ -9,6 +10,9 @@ import { classificationLabel } from "@/lib/format";
  * same sentences the in-app feed shows, so email and UI can never diverge.
  * "You hold this name" is stated as the factual reason the email exists;
  * nothing is ever advice, urgency theatre, or a directive.
+ *
+ * The HTML body is wrapped in the shared branded shell (lib/email/layout) so
+ * every outgoing email carries the same investorlogical chrome.
  */
 
 export interface AlertItem {
@@ -22,14 +26,6 @@ export interface ComposedAlert {
   subject: string;
   textBody: string;
   htmlBody: string;
-}
-
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export function composeAlertEmail(
@@ -87,21 +83,24 @@ export function composeAlertEmail(
     )
     .join("");
 
-  const htmlBody = `
-    <div style="max-width:560px;margin:0 auto;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;">
-      <p style="font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#6b7280;">~ investorlogical · holding alert</p>
-      <p style="font-size:15px;">${
+  const contentHtml = `
+      <p style="margin:0 0 12px;">${
         n === 1
           ? "A scheduled desk run filed a new classification on a name you hold."
           : `A scheduled desk run filed new classifications on ${n} names you hold.`
       }</p>
-      <table style="width:100%;border-collapse:collapse;">${rows}</table>
-      <p style="font-size:13px;padding-top:12px;"><a href="${esc(base)}/portfolio" style="color:#034566;">your portfolio →</a></p>
-      <p style="font-size:12px;color:#6b7280;border-top:1px solid #e5e7eb;padding-top:12px;">
-        You're receiving this because these names are in your Investorlogical portfolio.
-        Classifications are the framework's assessment of the security with cited evidence — never a recommendation or advice.
-      </p>
-    </div>`;
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">${rows}</table>
+      <p style="font-size:13px;padding-top:12px;margin:12px 0 0;"><a href="${esc(base)}/portfolio" style="color:#034566;">your portfolio →</a></p>`;
+
+  const htmlBody = renderBrandedEmail({
+    contentHtml,
+    preheader:
+      n === 1
+        ? `${items[0].ticker}: a desk changed its classification`
+        : `${n} of your held names have new classifications`,
+    footerNote:
+      "You're receiving this because these names are in your Investorlogical portfolio.",
+  });
 
   return { subject, textBody, htmlBody };
 }
