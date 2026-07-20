@@ -25,6 +25,8 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
+import { MacroRead } from "@/components/macro-read";
+import { parseMacroMemo } from "@/lib/reports/macro-memo";
 
 export const dynamic = "force-dynamic";
 
@@ -299,7 +301,11 @@ export default async function ReportDetailPage({
     rankedItems.length > 0
       ? rankedItems.reduce((sum, i) => sum + coverageOf(i), 0) / rankedItems.length
       : 0;
-  const topVerdicts = classified.slice(0, 3);
+
+  // Parse the Geopolitical memo into structured themes for the accordion
+  // render; null (any other desk, or an unparseable memo) falls back to raw
+  // markdown so nothing is ever dropped.
+  const parsedMemo = isMacroMemo ? parseMacroMemo(report.body_markdown) : null;
 
   return (
     <>
@@ -333,21 +339,30 @@ export default async function ReportDetailPage({
       {/* (Non-succeeded runs never reach here — they return the "not
           available" notice above, so no partial report can render.) */}
 
-      {/* Macro read — the memo, shown open above everything for the
-          Geopolitical hybrid desk (never collapsed like other analyst notes) */}
-      {isMacroMemo && (
-        <section className="card-cli mt-8 p-6">
-          <article className="md">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {report.body_markdown}
-            </ReactMarkdown>
-          </article>
-        </section>
-      )}
+      {/* Macro read — the memo, shown above everything for the Geopolitical
+          hybrid desk. Rendered as theme accordions (title + confidence + which-
+          way-it-cuts visible, detail on expand) so the ranked table stays near
+          the top. Falls back to raw markdown if the memo ever doesn't parse. */}
+      {isMacroMemo &&
+        (parsedMemo ? (
+          <section className="card-cli mt-8 p-6">
+            <MacroRead memo={parsedMemo} />
+          </section>
+        ) : (
+          <section className="card-cli mt-8 p-6">
+            <article className="md">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {report.body_markdown}
+              </ReactMarkdown>
+            </article>
+          </section>
+        ))}
 
-      {/* Verdict band — the conclusion, before anything else */}
+      {/* Verdict strip — the conclusion at a glance: how the run broke down by
+          classification, plus average coverage. (The per-name verdicts live in
+          the ranked table below; repeating the top three here was duplication.) */}
       {rankedItems.length > 0 && (
-        <section className="card-cli mt-8 p-6">
+        <section className="card-cli mt-8 p-5">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <span className="font-mono-cli text-base text-il-navy">
               {rankedItems.length} name{rankedItems.length === 1 ? "" : "s"} ranked
@@ -362,29 +377,6 @@ export default async function ReportDetailPage({
               avg coverage <CoverageBar coverage={avgCoverage} />
             </span>
           </div>
-
-          {topVerdicts.length > 0 && (
-            <ul className="mt-5 space-y-3 border-t border-border pt-5">
-              {topVerdicts.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-mono-cli text-lg font-bold text-il-navy">
-                    {item.security ? securityDisplayLabel(item.security) : "—"}
-                  </span>
-                  <span className="text-base text-muted-foreground">
-                    {item.security ? securitySecondaryLabel(item.security) : ""}
-                  </span>
-                  {item.classification && (
-                    <ClassificationChip classification={item.classification} />
-                  )}
-                  {item.verdict && (
-                    <span className="w-full text-base leading-relaxed text-foreground">
-                      {item.verdict}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
         </section>
       )}
 
@@ -452,7 +444,19 @@ export default async function ReportDetailPage({
                         {displayComposite(it)}
                       </span>
                       <span>
-                        <CoverageBar coverage={coverageOf(it)} />
+                        {/* Coverage is near-always 100% post-freshness-fixes,
+                            so show the bar only when there's a genuine gap —
+                            a partial then stands out instead of being noise. */}
+                        {coverageOf(it) < 0.999 ? (
+                          <CoverageBar coverage={coverageOf(it)} />
+                        ) : (
+                          <span
+                            className="font-mono-cli text-sm text-muted-foreground"
+                            title="Full data coverage against the framework"
+                          >
+                            full
+                          </span>
+                        )}
                       </span>
                       <span>
                         {it.classification ? (
