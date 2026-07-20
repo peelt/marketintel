@@ -73,9 +73,13 @@ export function WhatChangedFeed({
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-mono-cli text-base font-bold text-il-navy">
+                <Link
+                  href={`/names/${item.securityId}`}
+                  className="font-mono-cli text-base font-bold text-il-navy hover:text-il-orange"
+                  title="See every desk's read on this name"
+                >
                   {item.ticker}
-                </span>
+                </Link>
                 {cls && <ClassificationChip classification={cls} />}
                 {item.delta.attention && (
                   <span className="font-mono-cli text-sm font-bold" style={{ color: dir.color }}>

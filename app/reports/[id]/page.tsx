@@ -580,6 +580,18 @@ export default async function ReportDetailPage({
                           No evidence rows persisted for this candidate.
                         </p>
                       )}
+
+                      {it.security_id && (
+                        <p className="mt-4 border-t border-border pt-3 font-mono-cli text-sm">
+                          <Link
+                            href={`/names/${it.security_id}`}
+                            className="text-il-accent hover:text-il-orange"
+                          >
+                            see every desk on{" "}
+                            {it.security ? securityDisplayLabel(it.security) : "this name"} →
+                          </Link>
+                        </p>
+                      )}
                     </div>
                   </details>
                 );
