@@ -76,6 +76,11 @@ export default async function SecurityPage({
             {security.subSector ? ` · ${security.subSector}` : ""}
             {security.delistedAt ? " · delisted" : ""}
           </div>
+          <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted-foreground">
+            Every desk&apos;s current read on this name in one place, most
+            concerning first, with what changed since each desk&apos;s last
+            edition. Open a report for the evidence behind any verdict.
+          </p>
         </header>
 
         {/* Price */}

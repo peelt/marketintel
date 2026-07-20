@@ -175,7 +175,7 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <p className="mt-6 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             Investorlogical scores securities against published, versioned
             frameworks you can inspect. Rankings, classifications and verdicts
             describe the security under that framework — they are not investment

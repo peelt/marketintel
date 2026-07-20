@@ -236,7 +236,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
       )}
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer font-mono-cli">~ raw details</summary>
-        <pre className="bg-il-tint mt-1 max-h-64 overflow-auto rounded border border-border p-2 font-mono-cli text-[10px] leading-relaxed">
+        <pre className="bg-il-tint mt-1 max-h-64 overflow-auto rounded border border-border p-2 font-mono-cli text-xs leading-relaxed">
           {JSON.stringify(result, null, 2)}
         </pre>
       </details>
