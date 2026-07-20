@@ -9,8 +9,8 @@
 export function Disclaimer() {
   return (
     <aside role="note" className="bg-il-tint mt-12 rounded-lg border border-border px-5 py-4">
-      <div className="font-mono-cli text-xs text-il-navy">~ information, not advice</div>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      <div className="font-mono-cli text-sm text-il-navy">~ information, not advice</div>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Investorlogical scores securities against published, versioned
         frameworks you can inspect and edit. Rankings, classifications and
         verdicts describe the security under that framework — they are not

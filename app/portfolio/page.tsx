@@ -94,6 +94,11 @@ export default async function PortfolioPage() {
             ← dashboard
           </Link>
         </div>
+        <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
+          The names you hold, valued daily, with every desk&apos;s verdicts
+          filtered to them. Purchase price is optional — it powers your P/L
+          display and never influences any score.
+        </p>
 
         {/* Totals band */}
         {held.length > 0 && (

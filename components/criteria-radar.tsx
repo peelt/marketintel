@@ -25,6 +25,9 @@ const SIZE = 180;
 const CENTER = SIZE / 2;
 const RADIUS = 52;
 const RINGS = [25, 50, 75, 100];
+// Horizontal breathing room for the (now larger) vertex labels.
+const PAD_X = 24;
+const LABEL_SIZE = 12;
 
 
 export function CriteriaRadar({
@@ -56,9 +59,11 @@ export function CriteriaRadar({
 
   return (
     <svg
-      width={SIZE}
+      width={SIZE + 2 * PAD_X}
       height={SIZE}
-      viewBox={`0 0 ${SIZE} ${SIZE}`}
+      // Extra horizontal room in the viewBox (drawing coords unchanged) so the
+      // larger 3/9-o'clock labels ("repricing") don't clip at the edges.
+      viewBox={`${-PAD_X} 0 ${SIZE + 2 * PAD_X} ${SIZE}`}
       role="img"
       aria-label={`Criteria shape: ${populated
         .map((c) => `${criterionShortLabel(c.key)} ${Math.round(c.score)}`)
@@ -104,7 +109,7 @@ export function CriteriaRadar({
           y={a.ly}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={10}
+          fontSize={LABEL_SIZE}
           fontFamily="var(--font-mono), monospace"
           fill="#6b7280"
         >

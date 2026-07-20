@@ -120,6 +120,24 @@ export function classificationLabel(classification: string): string {
   return classification.replace(/_/g, " ");
 }
 
+const SHORT_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/**
+ * A YYYY-MM-DD date → "21 Jul 2025" (day-month-year, the standard for a UK /
+ * financial audience). Parsed from the string parts so it never shifts by a
+ * timezone. Falls back to the raw string if it isn't a plain date.
+ */
+export function formatPriceDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  const month = SHORT_MONTHS[Number(mo) - 1] ?? mo;
+  return `${Number(d)} ${month} ${y}`;
+}
+
 /**
  * Pre-listing IPO issuers carry a placeholder ticker derived from their SEC
  * CIK ("CIK2102720") until the prospectus discloses a proposed symbol. A raw

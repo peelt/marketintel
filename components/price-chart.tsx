@@ -1,4 +1,4 @@
-import { priceChangeSummary } from "@/lib/format";
+import { formatPriceDate, priceChangeSummary } from "@/lib/format";
 
 /**
  * Dependency-free server-rendered price line. Pure SVG — no client JS, no
@@ -74,18 +74,18 @@ export function PriceChart({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <figcaption className="font-mono-cli mt-1 flex justify-between text-[10px] text-muted-foreground">
+      <figcaption className="font-mono-cli mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm text-muted-foreground">
         <span>
-          {first.date} · {formatClose(first.close)}
+          {formatPriceDate(first.date)} · {formatClose(first.close)}
           {currency ? ` ${currency}` : ""}
         </span>
-        <span style={{ color: changeColor }}>
+        <span className="font-bold" style={{ color: changeColor }}>
           {changePct === null
             ? "—"
             : `${direction === "up" ? "+" : direction === "down" ? "−" : ""}${Math.abs(changePct).toFixed(1)}%`}
         </span>
         <span>
-          {last.date} · {formatClose(last.close)}
+          {formatPriceDate(last.date)} · {formatClose(last.close)}
           {currency ? ` ${currency}` : ""}
         </span>
       </figcaption>

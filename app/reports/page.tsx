@@ -46,6 +46,11 @@ export default async function ReportsPage() {
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="font-mono-cli text-base text-il-navy">~ filed by the desk</div>
       <h1 className="mt-1 text-3xl font-bold text-il-navy">Reports</h1>
+      <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
+        Each desk files a fresh edition on its own schedule. The latest sits on
+        top; earlier editions stay underneath. Open any edition for its ranked
+        table and the sources behind every score.
+      </p>
 
       {!reports?.length ? (
         <p className="mt-10 text-base text-muted-foreground">
