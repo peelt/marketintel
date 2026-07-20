@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classificationLabel,
   compositeDisplay,
+  confidenceWord,
   criterionShortLabel,
   formatPriceDate,
   isPlaceholderTicker,
@@ -79,6 +80,21 @@ describe("humanizeDateTime", () => {
 describe("classificationLabel", () => {
   it("de-snakes the vocabulary", () => {
     expect(classificationLabel("elevated_cut_risk")).toBe("elevated cut risk");
+  });
+  it("maps machine enums to plain reader phrases", () => {
+    expect(classificationLabel("insufficient_data")).toBe("not enough data");
+    expect(classificationLabel("cause_unconfirmed")).toBe("cause not yet confirmed");
+    expect(classificationLabel("shell_or_blank_check")).toBe("shell / blank cheque");
+  });
+});
+
+describe("confidenceWord", () => {
+  it("bands a 0-1 confidence into a reader word", () => {
+    expect(confidenceWord(0.9)).toBe("high");
+    expect(confidenceWord(0.8)).toBe("high");
+    expect(confidenceWord(0.6)).toBe("medium");
+    expect(confidenceWord(0.5)).toBe("medium");
+    expect(confidenceWord(0.3)).toBe("low");
   });
 });
 

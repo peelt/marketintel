@@ -23,6 +23,7 @@ import {
   securityDisplayLabel,
 } from "@/lib/format";
 import { deskSignalLine } from "@/lib/reports/desk-summary";
+import { loadDeskDeltas } from "@/lib/reports/desk-deltas";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
@@ -102,6 +103,13 @@ export default async function DashboardPage() {
       .maybeSingle<{ snapshot_date: string }>(),
     supabase.from("securities").select("*", { count: "exact", head: true }),
   ]);
+
+  // Movement since each desk's previous edition — makes the dashboard read as a
+  // living desk, not an archive.
+  const deskDeltas = await loadDeskDeltas(
+    supabase,
+    liveAgents.map((a) => a.name),
+  );
 
   // Classified names for each latest report — the top few drive the card's
   // name list, the full set drives its signal line (the run's classification
@@ -272,6 +280,7 @@ export default async function DashboardPage() {
                 : [];
               const top = classified.slice(0, 3);
               const signal = deskSignalLine(classified);
+              const delta = deskDeltas.get(agent.name);
               return (
                 <Link
                   key={agent.name}
@@ -299,6 +308,24 @@ export default async function DashboardPage() {
                       {signal && (
                         <p className="mt-3 font-mono-cli text-base text-il-navy">
                           {signal}
+                        </p>
+                      )}
+                      {delta && (
+                        <p className="mt-1 font-mono-cli text-sm text-muted-foreground">
+                          {delta.upgrades > 0 && (
+                            <span style={{ color: "#22a87b" }}>
+                              ↑{delta.upgrades} upgrade
+                              {delta.upgrades === 1 ? "" : "s"}
+                            </span>
+                          )}
+                          {delta.upgrades > 0 && delta.downgrades > 0 && " · "}
+                          {delta.downgrades > 0 && (
+                            <span style={{ color: "#ee1d23" }}>
+                              ↓{delta.downgrades} downgrade
+                              {delta.downgrades === 1 ? "" : "s"}
+                            </span>
+                          )}{" "}
+                          since last edition
                         </p>
                       )}
                       {top.length > 0 && (

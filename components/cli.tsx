@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { AgentName } from "@/lib/agents/types";
 import { signOut } from "@/lib/auth/session-actions";
+import { classificationLabel } from "@/lib/format";
 
 /**
  * Manifesto-White CLI building blocks (family design language).
@@ -180,7 +181,7 @@ export function ClassificationChip({ classification }: { classification: string 
         className="inline-block h-1.5 w-1.5 rounded-full"
         style={{ backgroundColor: color }}
       />
-      {classification.replace(/_/g, " ")}
+      {classificationLabel(classification)}
     </span>
   );
 }
