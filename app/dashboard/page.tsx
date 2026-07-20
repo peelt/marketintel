@@ -173,6 +173,11 @@ export default async function DashboardPage() {
         <div>
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
+          <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
+            Your desk at a glance: your portfolio first, then each specialist
+            desk&apos;s latest findings and when it next runs. Open any card for
+            the full report and the evidence behind it.
+          </p>
         </div>
 
         {/* The desk grid — My Portfolio leads (YOUR money first), then one

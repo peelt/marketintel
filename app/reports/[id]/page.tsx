@@ -334,6 +334,13 @@ export default async function ReportDetailPage({
             )}
           </div>
         </div>
+        {/* What this desk covers — why these names and not others. Shown on
+            every edition so the reader never has to guess the scope. */}
+        {meta?.scope && (
+          <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted-foreground">
+            {meta.scope}
+          </p>
+        )}
       </header>
 
       {/* (Non-succeeded runs never reach here — they return the "not

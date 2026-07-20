@@ -24,6 +24,12 @@ export interface AgentMeta {
   name: AgentName;
   displayName: string;
   description: string;
+  /**
+   * Plain-English scope, shown under the report title on every edition: what
+   * universe the desk covers, why a name is in or out, and how it's judged. The
+   * reader should never have to guess why these names and not others.
+   */
+  scope: string;
   /** Cron expression in Inngest format (UTC). */
   schedule: string;
   /**
