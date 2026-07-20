@@ -219,10 +219,18 @@ export default async function PortfolioPage() {
                   {valued.map(({ held: h, v }) => (
                     <tr key={h.holdingId} className="border-t border-border align-top">
                       <td className="px-4 py-3">
-                        <span className="font-mono-cli font-bold text-il-navy">
-                          {h.ticker}
-                        </span>
-                        <span className="ml-2 text-muted-foreground">{h.name}</span>
+                        <Link
+                          href={`/names/${h.securityId}`}
+                          className="group"
+                          title="See every desk's read on this name"
+                        >
+                          <span className="font-mono-cli font-bold text-il-navy group-hover:text-il-orange">
+                            {h.ticker}
+                          </span>
+                          <span className="ml-2 text-muted-foreground group-hover:text-il-navy">
+                            {h.name}
+                          </span>
+                        </Link>
                         <span className="ml-2 font-mono-cli text-sm text-muted-foreground">
                           {h.exchange}
                         </span>
