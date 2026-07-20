@@ -2,6 +2,7 @@ import Link from "next/link";
 import { agentRegistry } from "@/lib/agents/registry";
 import { CliTitleBar, Star, Wordmark, MODULE_COLORS } from "@/components/cli";
 import { CliTyping } from "@/components/cli-typing";
+import { ExperimentalNotice } from "@/components/experimental-notice";
 import type { AgentName } from "@/lib/agents/types";
 
 export default function Home() {
@@ -25,12 +26,14 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[5fr_7fr] lg:px-8">
           <div>
             <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
-            <span className="tag-cli mt-4 inline-flex">evidence-backed · glass-box</span>
+            <span className="tag-cli mt-4 inline-flex">
+              AI-powered · evidence-backed · glass-box
+            </span>
             <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
               Glass-box investment research
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Scheduled specialist desks screen and score the market against
+              Scheduled specialist AI desks screen and score the market against
               frameworks you can see in full. Every verdict links to the
               evidence behind it — nothing assumed, nothing advised. Add the
               names you own and each run tells you what changed.
@@ -43,6 +46,7 @@ export default function Home() {
                 request access
               </Link>
             </div>
+            <ExperimentalNotice className="mt-8 max-w-xl" />
           </div>
 
           {/* Self-framing terminal panel */}
@@ -176,10 +180,11 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Investorlogical scores securities against published, versioned
-            frameworks you can inspect. Rankings, classifications and verdicts
-            describe the security under that framework — they are not investment
-            advice, not a recommendation to buy or sell, and take no account of
+            Investorlogical is an experimental exercise. Every desk is an
+            autonomous AI agent; all research, scores and verdicts are generated
+            by AI models against published frameworks and can be wrong or
+            incomplete. Nothing here is investment advice, a recommendation to
+            buy or sell, or a promise of accuracy, and none of it accounts for
             anyone&apos;s objectives or circumstances. Figures derive from
             third-party data that may be delayed or incomplete. Capital is at
             risk.
