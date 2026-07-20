@@ -5,7 +5,10 @@ import { CliTyping } from "@/components/cli-typing";
 import type { AgentName } from "@/lib/agents/types";
 
 export default function Home() {
-  const agents = agentRegistry.list();
+  // Energy is deprioritised (see settled decisions) — don't advertise it as a
+  // permanently-"planned" card the product has no intent to ship soon.
+  const agents = agentRegistry.list().filter((a) => a.name !== "energy");
+  const liveCount = agents.filter((a) => a.status === "live").length;
 
   return (
     <main>
@@ -71,7 +74,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy lg:text-4xl">
-            Six specialists, one framework discipline
+            {liveCount} specialists, one framework discipline
           </h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {agents.map((a) => (
@@ -153,6 +156,44 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Footer — the public page needs the same impersonal, information-not-
+          advice framing every entitled surface carries (regulatory posture). */}
+      <footer className="border-t-2 border-border bg-il-tint">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Wordmark size="h-8" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono-cli text-sm text-muted-foreground">
+              <Link href="/login" className="hover:text-il-orange">
+                sign in
+              </Link>
+              <Link href="/login" className="hover:text-il-orange">
+                request access
+              </Link>
+              <a href="mailto:hello@investorlogical.com" className="hover:text-il-orange">
+                contact
+              </a>
+            </div>
+          </div>
+          <p className="mt-6 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+            Investorlogical scores securities against published, versioned
+            frameworks you can inspect. Rankings, classifications and verdicts
+            describe the security under that framework — they are not investment
+            advice, not a recommendation to buy or sell, and take no account of
+            anyone&apos;s objectives or circumstances. Figures derive from
+            third-party data that may be delayed or incomplete. Capital is at
+            risk.
+          </p>
+          <p className="mt-4 font-mono-cli text-xs text-muted-foreground">
+            © {YEAR} Investorlogical — part of the MXMG{" "}
+            <span className="text-il-navy">-logical</span> family.
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
+
+// The marketing page is a static server component; a build-time constant keeps
+// the footer year current without opting the whole page into dynamic render.
+const YEAR = new Date().getFullYear();
