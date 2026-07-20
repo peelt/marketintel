@@ -33,9 +33,9 @@ export default function Home() {
               Glass-box investment research
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Specialist AI desks screen the market against frameworks you can
-              inspect in full, and link every verdict to the evidence behind it.
-              Add the names you own — each run tells you what changed.
+              Open-framework AI research: every score inspectable, every
+              verdict linked to its evidence, every run telling you what
+              changed on your holdings.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
