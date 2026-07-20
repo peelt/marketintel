@@ -23,6 +23,8 @@ import {
   securityDisplayLabel,
 } from "@/lib/format";
 import { deskSignalLine } from "@/lib/reports/desk-summary";
+import { loadDeskDeltas } from "@/lib/reports/desk-deltas";
+import { ExperimentalNotice } from "@/components/experimental-notice";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
@@ -103,6 +105,13 @@ export default async function DashboardPage() {
     supabase.from("securities").select("*", { count: "exact", head: true }),
   ]);
 
+  // Movement since each desk's previous edition — makes the dashboard read as a
+  // living desk, not an archive.
+  const deskDeltas = await loadDeskDeltas(
+    supabase,
+    liveAgents.map((a) => a.name),
+  );
+
   // Classified names for each latest report — the top few drive the card's
   // name list, the full set drives its signal line (the run's classification
   // shape). Capped generously; a desk classifies only tens of names.
@@ -174,10 +183,14 @@ export default async function DashboardPage() {
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
           <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            Your desk at a glance: your portfolio first, then each specialist
-            desk&apos;s latest findings and when it next runs. Open any card for
-            the full report and the evidence behind it.
+            Investorlogical runs a team of specialist AI research desks. Each
+            screens part of the market on a fixed schedule and files ranked,
+            evidence-backed reports against a scoring framework you can inspect
+            in full. Below: your portfolio first, then each desk&apos;s latest
+            findings and when it next runs — open any card for the report and
+            the evidence behind every score.
           </p>
+          <ExperimentalNotice className="mt-4 max-w-3xl" />
         </div>
 
         {/* The desk grid — My Portfolio leads (YOUR money first), then one
@@ -272,6 +285,7 @@ export default async function DashboardPage() {
                 : [];
               const top = classified.slice(0, 3);
               const signal = deskSignalLine(classified);
+              const delta = deskDeltas.get(agent.name);
               return (
                 <Link
                   key={agent.name}
@@ -299,6 +313,24 @@ export default async function DashboardPage() {
                       {signal && (
                         <p className="mt-3 font-mono-cli text-base text-il-navy">
                           {signal}
+                        </p>
+                      )}
+                      {delta && (
+                        <p className="mt-1 font-mono-cli text-sm text-muted-foreground">
+                          {delta.upgrades > 0 && (
+                            <span style={{ color: "#22a87b" }}>
+                              ↑{delta.upgrades} upgrade
+                              {delta.upgrades === 1 ? "" : "s"}
+                            </span>
+                          )}
+                          {delta.upgrades > 0 && delta.downgrades > 0 && " · "}
+                          {delta.downgrades > 0 && (
+                            <span style={{ color: "#ee1d23" }}>
+                              ↓{delta.downgrades} downgrade
+                              {delta.downgrades === 1 ? "" : "s"}
+                            </span>
+                          )}{" "}
+                          since last edition
                         </p>
                       )}
                       {top.length > 0 && (

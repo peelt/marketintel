@@ -17,6 +17,7 @@ import {
 import {
   classificationLabel,
   compositeDisplay,
+  confidenceWord,
   humanizeDateTime,
   securityDisplayLabel,
   securitySecondaryLabel,
@@ -572,7 +573,7 @@ export default async function ReportDetailPage({
                                     <span>
                                       {ev.evidence_type.replace(/_/g, " ")}
                                     </span>
-                                    <span>· confidence {ev.weight.toFixed(2)}</span>
+                                    <span>· {confidenceWord(ev.weight)} confidence</span>
                                   </div>
                                   <p className="leading-relaxed">
                                     {ev.source_text}
