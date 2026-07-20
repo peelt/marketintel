@@ -24,6 +24,7 @@ import {
 } from "@/lib/format";
 import { deskSignalLine } from "@/lib/reports/desk-summary";
 import { loadDeskDeltas } from "@/lib/reports/desk-deltas";
+import { ExperimentalNotice } from "@/components/experimental-notice";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
@@ -182,10 +183,14 @@ export default async function DashboardPage() {
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
           <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            Your desk at a glance: your portfolio first, then each specialist
-            desk&apos;s latest findings and when it next runs. Open any card for
-            the full report and the evidence behind it.
+            Investorlogical runs a team of specialist AI research desks. Each
+            screens part of the market on a fixed schedule and files ranked,
+            evidence-backed reports against a scoring framework you can inspect
+            in full. Below: your portfolio first, then each desk&apos;s latest
+            findings and when it next runs — open any card for the report and
+            the evidence behind every score.
           </p>
+          <ExperimentalNotice className="mt-4 max-w-3xl" />
         </div>
 
         {/* The desk grid — My Portfolio leads (YOUR money first), then one
