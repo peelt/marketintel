@@ -521,7 +521,7 @@ export default async function ReportDetailPage({
                                     )}
                                   </div>
                                   {c.score === null && (
-                                    <div className="mt-1 text-xs leading-snug text-muted-foreground">
+                                    <div className="mt-1 text-sm leading-snug text-muted-foreground">
                                       {noDataReason(
                                         key,
                                         it.security?.exchange ?? null,

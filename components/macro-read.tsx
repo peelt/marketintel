@@ -69,7 +69,7 @@ export function MacroRead({ memo }: { memo: ParsedMacroMemo }) {
       </div>
 
       {memo.sources.length > 0 && (
-        <p className="mt-4 flex flex-wrap gap-x-3 gap-y-1 font-mono-cli text-xs text-muted-foreground">
+        <p className="mt-4 flex flex-wrap gap-x-3 gap-y-1 font-mono-cli text-sm text-muted-foreground">
           <span>sources:</span>
           {memo.sources.map((s) => (
             <a

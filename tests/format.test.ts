@@ -3,6 +3,7 @@ import {
   classificationLabel,
   compositeDisplay,
   criterionShortLabel,
+  formatPriceDate,
   isPlaceholderTicker,
   priceChangeSummary,
   dayChangeFraction,
@@ -78,6 +79,17 @@ describe("humanizeDateTime", () => {
 describe("classificationLabel", () => {
   it("de-snakes the vocabulary", () => {
     expect(classificationLabel("elevated_cut_risk")).toBe("elevated cut risk");
+  });
+});
+
+describe("formatPriceDate", () => {
+  it("formats YYYY-MM-DD as day-month-year, timezone-independent", () => {
+    expect(formatPriceDate("2025-07-21")).toBe("21 Jul 2025");
+    expect(formatPriceDate("2026-01-05")).toBe("5 Jan 2026");
+    expect(formatPriceDate("2026-12-31T00:00:00Z")).toBe("31 Dec 2026");
+  });
+  it("falls back to the raw string when it isn't a plain date", () => {
+    expect(formatPriceDate("n/a")).toBe("n/a");
   });
 });
 
