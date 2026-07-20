@@ -35,8 +35,9 @@ export default async function LoginPage({
         <CliTitleBar title="~ sign in" />
         <div className="p-6">
           <p className="text-sm text-muted-foreground">
-            Investorlogical is single-user during the preview. Only the
-            configured email can sign in — a magic link is sent, no password.
+            Enter your email and we&apos;ll send a one-time magic link — no
+            password. Sign-in is limited to approved addresses during the
+            preview; if yours is approved, the link arrives in a moment.
           </p>
 
           <form action={sendMagicLink} className="mt-6 space-y-4">
