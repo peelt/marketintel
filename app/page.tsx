@@ -23,7 +23,7 @@ export default function Home() {
             </span>
           </div>
         </div>
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[5fr_7fr] lg:px-8">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pt-16 pb-10 sm:px-6 lg:grid-cols-[5fr_7fr] lg:px-8">
           <div>
             <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
             <span className="tag-cli mt-4 inline-flex">
@@ -33,10 +33,9 @@ export default function Home() {
               Glass-box investment research
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Scheduled specialist AI desks screen and score the market against
-              frameworks you can see in full. Every verdict links to the
-              evidence behind it — nothing assumed, nothing advised. Add the
-              names you own and each run tells you what changed.
+              Specialist AI desks screen the market against frameworks you can
+              inspect in full, and link every verdict to the evidence behind it.
+              Add the names you own — each run tells you what changed.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
@@ -46,7 +45,6 @@ export default function Home() {
                 request access
               </Link>
             </div>
-            <ExperimentalNotice className="mt-8 max-w-xl" />
           </div>
 
           {/* Self-framing terminal panel */}
@@ -68,6 +66,10 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+        {/* Full-width band so it never crowds the two-column hero. */}
+        <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+          <ExperimentalNotice />
         </div>
       </section>
 
