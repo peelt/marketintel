@@ -116,8 +116,30 @@ export function humanizeDateTime(iso: string, now: Date = new Date()): string {
 }
 
 /** snake_case classification → sentence label ("elevated_cut_risk" → "elevated cut risk"). */
+/**
+ * A few classification enums don't read well when merely de-snaked
+ * ("insufficient data", "cause unconfirmed"): map those to plain reader
+ * phrases. Everything else de-snakes fine ("weak profile", "at risk", …).
+ * Criterion keys pass through untouched — none collide with these.
+ */
+const CLASSIFICATION_PHRASES: Record<string, string> = {
+  insufficient_data: "not enough data",
+  cause_unconfirmed: "cause not yet confirmed",
+  shell_or_blank_check: "shell / blank cheque",
+};
+
 export function classificationLabel(classification: string): string {
-  return classification.replace(/_/g, " ");
+  return CLASSIFICATION_PHRASES[classification] ?? classification.replace(/_/g, " ");
+}
+
+/**
+ * A 0–1 resolver confidence as a reader word. Humans read "high confidence",
+ * not "confidence 0.85".
+ */
+export function confidenceWord(weight: number): "high" | "medium" | "low" {
+  if (weight >= 0.8) return "high";
+  if (weight >= 0.5) return "medium";
+  return "low";
 }
 
 const SHORT_MONTHS = [

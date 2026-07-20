@@ -6,8 +6,9 @@ import { isOwnerEmail } from "@/lib/auth/allowlist";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
-import { MODULE_COLORS, SiteHeader } from "@/components/cli";
+import { ClassificationChip, MODULE_COLORS, SiteHeader } from "@/components/cli";
 import { humanizeDateTime, stripInlineMarkdown } from "@/lib/format";
+import { severityOf } from "@/lib/holdings/deltas";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,36 @@ export default async function ReportsPage() {
     .order("generated_at", { ascending: false })
     .limit(50)
     .returns<ReportRow[]>();
+
+  // Classification counts for each desk's LATEST edition, so the list can lead
+  // with chips (what the run found) instead of a grey prose snippet.
+  const latestIds = groupByDesk(reports ?? []).map((g) => g.latest.id);
+  const countsByReport = new Map<string, { classification: string; count: number }[]>();
+  if (latestIds.length > 0) {
+    const { data: items } = await supabase
+      .from("report_items")
+      .select("report_id, classification")
+      .in("report_id", latestIds)
+      .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
+      .returns<{ report_id: string; classification: string | null }[]>();
+    const acc = new Map<string, Map<string, number>>();
+    for (const it of items ?? []) {
+      if (!it.classification) continue;
+      const m = acc.get(it.report_id) ?? new Map<string, number>();
+      m.set(it.classification, (m.get(it.classification) ?? 0) + 1);
+      acc.set(it.report_id, m);
+    }
+    for (const [reportId, m] of acc) {
+      countsByReport.set(
+        reportId,
+        [...m.entries()]
+          .map(([classification, count]) => ({ classification, count }))
+          .sort(
+            (a, b) => severityOf(b.classification).rank - severityOf(a.classification).rank,
+          ),
+      );
+    }
+  }
 
   return (
     <>
@@ -86,7 +117,19 @@ export default async function ReportsPage() {
                       {humanizeDateTime(latest.generated_at)}
                     </div>
                   </div>
-                  <p className="mt-1.5 line-clamp-2 text-base leading-relaxed text-muted-foreground">
+                  {(countsByReport.get(latest.id)?.length ?? 0) > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      {countsByReport.get(latest.id)!.map((c) => (
+                        <span key={c.classification} className="flex items-center gap-1.5">
+                          <span className="font-mono-cli text-sm text-il-navy">
+                            {c.count}×
+                          </span>
+                          <ClassificationChip classification={c.classification} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
                     {firstSentences(stripInlineMarkdown(latest.summary_markdown))}
                   </p>
                 </Link>

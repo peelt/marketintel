@@ -1,4 +1,4 @@
-import { hostOf, parseNewsEvidence } from "@/lib/format";
+import { confidenceWord, hostOf, parseNewsEvidence } from "@/lib/format";
 
 /**
  * Designed rendering for a Reaction news-evidence row: what happened, how bad
@@ -19,7 +19,7 @@ export function NewsEvidenceCard({
     return (
       <div className="rounded border border-border/60 bg-muted/20 px-4 py-3">
         <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
-          news research · confidence {weight.toFixed(2)}
+          news research · {confidenceWord(weight)} confidence
         </div>
         <p className="whitespace-pre-line text-base leading-relaxed">{text}</p>
       </div>
