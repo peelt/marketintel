@@ -21,8 +21,8 @@ import {
   humanizeSchedule,
   nextRunLabel,
   securityDisplayLabel,
-  stripInlineMarkdown,
 } from "@/lib/format";
+import { deskSignalLine } from "@/lib/reports/desk-summary";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
@@ -103,8 +103,10 @@ export default async function DashboardPage() {
     supabase.from("securities").select("*", { count: "exact", head: true }),
   ]);
 
-  // Top classified names for each latest report (for the verdict chips).
-  const topItemsByReport = new Map<string, TopItem[]>();
+  // Classified names for each latest report — the top few drive the card's
+  // name list, the full set drives its signal line (the run's classification
+  // shape). Capped generously; a desk classifies only tens of names.
+  const classifiedByReport = new Map<string, TopItem[]>();
   await Promise.all(
     latestReports
       .filter((r) => r.report)
@@ -121,9 +123,9 @@ export default async function DashboardPage() {
           // dashboard must not promote them to headline verdicts.
           .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
           .order("rank", { ascending: true })
-          .limit(3)
+          .limit(60)
           .returns<TopItem[]>();
-        topItemsByReport.set(report!.id, data ?? []);
+        classifiedByReport.set(report!.id, data ?? []);
       }),
   );
 
@@ -260,10 +262,11 @@ export default async function DashboardPage() {
             </Link>
 
             {latestReports.map(({ agent, report }) => {
-              const top = report ? (topItemsByReport.get(report.id) ?? []) : [];
-              const headline = report
-                ? stripInlineMarkdown(report.summary_markdown).split(". ")[0]
-                : null;
+              const classified = report
+                ? (classifiedByReport.get(report.id) ?? [])
+                : [];
+              const top = classified.slice(0, 3);
+              const signal = deskSignalLine(classified);
               return (
                 <Link
                   key={agent.name}
@@ -288,9 +291,11 @@ export default async function DashboardPage() {
 
                   {report ? (
                     <>
-                      <p className="mt-3 text-base leading-relaxed text-foreground">
-                        {headline}.
-                      </p>
+                      {signal && (
+                        <p className="mt-3 font-mono-cli text-base text-il-navy">
+                          {signal}
+                        </p>
+                      )}
                       {top.length > 0 && (
                         <ul className="mt-4 space-y-2">
                           {top.map((item) => (
@@ -332,7 +337,11 @@ export default async function DashboardPage() {
                   )}
 
                   <div className="mt-4 flex items-baseline justify-between font-mono-cli text-sm text-muted-foreground">
-                    <span>runs {humanizeSchedule(agent.schedule)}</span>
+                    <span>
+                      {nextRunLabel(agent.schedule)
+                        ? `next ${nextRunLabel(agent.schedule)}`
+                        : `runs ${humanizeSchedule(agent.schedule)}`}
+                    </span>
                     <span className="text-il-accent">
                       {report ? "open report →" : "all reports →"}
                     </span>
@@ -351,23 +360,27 @@ export default async function DashboardPage() {
 
         <hr className="divider-cli my-10" />
 
-        {/* System status — quiet telemetry, deliberately below the fold */}
-        <p className="mb-6 font-mono-cli text-sm text-muted-foreground">
-          ~ prices to{" "}
-          {pricesAsOf
-            ? new Date(pricesAsOf).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-              })
-            : "—"}{" "}
-          · {securitiesCount.count ?? 0} securities tracked
-          {nextRuns.map(({ a, next }) => (
-            <span key={a.name}>
-              {" "}
-              · next {a.displayName.split(" ")[0].toLowerCase()}: {next}
-            </span>
-          ))}
-        </p>
+        {/* System status — engine telemetry, owner-only. An everyday reader
+            doesn't need price-refresh dates or the securities row count; the
+            per-desk "next run" already lives on each card above. */}
+        {isOwner && (
+          <p className="mb-6 font-mono-cli text-sm text-muted-foreground">
+            ~ prices to{" "}
+            {pricesAsOf
+              ? new Date(pricesAsOf).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                })
+              : "—"}{" "}
+            · {securitiesCount.count ?? 0} securities tracked
+            {nextRuns.map(({ a, next }) => (
+              <span key={a.name}>
+                {" "}
+                · next {a.displayName.split(" ")[0].toLowerCase()}: {next}
+              </span>
+            ))}
+          </p>
+        )}
 
         <section
           className={`grid gap-4 ${isOwner ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
