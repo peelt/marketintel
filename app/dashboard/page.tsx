@@ -271,8 +271,13 @@ export default async function DashboardPage() {
                   }
                 >
                   <div className="flex items-baseline justify-between gap-4">
-                    <div className="text-lg font-bold text-il-navy">
-                      {agent.displayName}
+                    <div>
+                      <div className="text-lg font-bold text-il-navy">
+                        {agent.displayName}
+                      </div>
+                      <div className="font-mono-cli text-sm text-muted-foreground">
+                        ~ {agent.cadence}
+                      </div>
                     </div>
                     <div className="font-mono-cli text-sm text-muted-foreground">
                       {report
