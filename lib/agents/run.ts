@@ -8,6 +8,34 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
+ * Has this agent already filed a SUCCEEDED report today (UTC)? Used to
+ * deduplicate a desk whose daily run can be triggered two ways — a data-ready
+ * event and a cron backstop — so only the first firing of the day files a
+ * report. Service-role read; Inngest/server contexts only.
+ */
+export async function hasSucceededReportToday(
+  agentName: string,
+): Promise<boolean> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("id, agent_runs!inner(status)")
+    .eq("agent_name", agentName)
+    .eq("agent_runs.status", "succeeded")
+    .gte("generated_at", startOfDay.toISOString())
+    .limit(1);
+  if (error) {
+    // On a read error, don't block the run — better a possible duplicate than
+    // a silently-skipped daily report.
+    console.error(`hasSucceededReportToday(${agentName}): ${getErrorMessage(error)}`);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/**
  * Run an agent end-to-end and persist the report.
  *
  * Lifecycle (order matters):

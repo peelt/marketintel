@@ -16,8 +16,11 @@ const META: Record<AgentName, AgentMeta> = {
     description:
       "Screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
     scope:
-      "Watches the S&P 500 and FTSE 350 — about 850 names — for sharp falls: 12% or more over five sessions, or 8% in one. Each qualifying fall is researched in the news and scored on whether the move looks disproportionate to the damage identified, with every source cited. New editions Tuesday and Friday.",
-    schedule: "0 17 * * 2,5", // Tue + Fri 17:00 UTC (settled)
+      "Watches the S&P 500 and FTSE 350 — about 850 names — for sharp falls: 12% or more over five sessions, or 8% in one. Each qualifying fall is researched in the news and scored on whether the move looks disproportionate to the damage identified, with every source cited. Runs every weekday after the US close, as soon as the evening prices land — a sharp drop is time-sensitive, so this desk is the exception to the weekly cadence.",
+    // Weekday backstop after the close; the real driver is the
+    // ingest/refresh.completed event (see lib/inngest/functions/reaction.ts),
+    // so it usually runs earlier, right when the evening prices land.
+    schedule: "0 22 * * 1-5", // weekdays 22:00 UTC (post-close)
     modelTier: "routine", // research runs on the routine tier since the cost-control pass
 
     status: "live",
