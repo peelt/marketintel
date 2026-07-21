@@ -42,7 +42,7 @@ deprioritized.
 
 | # | Pole | Job | Cadence (UTC) | Tier |
 |---|------|-----|---------------|------|
-| 1 | **Reaction Analyser** *(hero)* | Finds sharp drops and judges overshoot vs earned fundamental damage | Tue + Fri 17:00 *(settled)* | deep |
+| 1 | **Reaction Analyser** *(hero)* | Finds sharp drops and judges overshoot vs earned fundamental damage | daily, post-close *(was Tue+Fri)* | deep |
 | 2 | **Dividend Intelligence** | High-yield names with sustainability + cut-probability flagging | Fri 18:00 | routine |
 | 3 | **IPO Evaluation** *(live)* | League table of fresh S-1/F-1 registrants, graded from their own prospectuses | Sun 18:00 | routine |
 | 4 | **Precious Metals** | Buy/hold/avoid across ETFs, royalties, majors, juniors | Sat 12:00 | routine |
@@ -58,7 +58,7 @@ fundamental damage.
 
 **Settled parameters:** inclusion threshold **5d drawdown ≥12% OR 1d drop
 ≥8%**, stored as framework data (editable without redeploy); schedule
-**Tue + Fri 17:00 UTC**.
+**daily on weekdays, post-close** (drops are time-sensitive; superseded Tue+Fri 17:00).
 
 **Honest framing:** large drops mean-revert *in aggregate*, but a meaningful
 fraction are value traps. The framework weights fundamental damage heavily so

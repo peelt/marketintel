@@ -30,6 +30,12 @@ export interface AgentMeta {
    * reader should never have to guess why these names and not others.
    */
   scope: string;
+  /**
+   * Short human cadence label ("daily · post-close", "weekly · Fri") surfaced
+   * on the dashboard card — the rhythm at a glance, distinct from the exact
+   * next-run time.
+   */
+  cadence: string;
   /** Cron expression in Inngest format (UTC). */
   schedule: string;
   /**

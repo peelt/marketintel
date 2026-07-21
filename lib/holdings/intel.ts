@@ -83,7 +83,7 @@ export async function loadPortfolioIntel(
   const securityIds = [...tickerBySecurity.keys()];
 
   // Recent succeeded verdicts for the held names. 90 days covers "latest +
-  // previous" for weekly (dividend) and twice-weekly (reaction) desks.
+  // previous" for the weekly desks and the daily Reaction Analyser alike.
   const sinceIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   // Paginated with a deterministic total order (security_id, then id): even
   // inside the 90-day window a large portfolio's report_items can exceed

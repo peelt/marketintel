@@ -1,6 +1,6 @@
 import { inngest } from "../client";
 import { reactionAgent } from "@/lib/agents/reaction/agent";
-import { runAgent } from "@/lib/agents/run";
+import { runAgent, hasSucceededReportToday } from "@/lib/agents/run";
 import { loadBroadUniverse } from "@/lib/agents/reaction/data";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 
@@ -26,27 +26,47 @@ export function dailyPriceUniverse(
 }
 
 /**
- * Reaction Analyser schedule — Tue + Fri 17:00 UTC (settled, plan §5), plus
- * the manual agent/run.requested path. Runs through runAgent's hardened
- * lifecycle (failed runs always leave an auditable row).
+ * Reaction Analyser — DAILY, post-close (a sharp drop is time-sensitive; the
+ * overshoot it screens for mean-reverts in days, so a twice-weekly cadence
+ * missed most of the window). Three triggers:
+ *
+ *   1. `ingest/refresh.completed` (feed == 'prices') — the primary, DATA-DRIVEN
+ *      path: reaction runs the moment the evening price refresh lands, so it
+ *      always screens on fresh closes whatever the data plan's speed.
+ *   2. cron backstop (`meta.schedule`, weekdays ~post-close) — if the refresh
+ *      ever fails to emit, the day still gets a run.
+ *   3. `agent/run.requested` — the on-demand path (always runs).
+ *
+ * The scheduled/data-driven paths dedupe on a same-day report: whichever fires
+ * first files today's edition, the other skips. concurrency:1 serialises them
+ * so the second sees the first's report. On-demand is exempt (explicit).
  */
 export const reactionScheduled = inngest.createFunction(
-  // concurrency 1: serialise an overlapping manual + cron trigger of the
-  // same agent (shared run-context).
-  { id: "reaction-twice-weekly", retries: 1, concurrency: { limit: 1 } },
+  { id: "reaction-daily", retries: 1, concurrency: { limit: 1 } },
   [
     { cron: reactionAgent.meta.schedule },
+    { event: "ingest/refresh.completed", if: "event.data.feed == 'prices'" },
     { event: "agent/run.requested", if: "event.data.agentName == 'reaction'" },
   ],
-  async ({ event }) => {
-    const reason =
-      event && "data" in event && event.data && typeof event.data === "object"
-        ? (event.data as { reason?: string }).reason
-        : undefined;
+  async ({ event, step }) => {
+    const onDemand = event?.name === "agent/run.requested";
+    const reason = onDemand
+      ? (event.data as { reason?: string })?.reason
+      : undefined;
+
+    // Dedupe the two automatic paths (cron backstop + data-ready event) so only
+    // the first firing of the day files. On-demand always runs.
+    if (!onDemand) {
+      const already = await step.run("reaction-ran-today", () =>
+        hasSucceededReportToday(reactionAgent.meta.name),
+      );
+      if (already) return { skipped: "reaction already filed today" };
+    }
+
     const { reportId, runId } = await runAgent(
       reactionAgent,
       { reason },
-      { trigger: reason ? "event" : "scheduled" },
+      { trigger: onDemand ? "event" : "scheduled" },
     );
     return { reportId, runId };
   },

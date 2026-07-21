@@ -126,6 +126,17 @@ export const chunkedIngest = inngest.createFunction(
       );
     }
 
-    return mergeOutcomes(feed, outcomes);
+    const merged = mergeOutcomes(feed, outcomes);
+
+    // Announce completion so data-driven desks can run on FRESH data rather
+    // than at a guessed clock time — the Reaction Analyser fires on this event
+    // (feed == 'prices') so a same-day drop is screened as soon as the evening
+    // price refresh lands, whatever the data plan's speed.
+    await step.sendEvent("refresh-completed", {
+      name: "ingest/refresh.completed",
+      data: { feed },
+    });
+
+    return merged;
   },
 );
