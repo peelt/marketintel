@@ -185,7 +185,7 @@ M3 is the thing that earns the first paying user.
   through the PR-4 dashboard + evidence viewer.
 - **DoD:** a scheduled run screens the universe for large drops, scores each on overshoot, emits a
   banded verdict with cited evidence, and renders in the dashboard. This is the demo.
-- **Settled inputs (§5):** threshold 5d ≥12% OR 1d ≥8% (as framework data); schedule Tue + Fri 17:00 UTC.
+- **Settled inputs (§5):** threshold 5d ≥12% OR 1d ≥8% (as framework data); schedule daily on weekdays, post-close (superseded Tue+Fri 17:00 — drops are time-sensitive).
 
 #### PR 6 — Portfolio holdings + the "My Portfolio" intel lens (the personal moat)
 - **Goal:** the user enters their own holdings (quantity + *optional* purchase price) and the
@@ -270,7 +270,7 @@ explicitly revisited.
 | Dividend framework weights | **Keep 25/40/15/20** (yield / coverage / track record / cut-risk). Safety-first: a yield spike reads as cut risk, not a buy signal. Editable later via PR 7. | PR 4 |
 | `eps_revision_trend` handling | **Drop & rebalance** remaining cut-risk sub-signals to 0.5/0.5. Possibly reinstate later via Finnhub analyst-recommendation data — verify in 3.5b. | PR 4 |
 | Reaction inclusion threshold | **5d drawdown ≥12% OR 1d drop ≥8%**, stored as editable framework data (not code) so it can be tuned from observed weeks. | PR 5 |
-| Reaction schedule | **Tue + Fri 17:00 UTC.** | PR 5 |
+| Reaction schedule | **Daily on weekdays, post-close** (event-driven off the price refresh; superseded Tue+Fri). | PR 5 |
 | Primary price source | **Finnhub** (provisional — ~60 calls/min free tier suits the 800-name refresh; carries analyst data). Confirm LSE coverage in 3.5b's readiness check before lock-in; yfinance covers LSE in the interim. Requires `FINNHUB_API_KEY` in env. | PR 3.5b |
 | Holdings & performance scope (14 Jul 2026) | **Own-holdings entry with optional purchase price.** Two surfaces: factual performance snapshot (value/day Δ/unrealised P&L — arithmetic only, no IRR/TWR/tax accounting) and the "My Portfolio" intel lens (service filtered to held names — the priority). Purchase data never feeds scoring (I2). Spec: SPECIFICATION §5.1. | PR 6 |
 

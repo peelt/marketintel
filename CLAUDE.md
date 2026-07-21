@@ -148,7 +148,12 @@ routes resolution through Inngest.
 - Dividend framework weights **25/40/15/20**; `eps_revision_trend` dropped,
   cut-risk rebalanced 0.5/0.5.
 - Reaction threshold **5d ≥12% OR 1d ≥8%** (stored as framework data);
-  schedule **Tue + Fri 17:00 UTC**.
+  schedule **daily on weekdays, post-close** (superseded the original Tue+Fri
+  17:00 — a drop is time-sensitive). Data-driven: reaction fires on the
+  `ingest/refresh.completed`(prices) event so it runs the moment the evening
+  price refresh lands; a weekday 22:00 UTC cron is the backstop; the two
+  automatic paths dedupe on a same-day report. On-demand via
+  `agent/run.requested` still runs unconditionally.
 - **Twelve Data** primary price source. Finnhub's free tier turned out to
   paywall `/stock/candle` for *every* symbol class (US and LSE), and scraped
   Yahoo/Stooq block datacenter IPs (429 / JS proof-of-work) so are dead from
