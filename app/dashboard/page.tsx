@@ -23,10 +23,11 @@ import {
   securityDisplayLabel,
 } from "@/lib/format";
 import { deskSignalLine } from "@/lib/reports/desk-summary";
-import { loadDeskDeltas } from "@/lib/reports/desk-deltas";
+import type { DeskDelta } from "@/lib/reports/desk-deltas";
+import { loadDeskCards } from "@/lib/reports/dashboard-data";
 import { ExperimentalNotice } from "@/components/experimental-notice";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
-import { loadPortfolioIntel } from "@/lib/holdings/intel";
+import { loadPortfolioIntel, type PortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
 import {
   portfolioTotals,
@@ -44,13 +45,6 @@ export const dynamic = "force-dynamic";
  * footnote, never cards (a card that can't file a report isn't a product
  * surface). A status strip up top answers "is the machine alive?".
  */
-
-interface LatestReport {
-  id: string;
-  agent_name: string;
-  generated_at: string;
-  summary_markdown: string;
-}
 
 interface TopItem {
   rank: number;
@@ -79,85 +73,65 @@ export default async function DashboardPage() {
     .list()
     .filter((a) => a.status === "planned" && a.name !== "energy"); // energy deprioritised
 
-  // All reads via the RLS-scoped client (entitled-read policies).
-  const [latestReports, freshness, securitiesCount] = await Promise.all([
-    Promise.all(
-      liveAgents.map(async (agent) => {
-        const { data } = await supabase
-          .from("reports")
-          .select(
-            "id, agent_name, generated_at, summary_markdown, agent_runs!inner(status)",
-          )
-          .eq("agent_name", agent.name)
-          .eq("agent_runs.status", "succeeded")
-          .order("generated_at", { ascending: false })
-          .limit(1)
-          .returns<LatestReport[]>();
-        return { agent, report: data?.[0] ?? null };
-      }),
-    ),
-    supabase
-      .from("price_snapshots")
-      .select("snapshot_date")
-      .order("snapshot_date", { ascending: false })
-      .limit(1)
-      .maybeSingle<{ snapshot_date: string }>(),
-    supabase.from("securities").select("*", { count: "exact", head: true }),
-  ]);
+  // Everything below is independent, so run it CONCURRENTLY rather than in a
+  // chain of round-trips: the (cached, non-user-specific) desk cards, the
+  // user's portfolio bundle, and the two telemetry reads. This — plus folding
+  // the desk reads from ~20 queries into ~6 cached ones, and caching the
+  // entitlement read — is the dashboard responsiveness fix.
+  const emptyIntel: PortfolioIntel = {
+    items: [],
+    attentionCount: 0,
+    health: { covered: 0, flagged: 0, byClassification: [] },
+  };
+  const [deskCards, portfolioBundle, freshness, securitiesCount] =
+    await Promise.all([
+      loadDeskCards(
+        supabase,
+        liveAgents.map((a) => a.name),
+      ),
+      (async () => {
+        const portfolio = await loadDefaultPortfolio(supabase, user.id);
+        const [held, intel] = portfolio
+          ? await Promise.all([
+              loadHeldNames(supabase, portfolio.id),
+              loadPortfolioIntel(supabase, portfolio.id),
+            ])
+          : [[], emptyIntel];
+        const base = portfolio?.base_currency ?? "GBP";
+        const rates =
+          held.length > 0
+            ? await fetchRates(requiredRatePairs(held, base))
+            : new Map<string, number>();
+        return { held, intel, base, rates };
+      })(),
+      supabase
+        .from("price_snapshots")
+        .select("snapshot_date")
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ snapshot_date: string }>(),
+      supabase.from("securities").select("*", { count: "exact", head: true }),
+    ]);
 
-  // Movement since each desk's previous edition — makes the dashboard read as a
-  // living desk, not an archive.
-  const deskDeltas = await loadDeskDeltas(
-    supabase,
-    liveAgents.map((a) => a.name),
-  );
+  const { held, intel, base, rates } = portfolioBundle;
 
-  // Classified names for each latest report — the top few drive the card's
-  // name list, the full set drives its signal line (the run's classification
-  // shape). Capped generously; a desk classifies only tens of names.
+  // Reconstruct the shapes the render already uses, from the desk cards.
+  const latestReports = liveAgents.map((a) => ({
+    agent: a,
+    report: deskCards.find((c) => c.agentName === a.name)?.report ?? null,
+  }));
   const classifiedByReport = new Map<string, TopItem[]>();
-  await Promise.all(
-    latestReports
-      .filter((r) => r.report)
-      .map(async ({ report }) => {
-        const { data } = await supabase
-          .from("report_items")
-          .select(
-            "rank, composite_score, classification, scoring_breakdown, security:securities(ticker, name)",
-          )
-          .eq("report_id", report!.id)
-          // Exclude both insufficient_data AND cause_unconfirmed: the report
-          // page deliberately pulls cause_unconfirmed names OUT of the ranking
-          // (an overshoot claim without a news grade is unsupported), so the
-          // dashboard must not promote them to headline verdicts.
-          .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
-          .order("rank", { ascending: true })
-          .limit(60)
-          .returns<TopItem[]>();
-        classifiedByReport.set(report!.id, data ?? []);
-      }),
-  );
+  const deskDeltas = new Map<string, DeskDelta>();
+  for (const c of deskCards) {
+    if (c.report) classifiedByReport.set(c.report.id, c.classified);
+    if (c.delta) deskDeltas.set(c.agentName, c.delta);
+  }
 
   const pricesAsOf = freshness.data?.snapshot_date ?? null;
   const nextRuns = liveAgents
     .map((a) => ({ a, next: nextRunLabel(a.schedule) }))
     .filter((x) => x.next);
 
-  // Portfolio summary — a compact block on the desk dashboard (the full
-  // surface lives at /portfolio). Held names carrying an active desk verdict
-  // are the highest-value thing to surface here.
-  const portfolio = await loadDefaultPortfolio(supabase, user.id);
-  const [held, intel] = portfolio
-    ? await Promise.all([
-        loadHeldNames(supabase, portfolio.id),
-        loadPortfolioIntel(supabase, portfolio.id),
-      ])
-    : [[], { items: [], attentionCount: 0, health: { covered: 0, flagged: 0, byClassification: [] } }];
-  const base = portfolio?.base_currency ?? "GBP";
-  const rates =
-    held.length > 0
-      ? await fetchRates(requiredRatePairs(held, base))
-      : new Map<string, number>();
   const portfolioTotal = portfolioTotals(
     held.map((h) =>
       valueHolding(
@@ -190,7 +164,6 @@ export default async function DashboardPage() {
             findings and when it next runs — open any card for the report and
             the evidence behind every score.
           </p>
-          <ExperimentalNotice className="mt-4 max-w-3xl" />
         </div>
 
         {/* The desk grid — My Portfolio leads (YOUR money first), then one
@@ -393,6 +366,7 @@ export default async function DashboardPage() {
               {plannedAgents.map((a) => a.displayName.toLowerCase()).join(" · ")}
             </p>
           )}
+          <ExperimentalNotice className="mt-6" />
         </section>
 
         <hr className="divider-cli my-10" />
