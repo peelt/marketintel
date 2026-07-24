@@ -27,6 +27,7 @@ import type { DeskDelta } from "@/lib/reports/desk-deltas";
 import { loadDeskCards } from "@/lib/reports/dashboard-data";
 import { loadReactionFeed } from "@/lib/reports/reaction-feed";
 import { ExperimentalNotice } from "@/components/experimental-notice";
+import { ReactionAnalyseForm } from "@/components/reaction-analyse-form";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel, type PortfolioIntel } from "@/lib/holdings/intel";
 import { fetchRates } from "@/lib/holdings/fx";
@@ -154,6 +155,17 @@ export default async function DashboardPage() {
   // Names with a fresh flag/worsening this run — the highest-value alert.
   const attentionItems = intel.items.filter((i) => i.delta.attention);
 
+  // Product hierarchy: Reaction is the hero desk — it gets a full-width band
+  // up top (rolling 48h feed + on-demand analysis); the weekly desks form the
+  // supporting newsroom grid below.
+  const reactionMeta = agentRegistry.get("reaction")!;
+  const reactionReport =
+    latestReports.find((r) => r.agent.name === "reaction")?.report ?? null;
+  const newsroomReports = latestReports.filter(
+    (r) => r.agent.name !== "reaction",
+  );
+  const feedDrops = reactionFeed.drops.slice(0, 6);
+
   return (
     <>
       <SiteHeader active="dashboard" userEmail={user.email} isOwner={isOwner} />
@@ -162,19 +174,117 @@ export default async function DashboardPage() {
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
           <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            Investorlogical runs a team of specialist AI research desks. Each
-            screens part of the market on a fixed schedule and files ranked,
-            evidence-backed reports against a scoring framework you can inspect
-            in full. Below: your portfolio first, then each desk&apos;s latest
-            findings and when it next runs — open any card for the report and
-            the evidence behind every score.
+            The Reaction desk leads: sharp drops screened every evening, each
+            graded on whether the move looks earned or an overshoot — and you
+            can put a name in front of it on demand. Behind it, a newsroom of
+            weekly specialist desks files ranked, evidence-backed reports
+            against frameworks you can inspect in full. Open anything for the
+            report and the evidence behind every score.
           </p>
         </div>
 
-        {/* The desk grid — My Portfolio leads (YOUR money first), then one
-            card per LIVE desk. Six cards: two rows of three on desktop. */}
+        {/* The reaction band — the hero desk, full width. Left: the rolling
+            48h drop feed (perishable by construction — stale drops age out).
+            Right: the on-demand "analyse a drop" interaction. */}
         <section className="mt-8">
-          <div className="font-mono-cli text-base text-il-navy">~ latest signals</div>
+          <div className="font-mono-cli text-base text-il-navy">
+            ~ the reaction desk
+          </div>
+          <div
+            className="card-cli card-cli-module mt-3 p-6"
+            style={
+              {
+                "--module-color": MODULE_COLORS["reaction"],
+              } as React.CSSProperties
+            }
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <div>
+                <div className="text-lg font-bold text-il-navy">
+                  {reactionMeta.displayName}
+                </div>
+                <div className="font-mono-cli text-sm text-muted-foreground">
+                  ~ {reactionMeta.cadence}
+                </div>
+              </div>
+              <div className="font-mono-cli text-sm text-muted-foreground">
+                {reactionFeed.lastScreenedAt
+                  ? `last screened ${humanizeDateTime(reactionFeed.lastScreenedAt)}`
+                  : "no runs yet"}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-8 lg:grid-cols-[7fr_5fr]">
+              <div>
+                {feedDrops.length > 0 ? (
+                  <>
+                    <p className="font-mono-cli text-base text-il-navy">
+                      {reactionFeed.drops.length} drop
+                      {reactionFeed.drops.length === 1 ? "" : "s"} · last 48h
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {feedDrops.map((d) => (
+                        <li key={d.securityId}>
+                          <Link
+                            href={`/reports/${d.reportId}`}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="min-w-0 truncate font-mono-cli text-base text-il-navy">
+                              {d.ticker}
+                              <span className="ml-2 text-muted-foreground">
+                                {compositeDisplay(
+                                  d.composite,
+                                  d.coverage ?? undefined,
+                                )}
+                              </span>
+                            </span>
+                            {d.classification && (
+                              <ClassificationChip
+                                classification={d.classification}
+                              />
+                            )}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    No sharp drops screened in the last 48 hours — the market
+                    has been calm. Fresh drops appear here the evening they
+                    happen, or put a name in front of the desk now.
+                  </p>
+                )}
+                <div className="mt-4 font-mono-cli text-sm text-muted-foreground">
+                  {nextRunLabel(reactionMeta.schedule) && (
+                    <span>next {nextRunLabel(reactionMeta.schedule)} · </span>
+                  )}
+                  {reactionReport ? (
+                    <Link
+                      href={`/reports/${reactionReport.id}`}
+                      className="text-il-accent"
+                    >
+                      open latest report →
+                    </Link>
+                  ) : (
+                    <Link href="/reports" className="text-il-accent">
+                      all reports →
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:border-l-2 lg:border-border lg:pl-8">
+                <ReactionAnalyseForm />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* The newsroom — My Portfolio leads (YOUR money first), then one
+            card per weekly LIVE desk. */}
+        <section className="mt-8">
+          <div className="font-mono-cli text-base text-il-navy">~ the newsroom</div>
           <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Link
               href="/portfolio"
@@ -257,17 +367,13 @@ export default async function DashboardPage() {
               </div>
             </Link>
 
-            {latestReports.map(({ agent, report }) => {
+            {newsroomReports.map(({ agent, report }) => {
               const classified = report
                 ? (classifiedByReport.get(report.id) ?? [])
                 : [];
               const top = classified.slice(0, 3);
               const signal = deskSignalLine(classified);
               const delta = deskDeltas.get(agent.name);
-              // Reaction is the perishable desk — rendered as a rolling last-48h
-              // drop feed rather than the latest edition.
-              const isReaction = agent.name === "reaction";
-              const reactionDrops = reactionFeed.drops.slice(0, 3);
               return (
                 <Link
                   key={agent.name}
@@ -289,50 +395,13 @@ export default async function DashboardPage() {
                       </div>
                     </div>
                     <div className="font-mono-cli text-sm text-muted-foreground">
-                      {isReaction
-                        ? reactionFeed.lastScreenedAt
-                          ? `last screened ${humanizeDateTime(reactionFeed.lastScreenedAt)}`
-                          : "no runs yet"
-                        : report
-                          ? `filed ${humanizeDateTime(report.generated_at)}`
-                          : "no report yet"}
+                      {report
+                        ? `filed ${humanizeDateTime(report.generated_at)}`
+                        : "no report yet"}
                     </div>
                   </div>
 
-                  {isReaction ? (
-                    reactionFeed.drops.length > 0 ? (
-                      <>
-                        <p className="mt-3 font-mono-cli text-base text-il-navy">
-                          {reactionFeed.drops.length} drop
-                          {reactionFeed.drops.length === 1 ? "" : "s"} · last 48h
-                        </p>
-                        <ul className="mt-4 space-y-2">
-                          {reactionDrops.map((d) => (
-                            <li
-                              key={d.securityId}
-                              className="flex items-center justify-between gap-3"
-                            >
-                              <span className="min-w-0 truncate font-mono-cli text-base text-il-navy">
-                                {d.ticker}
-                                <span className="ml-2 text-muted-foreground">
-                                  {compositeDisplay(d.composite, d.coverage ?? undefined)}
-                                </span>
-                              </span>
-                              {d.classification && (
-                                <ClassificationChip classification={d.classification} />
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : (
-                      <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-                        No sharp drops screened in the last 48 hours — the market
-                        has been calm. Fresh drops appear here the evening they
-                        happen.
-                      </p>
-                    )
-                  ) : report ? (
+                  {report ? (
                     <>
                       {signal && (
                         <p className="mt-3 font-mono-cli text-base text-il-navy">

@@ -50,22 +50,26 @@ export const reactionScheduled = inngest.createFunction(
   ],
   async ({ event, step }) => {
     const onDemand = event?.name === "agent/run.requested";
-    const reason = onDemand
-      ? (event.data as { reason?: string })?.reason
-      : undefined;
+    const { reason, tickers } = onDemand
+      ? ((event.data ?? {}) as { reason?: string; tickers?: string[] })
+      : { reason: undefined, tickers: undefined };
 
     // Dedupe the two automatic paths (cron backstop + data-ready event) so only
-    // the first firing of the day files. On-demand always runs.
+    // the first firing of the day files. On-demand always runs — and only
+    // SCHEDULED runs count toward the dedupe, so a midday on-demand analysis
+    // (screening yesterday's closes) never suppresses tonight's fresh edition.
     if (!onDemand) {
       const already = await step.run("reaction-ran-today", () =>
-        hasSucceededReportToday(reactionAgent.meta.name),
+        hasSucceededReportToday(reactionAgent.meta.name, {
+          trigger: "scheduled",
+        }),
       );
       if (already) return { skipped: "reaction already filed today" };
     }
 
     const { reportId, runId } = await runAgent(
       reactionAgent,
-      { reason },
+      { reason, tickers },
       { trigger: onDemand ? "event" : "scheduled" },
     );
     return { reportId, runId };

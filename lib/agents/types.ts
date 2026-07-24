@@ -148,6 +148,13 @@ export interface AgentRunInput {
   frameworkId?: string;
   /** Manual trigger context, if any. */
   reason?: string;
+  /**
+   * On-demand scope: analyse these specific tickers. Agents that support it
+   * (Reaction) guarantee the named tickers are in the scored cohort and report
+   * factually on the ones that don't qualify; agents that don't support it
+   * ignore the field.
+   */
+  tickers?: string[];
 }
 
 export interface Agent {
