@@ -9,7 +9,11 @@ import {
   volumeSpike,
   type SessionRow,
 } from "@/lib/agents/reaction/metrics";
-import { classifyReaction } from "@/lib/agents/reaction/agent";
+import {
+  classifyReaction,
+  describeOnDemandOutcome,
+  mergeRequestedIntoCohort,
+} from "@/lib/agents/reaction/agent";
 import { parseGrade } from "@/lib/agents/reaction/news";
 import { orderForRanking } from "@/lib/agents/base";
 import { hostOf, parseNewsEvidence } from "@/lib/format";
@@ -251,5 +255,72 @@ describe("news evidence parsing (report presentation)", () => {
   it("hostOf strips www and survives junk", () => {
     expect(hostOf("https://www.ft.com/content/abc")).toBe("ft.com");
     expect(hostOf("not a url")).toBe("not a url");
+  });
+});
+
+describe("on-demand analysis (scoped runs)", () => {
+  const thresholds = { drawdown5dPct: 12, drop1dPct: 8 };
+
+  it("answers factually when the ticker isn't in the universe", () => {
+    const text = describeOnDemandOutcome(
+      { ticker: "ZZZZ", matched: false, passed: false, stats: null },
+      thresholds,
+    );
+    expect(text).toContain("ZZZZ");
+    expect(text).toContain("isn't in the Reaction universe");
+  });
+
+  it("reports the actual moves and thresholds when the drop doesn't qualify", () => {
+    const text = describeOnDemandOutcome(
+      {
+        ticker: "AAPL",
+        matched: true,
+        passed: false,
+        stats: { return5d: -0.042, return1d: -0.011 },
+      },
+      thresholds,
+    );
+    expect(text).toContain("-4.2% over 5 sessions");
+    expect(text).toContain("-1.1% on the day");
+    expect(text).toContain("12%");
+    expect(text).toContain("8%");
+    expect(text).toContain("no overshoot verdict is filed");
+  });
+
+  it("names the qualifying move when the screen passes", () => {
+    const text = describeOnDemandOutcome(
+      {
+        ticker: "NXT.L",
+        matched: true,
+        passed: true,
+        stats: { return5d: -0.142, return1d: -0.03 },
+      },
+      thresholds,
+    );
+    expect(text).toContain("cleared the drop screen");
+    expect(text).toContain("-14.2% over 5 sessions");
+  });
+
+  it("says so when there's too little price history to screen", () => {
+    const text = describeOnDemandOutcome(
+      {
+        ticker: "NEWCO",
+        matched: true,
+        passed: false,
+        stats: { return5d: null, return1d: null },
+      },
+      thresholds,
+    );
+    expect(text).toContain("too little recent price history");
+  });
+
+  it("mergeRequestedIntoCohort force-includes without duplicating or reordering", () => {
+    expect(mergeRequestedIntoCohort(["a", "b"], ["b", "c"])).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(mergeRequestedIntoCohort([], ["x"])).toEqual(["x"]);
+    expect(mergeRequestedIntoCohort(["a"], [])).toEqual(["a"]);
   });
 });

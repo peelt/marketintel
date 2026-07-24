@@ -12,7 +12,15 @@ export const inngest = new Inngest({
 
 /** Event names emitted into Inngest. Keep strongly typed. */
 export type InngestEvent =
-  | { name: "agent/run.requested"; data: { agentName: string; reason?: string } }
+  | {
+      name: "agent/run.requested";
+      data: {
+        agentName: string;
+        reason?: string;
+        /** On-demand scope: analyse these tickers (see AgentRunInput.tickers). */
+        tickers?: string[];
+      };
+    }
   | { name: "report/generated"; data: { reportId: string; agentName: string } }
   | {
       name: "ingest/refresh.requested";

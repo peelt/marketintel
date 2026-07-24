@@ -39,8 +39,18 @@ function → intel-lens deltas → Postmark; dedupe via `alert_emails`, migratio
 DROPPED** (Peel: "I don't want to have to do this" — bad labels get structural
 fixes, never manual tuning; transparency ≠ editing). A Monthly Brief
 (records/catalysts/concentration digest benchmarked against a human
-newsletter) is analysed and parked for the marketing era. Remaining roadmap:
-London fundamentals decision, on-demand tickers via Inngest, paid gate.
+newsletter) is analysed and parked for the marketing era. **Product hierarchy
+is settled (2026-07, evidence-grounded):** Reaction is the hero — the
+dashboard leads with a full-width Reaction band (rolling 48h feed +
+**on-demand per-ticker analysis**: `tickers` on `agent/run.requested` →
+scoped run that keeps the FULL screened cohort for rank-normalisation context
+and force-includes the requested name; non-qualifying names get a factual
+"doesn't clear the screen" report; on-demand runs never trip the scheduled
+same-day dedupe, which now filters `trigger='scheduled'`), and the marketing
+hero leads with the drop question. The weekly desks are the supporting
+newsroom — kept, never demoted (they feed holdings alerts and the newsroom
+moat). Remaining roadmap: London fundamentals decision, on-demand resolution
+of untracked tickers via Inngest, paid gate.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/
@@ -173,6 +183,11 @@ routes resolution through Inngest.
 - **Holdings (PR 6):** user-entered positions with *optional* purchase price →
   factual performance snapshot + "My Portfolio" intel lens (the priority).
   Purchase data never feeds scoring; filtering ≠ tailoring. SPECIFICATION §5.1.
+- **Product hierarchy:** Reaction leads (dashboard band + marketing hero +
+  on-demand per-ticker analysis); the weekly desks are the supporting
+  newsroom, not co-equal poles — and not features to demote either. Single-name
+  runs must NEVER be scored alone: five of seven reaction sub-signals are
+  rank-normalised and a cohort of one scores 100 on every rank signal.
 
 ## What not to do
 
