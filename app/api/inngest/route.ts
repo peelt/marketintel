@@ -44,6 +44,18 @@ const handler = serve({
     geopoliticalScheduled,
     holdingAlerts,
   ],
+  // Pin the public custom domain as the serve host on PRODUCTION deploys only.
+  // Vercel's per-deployment URL (investorlogical-<hash>-mxmg-projects.vercel.app)
+  // sits behind Deployment Protection and returns 401 to Inngest, so every
+  // auto-sync on deploy silently fails into "Unattached syncs" — the app only
+  // updates when someone resyncs by hand against investorlogical.com. Advertising
+  // the public, unprotected domain during the sync handshake makes deploys
+  // self-sync. Gated on VERCEL_ENV so preview deploys (which sync to Inngest
+  // branch envs) and local dev (http://localhost:3000) are untouched.
+  serveHost:
+    process.env.VERCEL_ENV === "production"
+      ? (process.env.NEXT_PUBLIC_APP_URL ?? "https://investorlogical.com")
+      : undefined,
 });
 
 type RouteHandler = (req: Request) => Promise<Response> | Response;
