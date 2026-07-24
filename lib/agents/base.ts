@@ -92,7 +92,7 @@ export abstract class BaseAgent implements Agent {
     if (candidates.length === 0) {
       // Empty universe is a real outcome, not an error. Persist a stub report
       // so the dashboard reflects the run.
-      const stubSummary = `_No candidates passed the ${this.meta.displayName} screen this run._`;
+      const stubSummary = this.emptySummary();
       return {
         agentName: this.meta.name,
         generatedAt: new Date().toISOString(),
@@ -163,6 +163,16 @@ export abstract class BaseAgent implements Agent {
       ranked,
       evidence: flatEvidence,
     };
+  }
+
+  /**
+   * Summary used when collectCandidates returns nothing. Agents override to
+   * say something more specific than "screen empty" — e.g. Reaction's
+   * on-demand mode reports the requested ticker's actual moves against the
+   * thresholds instead of a generic no-candidates line.
+   */
+  protected emptySummary(): string {
+    return `_No candidates passed the ${this.meta.displayName} screen this run._`;
   }
 
   private async resolveFramework(

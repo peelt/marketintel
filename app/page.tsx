@@ -10,6 +10,10 @@ export default function Home() {
   // permanently-"planned" card the product has no intent to ship soon.
   const agents = agentRegistry.list().filter((a) => a.name !== "energy");
   const liveCount = agents.filter((a) => a.status === "live").length;
+  // Product hierarchy: Reaction is the hero desk (featured card); the weekly
+  // specialists are the supporting newsroom.
+  const reaction = agents.find((a) => a.name === "reaction");
+  const supporting = agents.filter((a) => a.name !== "reaction");
 
   return (
     <main>
@@ -30,12 +34,15 @@ export default function Home() {
               AI-powered · evidence-backed · glass-box
             </span>
             <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
-              Glass-box investment research
+              A sharp drop. Earned, or overshoot?
             </h1>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Open-framework AI research: every score inspectable, every
-              verdict linked to its evidence, every run telling you what
-              changed on your holdings.
+              When a stock falls hard, the Reaction desk researches the news
+              the same evening, grades the damage, and files a verdict with
+              every source cited. A newsroom of weekly specialist desks
+              watches the rest — glass-box research where every score is
+              inspectable and every run tells you what changed on your
+              holdings.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
@@ -75,15 +82,37 @@ export default function Home() {
 
       <hr className="divider-cli" />
 
-      {/* Agents */}
+      {/* The newsroom — Reaction leads (featured, full width), the weekly
+          specialists back it. Product hierarchy, not a grab-bag of equals. */}
       <section className="bg-il-tint">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
+          <div className="font-mono-cli text-base text-il-navy">~ the newsroom</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy lg:text-4xl">
-            {liveCount} specialists, one framework discipline
+            One desk leads. {liveCount - 1} specialists back it.
           </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {agents.map((a) => (
+          {reaction && (
+            <div
+              className="card-cli card-cli-module mt-8 p-6 lg:p-8"
+              style={
+                {
+                  "--module-color": MODULE_COLORS["reaction"],
+                } as React.CSSProperties
+              }
+            >
+              <div className="text-xl font-bold text-il-navy">
+                {reaction.displayName}
+              </div>
+              <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
+                {reaction.scope}
+              </p>
+              <div className="mt-4 font-mono-cli text-sm text-muted-foreground">
+                ~ live · {reaction.cadence} · on-demand: put any covered name in
+                front of the desk
+              </div>
+            </div>
+          )}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {supporting.map((a) => (
               <div
                 key={a.name}
                 className="card-cli card-cli-module p-6"
@@ -94,7 +123,7 @@ export default function Home() {
                   {a.description}
                 </p>
                 <div className="mt-4 font-mono-cli text-sm text-muted-foreground">
-                  ~ {a.status === "live" ? "live" : "planned"}
+                  ~ {a.status === "live" ? `live · ${a.cadence}` : "planned"}
                 </div>
               </div>
             ))}

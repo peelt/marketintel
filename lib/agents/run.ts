@@ -11,21 +11,28 @@ import { getErrorMessage } from "@/lib/errors";
  * Has this agent already filed a SUCCEEDED report today (UTC)? Used to
  * deduplicate a desk whose daily run can be triggered two ways — a data-ready
  * event and a cron backstop — so only the first firing of the day files a
- * report. Service-role read; Inngest/server contexts only.
+ * report. Pass `trigger` to count only runs fired that way — the reaction
+ * dedupe counts ONLY 'scheduled' runs, so a midday on-demand analysis (which
+ * screens yesterday's closes) never suppresses tonight's fresh-close edition.
+ * Service-role read; Inngest/server contexts only.
  */
 export async function hasSucceededReportToday(
   agentName: string,
+  options: { trigger?: "scheduled" | "manual" | "event" } = {},
 ): Promise<boolean> {
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
   const supabase = createServiceClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("reports")
-    .select("id, agent_runs!inner(status)")
+    .select("id, agent_runs!inner(status, trigger)")
     .eq("agent_name", agentName)
     .eq("agent_runs.status", "succeeded")
-    .gte("generated_at", startOfDay.toISOString())
-    .limit(1);
+    .gte("generated_at", startOfDay.toISOString());
+  if (options.trigger) {
+    query = query.eq("agent_runs.trigger", options.trigger);
+  }
+  const { data, error } = await query.limit(1);
   if (error) {
     // On a read error, don't block the run — better a possible duplicate than
     // a silently-skipped daily report.
@@ -75,7 +82,7 @@ export async function runAgent(
       framework_id: framework.id,
       status: "running",
       trigger: options.trigger ?? "manual",
-      input_params: { reason: input.reason ?? null },
+      input_params: { reason: input.reason ?? null, tickers: input.tickers ?? null },
     })
     .select("id")
     .single<{ id: string }>();

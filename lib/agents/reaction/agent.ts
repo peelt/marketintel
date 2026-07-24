@@ -49,6 +49,67 @@ export type ReactionClassification =
   | "cause_unconfirmed"
   | "insufficient_data";
 
+/** Outcome of screening one on-demand requested ticker. */
+export interface OnDemandOutcome {
+  ticker: string;
+  /** Found in the reaction universe at all? */
+  matched: boolean;
+  /** Cleared the drop screen (only meaningful when matched)? */
+  passed: boolean;
+  stats: DropStats | null;
+}
+
+/**
+ * Plain-English outcome line for an on-demand request — the user asked about a
+ * specific name, so the report must answer about THAT name even when there's
+ * nothing to grade. Pure; exported for tests. Impersonal language (I2).
+ */
+export function describeOnDemandOutcome(
+  o: OnDemandOutcome,
+  thresholds: { drawdown5dPct: number; drop1dPct: number },
+): string {
+  if (!o.matched) {
+    return `**${o.ticker}** was requested on demand but isn't in the Reaction universe (S&P 500 + FTSE 350), so it can't be screened.`;
+  }
+  const move5 = o.stats?.return5d ?? null;
+  const move1 = o.stats?.return1d ?? null;
+  if (move5 === null && move1 === null) {
+    return `**${o.ticker}** was requested on demand but has too little recent price history to screen.`;
+  }
+  const moves = [
+    move5 !== null ? `${(move5 * 100).toFixed(1)}% over 5 sessions` : null,
+    move1 !== null ? `${(move1 * 100).toFixed(1)}% on the day` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  if (!o.passed) {
+    return `**${o.ticker}** was requested on demand: ${moves} at the latest close does not clear the drop screen (a fall of ${thresholds.drawdown5dPct}%+ over 5 sessions or ${thresholds.drop1dPct}%+ in one) — the desk only grades qualifying drops, so no overshoot verdict is filed.`;
+  }
+  return `**${o.ticker}** was requested on demand and cleared the drop screen (${moves}); its verdict is below.`;
+}
+
+/**
+ * Force the requested (qualifying) names into the scored cohort even past the
+ * severity cap. The cohort deliberately stays the FULL screened set: five of
+ * the framework's seven sub-signals are rank-normalised, and a cohort of one
+ * scores 100 on every rank signal — an on-demand name must be graded against
+ * the day's real peer context, not alone. Pure; exported for tests.
+ */
+export function mergeRequestedIntoCohort(
+  cohort: string[],
+  requiredIds: string[],
+): string[] {
+  const seen = new Set(cohort);
+  const out = [...cohort];
+  for (const id of requiredIds) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
 export class ReactionAgent extends BaseAgent {
   readonly meta: AgentMeta = agentRegistry.get("reaction")!;
   // Ranking and classification share the floor: a name too thin to classify
@@ -71,11 +132,20 @@ export class ReactionAgent extends BaseAgent {
 
   private ctx: ReactionRunContext | null = null;
   private screenSummary = { universe: 0, screened: 0, capped: 0 };
+  /** Set when this run is an on-demand per-ticker request. */
+  private scoped: {
+    outcomes: OnDemandOutcome[];
+    thresholds: ReturnType<typeof thresholdsFromParams>;
+  } | null = null;
 
   protected async collectCandidates(
     framework: ScoringFramework,
-    _input: AgentRunInput,
+    input: AgentRunInput,
   ): Promise<string[]> {
+    // The agent instance is a module singleton — clear per-run state so an
+    // on-demand run never leaks its scope into a later scheduled run in the
+    // same warm process.
+    this.scoped = null;
     const thresholds = thresholdsFromParams(framework.params);
     const universe = await loadBroadUniverse();
     const series = await loadRecentSeries(
@@ -113,7 +183,48 @@ export class ReactionAgent extends BaseAgent {
       asOf: new Date().toISOString().slice(0, 10),
     };
 
+    // On-demand mode: the user asked about specific names. Screen them like
+    // any other name; if one qualifies, force it into the (full) cohort so
+    // it's graded in real peer context; if none qualifies, skip scoring and
+    // let emptySummary() answer factually about the requested names.
+    const requested = (input.tickers ?? [])
+      .map((t) => t.trim().toUpperCase())
+      .filter(Boolean);
+    if (requested.length > 0) {
+      const byTicker = new Map(
+        universe.map((u) => [u.ticker.toUpperCase(), u]),
+      );
+      const outcomes: OnDemandOutcome[] = requested.map((ticker) => {
+        const sec = byTicker.get(ticker) ?? null;
+        const s = sec ? (stats.get(sec.id) ?? null) : null;
+        return {
+          ticker,
+          matched: !!sec,
+          passed: !!sec && !!s && passesDropScreen(s, thresholds),
+          stats: s,
+        };
+      });
+      this.scoped = { outcomes, thresholds };
+      const requiredIds = outcomes
+        .filter((o) => o.passed)
+        .map((o) => byTicker.get(o.ticker)!.id);
+      if (requiredIds.length === 0) return [];
+      return mergeRequestedIntoCohort(
+        capped.map((u) => u.id),
+        requiredIds,
+      );
+    }
+
     return capped.map((u) => u.id);
+  }
+
+  protected override emptySummary(): string {
+    if (this.scoped) {
+      return this.scoped.outcomes
+        .map((o) => describeOnDemandOutcome(o, this.scoped!.thresholds))
+        .join(" ");
+    }
+    return super.emptySummary();
   }
 
   protected getResolver(_framework: ScoringFramework): SignalResolverRegistry {
@@ -154,6 +265,13 @@ export class ReactionAgent extends BaseAgent {
     );
 
     const summaryMarkdown = [
+      // On-demand runs answer about the requested name(s) FIRST — that's what
+      // the reader asked for; the cohort context follows.
+      ...(this.scoped
+        ? this.scoped.outcomes.map((o) =>
+            describeOnDemandOutcome(o, this.scoped!.thresholds),
+          )
+        : []),
       `${universe} names screened; ${screened} cleared the drop threshold${capped > 0 ? ` (top ${scored.length} by severity analysed, ${capped} deferred)` : ""}.`,
       scored.length === 0
         ? "No qualifying drops this run."
