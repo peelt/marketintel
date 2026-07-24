@@ -14,7 +14,7 @@ const META: Record<AgentName, AgentMeta> = {
     name: "reaction",
     displayName: "Reaction Analyser",
     description:
-      "Screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
+      "Daily, post-close: screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
     scope:
       "Watches the S&P 500 and FTSE 350 — about 850 names — for sharp falls: 12% or more over five sessions, or 8% in one. Each qualifying fall is researched in the news and scored on whether the move looks disproportionate to the damage identified, with every source cited. Runs every weekday after the US close, as soon as the evening prices land — a sharp drop is time-sensitive, so this desk is the exception to the weekly cadence.",
     cadence: "daily · post-close",
