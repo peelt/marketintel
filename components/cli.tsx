@@ -1,7 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
 import type { AgentName } from "@/lib/agents/types";
-import { signOut } from "@/lib/auth/session-actions";
 import { classificationLabel } from "@/lib/format";
 
 /**
@@ -51,71 +49,6 @@ export function CliEyebrow({ children }: { children: React.ReactNode }) {
   return <div className="font-mono-cli text-base text-il-navy">~ {children}</div>;
 }
 
-/**
- * Shared authed-page header: wordmark home link, guest prompt, section nav.
- */
-export function SiteHeader({
-  active,
-  userEmail,
-  isOwner = false,
-}: {
-  active?: "dashboard" | "reports" | "ops" | "portfolio";
-  /** Signed-in address — personalizes the CLI prompt and shows sign-out. */
-  userEmail?: string | null;
-  /** Owner-only surfaces (Setup) appear in the nav only when true. */
-  isOwner?: boolean;
-}) {
-  const link = (href: string, key: string, label: string) => (
-    <Link
-      href={href}
-      className={`font-mono-cli text-base ${
-        active === key
-          ? "text-il-orange"
-          : "text-il-navy hover:text-il-orange"
-      }`}
-    >
-      {label}
-    </Link>
-  );
-  // `user@investorlogical:~` — the CLI prompt motif, personalized to the local
-  // part of the signed-in address (falls back to "guest" when signed out).
-  const promptUser = userEmail ? userEmail.split("@")[0] : "guest";
-  return (
-    <header className="border-b-2 border-border bg-white">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center">
-            <Wordmark size="h-12" />
-          </Link>
-          <span className="hidden font-mono-cli text-sm text-muted-foreground md:inline">
-            {promptUser}@investorlogical:~
-          </span>
-        </div>
-        <nav className="flex items-center gap-5">
-          {link("/dashboard", "dashboard", "dashboard")}
-          {link("/portfolio", "portfolio", "portfolio")}
-          {link("/reports", "reports", "reports")}
-          {isOwner && link("/dashboard/ops", "ops", "setup")}
-          {userEmail && (
-            <>
-              <span aria-hidden className="text-border">
-                |
-              </span>
-              <form action={signOut} className="flex">
-                <button
-                  type="submit"
-                  className="font-mono-cli text-base text-muted-foreground hover:text-il-orange"
-                >
-                  sign out
-                </button>
-              </form>
-            </>
-          )}
-        </nav>
-      </div>
-    </header>
-  );
-}
 
 /**
  * Module accents — one saturated hue per agent pole (brand variable).

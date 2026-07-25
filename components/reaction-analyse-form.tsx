@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   requestDropAnalysis,
   type DropAnalysisState,
-} from "@/app/dashboard/actions";
+} from "@/app/(app)/dashboard/actions";
 
 const INITIAL: DropAnalysisState = { status: "idle", message: "" };
 

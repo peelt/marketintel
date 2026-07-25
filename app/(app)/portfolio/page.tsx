@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isEntitledEmail } from "@/lib/auth/entitlement";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
-import { SiteHeader, ClassificationChip } from "@/components/cli";
+import { getSessionContext } from "@/lib/auth/session";
+import { ClassificationChip } from "@/components/cli";
 import { Disclaimer } from "@/components/disclaimer";
 import { loadDefaultPortfolio, loadHeldNames } from "@/lib/holdings/data";
 import { loadPortfolioIntel } from "@/lib/holdings/intel";
@@ -36,12 +35,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function PortfolioPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
-
-  const portfolio = await loadDefaultPortfolio(supabase, user.id);
+  const { userId } = await getSessionContext();
+  if (!userId) redirect("/login");
+  const portfolio = await loadDefaultPortfolio(supabase, userId);
   const [held, intel] = portfolio
     ? await Promise.all([
         loadHeldNames(supabase, portfolio.id),
@@ -76,11 +72,6 @@ export default async function PortfolioPage() {
 
   return (
     <>
-      <SiteHeader
-        active="portfolio"
-        userEmail={user.email}
-        isOwner={isOwnerEmail(user.email)}
-      />
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <div className="flex items-baseline justify-between">
           <div>

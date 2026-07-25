@@ -3,8 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/server";
-import { isEntitledEmail } from "@/lib/auth/entitlement";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
@@ -12,7 +11,6 @@ import {
   ClassificationChip,
   CoverageBar,
   MODULE_COLORS,
-  SiteHeader,
 } from "@/components/cli";
 import {
   classificationLabel,
@@ -130,11 +128,8 @@ export default async function ReportDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
-
+  const { userId } = await getSessionContext();
+  if (!userId) redirect("/login");
   const { data: report, error: reportErr } = await supabase
     .from("reports")
     .select(
@@ -165,7 +160,6 @@ export default async function ReportDetailPage({
     const meta = agentRegistry.get(report.agent_name as AgentName);
     return (
       <>
-        <SiteHeader active="reports" userEmail={user.email} isOwner={isOwnerEmail(user.email)} />
         <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
           <Link
             href="/reports"
@@ -310,7 +304,6 @@ export default async function ReportDetailPage({
 
   return (
     <>
-    <SiteHeader active="reports" userEmail={user.email} isOwner={isOwnerEmail(user.email)} />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <header>
         <Link
