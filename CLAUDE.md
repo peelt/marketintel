@@ -101,6 +101,15 @@ routes resolution through Inngest.
   not directives. See POSITIONING §7.
 - **Missing ≠ zero:** a null score means "no data" and must never render as 0.
   Coverage (share of framework weight with data) is persisted per candidate.
+- **Every authenticated route lives in `app/(app)/`** and inherits the shell
+  (`app/(app)/layout.tsx` → `components/app-nav.tsx`). Pages must NOT render
+  their own header — the shell stays mounted across navigations, which is what
+  makes nav clicks feel instant. **Every dynamic route needs a `loading.tsx`**
+  (skeletons from `components/skeleton.tsx`): without one the App Router blocks
+  on the full server render and a click paints nothing at all. Read the session
+  via `getSessionContext()` (`lib/auth/session.ts`, React `cache()`-deduped),
+  never a second raw `supabase.auth.getUser()` — that's an extra network
+  round-trip per component on the critical path.
 
 ## Models
 

@@ -1,13 +1,11 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isEntitledEmail } from "@/lib/auth/entitlement";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import { agentRegistry } from "@/lib/agents/registry";
 import {
   ClassificationChip,
   MODULE_COLORS,
-  SiteHeader,
   Star,
 } from "@/components/cli";
 import {
@@ -58,18 +56,12 @@ interface TopItem {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId, isOwner } = await getSessionContext();
+  if (!userId) redirect("/login");
 
-  if (!user || !(await isEntitledEmail(user.email))) {
-    redirect("/login");
-  }
   // Setup and Data health are owner-only admin surfaces (both pages redirect
-  // non-owners) — so they must not appear as nav links or cards for everyday
-  // users, who'd only bounce off them.
-  const isOwner = isOwnerEmail(user.email);
-
+  // non-owners) — so they must not appear as cards for everyday users, who'd
+  // only bounce off them. (The nav's owner links live in the app shell.)
   const liveAgents = agentRegistry.list().filter((a) => a.status === "live");
   const plannedAgents = agentRegistry
     .list()
@@ -96,7 +88,7 @@ export default async function DashboardPage() {
       // honestly instead of parading days-old drops.
       loadReactionFeed(supabase),
       (async () => {
-        const portfolio = await loadDefaultPortfolio(supabase, user.id);
+        const portfolio = await loadDefaultPortfolio(supabase, userId);
         const [held, intel] = portfolio
           ? await Promise.all([
               loadHeldNames(supabase, portfolio.id),
@@ -168,7 +160,6 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <SiteHeader active="dashboard" userEmail={user.email} isOwner={isOwner} />
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div>
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>

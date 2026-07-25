@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 
@@ -9,10 +9,8 @@ export const dynamic = "force-dynamic";
 
 export default async function DiagnosticsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !isOwnerEmail(user.email)) redirect("/login");
+  const { userId, isOwner } = await getSessionContext();
+  if (!userId || !isOwner) redirect("/login");
 
   const ready = listReadyAdapters();
   const stubbed = listStubbedAdapters();

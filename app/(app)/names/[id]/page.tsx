@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isEntitledEmail } from "@/lib/auth/entitlement";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import {
   ClassificationChip,
   CoverageBar,
-  SiteHeader,
 } from "@/components/cli";
 import { Disclaimer } from "@/components/disclaimer";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
@@ -33,11 +31,8 @@ export default async function SecurityPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
-
+  const { userId } = await getSessionContext();
+  if (!userId) redirect("/login");
   const dossier = await loadSecurityDossier(supabase, id, MODULE_COLORS);
   if (!dossier) notFound();
 
@@ -50,10 +45,6 @@ export default async function SecurityPage({
 
   return (
     <>
-      <SiteHeader
-        userEmail={user.email}
-        isOwner={isOwnerEmail(user.email)}
-      />
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <Link
           href="/reports"

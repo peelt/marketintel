@@ -40,7 +40,12 @@ export const config = {
      * - _next/static, _next/image
      * - favicon
      * - api/inngest (signed by Inngest, doesn't need cookie refresh)
+     * - STATIC ASSETS by extension. This middleware calls
+     *   supabase.auth.getUser(), which is a NETWORK round-trip to the Supabase
+     *   auth server — without this exclusion every logo, icon and image served
+     *   from /public paid for one, adding latency to page loads for no benefit
+     *   (a PNG has no session to refresh).
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/inngest).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/inngest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf)$).*)",
   ],
 };

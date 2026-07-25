@@ -372,3 +372,38 @@ body {
   padding: 0.1em 0.35em;
   border-radius: 0.25rem;
 }
+
+/* ── Skeleton loading (family standard) ─────────────────────────────────
+   A sweep rather than a pulse: at the low contrast the Manifesto-White
+   palette calls for, a fading block reads as a render glitch, while a
+   moving highlight reads as work in progress. Honours reduced-motion. */
+.skeleton-cli {
+  background-color: color-mix(in srgb, var(--il-dark-blue) 8%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--il-dark-blue) 5%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-cli {
+    animation: none;
+  }
+  .cursor-blink {
+    animation: none;
+  }
+}

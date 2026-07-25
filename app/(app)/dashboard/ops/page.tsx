@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import { listAccessRequests } from "@/lib/auth/access-admin";
 import { OpsPanel } from "./ops-panel";
 import { AccessRequests } from "./access-requests";
-import { SiteHeader } from "@/components/cli";
 
 export const dynamic = "force-dynamic";
 // Ingest steps fan out to external APIs — give the server actions invoked
@@ -18,16 +17,13 @@ export const maxDuration = 300;
  */
 export default async function OpsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !isOwnerEmail(user.email)) redirect("/login");
+  const { userId, isOwner } = await getSessionContext();
+  if (!userId || !isOwner) redirect("/login");
 
   const accessRequests = await listAccessRequests();
 
   return (
     <>
-      <SiteHeader active="ops" userEmail={user.email} isOwner />
       <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <div className="font-mono-cli text-base text-il-navy">~ one-time setup</div>
         <h1 className="mt-1 text-3xl font-bold text-il-navy">Setup</h1>
