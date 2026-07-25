@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isEntitledEmail } from "@/lib/auth/entitlement";
-import { isOwnerEmail } from "@/lib/auth/allowlist";
+import { getSessionContext } from "@/lib/auth/session";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
-import { ClassificationChip, MODULE_COLORS, SiteHeader } from "@/components/cli";
+import { ClassificationChip, MODULE_COLORS } from "@/components/cli";
 import { humanizeDateTime, stripInlineMarkdown } from "@/lib/format";
 import { severityOf } from "@/lib/holdings/deltas";
 
@@ -22,11 +21,8 @@ interface ReportRow {
 
 export default async function ReportsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !(await isEntitledEmail(user.email))) redirect("/login");
-
+  const { userId } = await getSessionContext();
+  if (!userId) redirect("/login");
   // Inner-join on the run and filter to succeeded — failed or half-persisted
   // runs must never render as legitimate reports.
   const { data: reports } = await supabase
@@ -69,11 +65,6 @@ export default async function ReportsPage() {
 
   return (
     <>
-    <SiteHeader
-      active="reports"
-      userEmail={user.email}
-      isOwner={isOwnerEmail(user.email)}
-    />
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <div className="font-mono-cli text-base text-il-navy">~ filed by the desk</div>
       <h1 className="mt-1 text-3xl font-bold text-il-navy">Reports</h1>
