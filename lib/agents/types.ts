@@ -45,11 +45,14 @@ export interface AgentMeta {
   modelTier: "routine" | "deep";
   /**
    * "live" = implemented and filing reports; "planned" = registry metadata
-   * only. The dashboard renders live desks as signal cards and demotes
-   * planned ones to a roadmap footnote — a card that can never file a report
-   * must not look like a product surface.
+   * only; "retired" = withdrawn from the product (2026-07 scope reduction) —
+   * crons unregistered, content hidden from every surface, historical rows
+   * kept in the database. The dashboard renders live desks as signal cards
+   * and demotes planned ones to a roadmap footnote — a card that can never
+   * file a report must not look like a product surface. Retired desks render
+   * nowhere.
    */
-  status: "live" | "planned";
+  status: "live" | "planned" | "retired";
 }
 
 /**

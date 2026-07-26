@@ -90,8 +90,8 @@ export function describeOnDemandOutcome(
 
 /**
  * Force the requested (qualifying) names into the scored cohort even past the
- * severity cap. The cohort deliberately stays the FULL screened set: five of
- * the framework's seven sub-signals are rank-normalised, and a cohort of one
+ * severity cap. The cohort deliberately stays the FULL screened set: three of
+ * the framework's five sub-signals are rank-normalised, and a cohort of one
  * scores 100 on every rank signal — an on-demand name must be graded against
  * the day's real peer context, not alone. Pure; exported for tests.
  */
@@ -297,7 +297,7 @@ export class ReactionAgent extends BaseAgent {
       ``,
       `## How this is scored`,
       ``,
-      `Inclusion: 5-session drawdown or 1-session drop past the framework's thresholds (v${framework.version} params). Each name is then scored on **overshoot-ness** — excess decline vs the market, the earned damage identified in current news (web-researched, graded 0–100 absolute), balance-sheet resilience, and how deep the repricing runs. Higher composite = more disproportionate move. Missing data redistributes weight and shows as coverage, never as zero.`,
+      `Inclusion: 5-session drawdown or 1-session drop past the framework's thresholds (v${framework.version} params). Each name is then scored on **overshoot-ness** — excess decline vs the market, the earned damage identified in current news (web-researched, graded 0–100 absolute), and how deep the repricing runs. Higher composite = more disproportionate move. Missing data redistributes weight and shows as coverage, never as zero.`,
       ``,
     ];
 

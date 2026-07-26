@@ -2,12 +2,21 @@ import type { AgentMeta, AgentName } from "./types";
 
 /**
  * Single source of truth for which agents exist, when they run, and what they
- * do. Concrete implementations get registered against these entries in PRs
- * 4–7. Until then, the registry just exposes metadata so the dashboard and
- * schedule documentation can render correctly.
+ * do.
  *
- * Schedules are UTC. Friday 18:00 UTC = 19:00 BST / 18:00 GMT for the dividend
- * agent — i.e. before the US close on Peel's Friday evening.
+ * 2026-07 scope reduction (evidence-grounded; see CLAUDE.md "Settled product
+ * decisions"): the product is the Reaction Analyser. The weekly specialist
+ * desks are RETIRED — dividend, metals and ipo permanently (their frameworks
+ * depended on fundamentals columns the current source can never populate, or
+ * — ipo — the desk graded only 4 of 25 prospectuses and has no tie to
+ * holdings by design), and geopolitical is parked (its engine filed at 100%
+ * coverage; it is the candidate to rebuild inside Reaction's frame as the
+ * "why did it drop" layer). Retired desks keep their metadata and code so
+ * historical rows stay renderable in admin/debug contexts and a revival is a
+ * status flip, but their crons are unregistered and no product surface shows
+ * them.
+ *
+ * Schedules are UTC.
  */
 const META: Record<AgentName, AgentMeta> = {
   reaction: {
@@ -36,7 +45,10 @@ const META: Record<AgentName, AgentMeta> = {
     cadence: "weekly · Sun",
     schedule: "0 18 * * 0", // Sun 18:00 UTC
     modelTier: "routine", // prospectus-grounded structured grading, no synthesis
-    status: "live",
+    // Retired 2026-07: last edition graded 4/25 prospectuses (the rest filed
+    // insufficient_data at 0% coverage), and IPO issuers are excluded from
+    // holdings by design, so the desk never fed the intel-lens moat.
+    status: "retired",
   },
   dividend: {
     name: "dividend",
@@ -48,7 +60,12 @@ const META: Record<AgentName, AgentMeta> = {
     cadence: "weekly · Fri",
     schedule: "0 18 * * 5", // Fri 18:00 UTC
     modelTier: "routine",
-    status: "live",
+    // Retired 2026-07. Re-entry condition: a fundamentals source that can
+    // complete the sustainability criterion (payout, FCF cover, debt/EBITDA,
+    // OCF trend) for a defined universe — the audited editions filed with all
+    // three ratios null for every name (64% coverage US, 33% LSE), which is
+    // strictly weaker than established dividend-safety services.
+    status: "retired",
   },
   geopolitical: {
     name: "geopolitical",
@@ -60,7 +77,12 @@ const META: Record<AgentName, AgentMeta> = {
     cadence: "weekly · Sun",
     schedule: "0 20 * * 0", // Sun 20:00 UTC
     modelTier: "routine", // web-researched macro read + structured per-name grading
-    status: "live",
+    // Parked 2026-07 (retired status; code and engine kept intact). The only
+    // desk that filed at 100% coverage — but its curated universe barely
+    // intersects Reaction's screen (5/39 names, zero co-filings), so as built
+    // it is a second product, not context for the hero. Candidate to rebuild
+    // inside Reaction's frame as the "why did it drop" macro layer.
+    status: "retired",
   },
   energy: {
     name: "energy",
@@ -84,7 +106,12 @@ const META: Record<AgentName, AgentMeta> = {
     cadence: "weekly · Sat",
     schedule: "0 12 * * 6", // Sat 12:00 UTC
     modelTier: "routine",
-    status: "live",
+    // Retired 2026-07. The AISC research is genuinely differentiated, but the
+    // desk shares nothing with Reaction (2/23 names in the screen, zero
+    // co-filings ever) — a second product line, not a supporting feature; its
+    // balance-sheet criterion also read fundamentals columns the source never
+    // populates.
+    status: "retired",
   },
 };
 

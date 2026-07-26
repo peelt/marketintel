@@ -2,15 +2,14 @@ import { inngest } from "../client";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 
 /**
- * Weekly fundamentals + dividends refresh — the feeds NO cron previously
- * touched (they only updated on a manual Ops click). The dividend desk's
- * cut-risk bands and the metals desk's debt/EBITDA + FCF gates read these
- * tables at full confidence, so a stale-but-present row silently misled the
- * verdict. Fundamentals change quarterly and dividends only on declaration,
- * so a weekly top-up is ample.
+ * Weekly fundamentals + dividends refresh for the dividend + metals
+ * universes.
  *
- * Fires Friday 15:00 UTC — ahead of the Friday 18:00 dividend run and the
- * Saturday 12:00 metals run, so both read fresh data the same week.
+ * UNREGISTERED since the 2026-07 scope reduction: both desks it fed are
+ * retired, and no live desk reads financials_snapshot any more (the Reaction
+ * framework dropped its fundamentals signals in migration 0015 — the source
+ * never populated the columns they read). The function stays in the tree so
+ * a desk revival can re-register it in app/api/inngest/route.ts.
  */
 
 const FUND_DIV_TAGS = ["high_yield_watchlist", "metals_buyhold_avoid"] as const;

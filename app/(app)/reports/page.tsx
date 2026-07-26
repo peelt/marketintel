@@ -24,11 +24,18 @@ export default async function ReportsPage() {
   const { userId } = await getSessionContext();
   if (!userId) redirect("/login");
   // Inner-join on the run and filter to succeeded — failed or half-persisted
-  // runs must never render as legitimate reports.
+  // runs must never render as legitimate reports. Retired desks' editions
+  // stay in the database but are withdrawn from the product (2026-07 scope
+  // reduction), so the list only shows live desks.
+  const liveNames = agentRegistry
+    .list()
+    .filter((a) => a.status === "live")
+    .map((a) => a.name);
   const { data: reports } = await supabase
     .from("reports")
     .select("id, agent_name, generated_at, summary_markdown, agent_runs!inner(status)")
     .eq("agent_runs.status", "succeeded")
+    .in("agent_name", liveNames)
     .order("generated_at", { ascending: false })
     .limit(50)
     .returns<ReportRow[]>();
@@ -69,15 +76,15 @@ export default async function ReportsPage() {
       <div className="font-mono-cli text-base text-il-navy">~ filed by the desk</div>
       <h1 className="mt-1 text-3xl font-bold text-il-navy">Reports</h1>
       <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-        Each desk files a fresh edition on its own schedule. The latest sits on
-        top; earlier editions stay underneath. Open any edition for its ranked
-        table and the sources behind every score.
+        The desk files a fresh edition each evening it finds drops. The latest
+        sits on top; earlier editions stay underneath. Open any edition for its
+        ranked table and the sources behind every score.
       </p>
 
       {!reports?.length ? (
         <p className="mt-10 text-base text-muted-foreground">
-          No reports filed yet. The desks file automatically on their
-          schedules; the first ones can also be kicked off from Setup.
+          No reports filed yet. The desk files automatically on its
+          schedule; the first one can also be kicked off from Setup.
         </p>
       ) : (
         <div className="mt-8 space-y-8">

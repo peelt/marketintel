@@ -140,6 +140,12 @@ export default async function ReportDetailPage({
   // A read error must not masquerade as "not found" (404) — surface it.
   if (reportErr) throw new Error(`report load: ${reportErr.message}`);
   if (!report) notFound();
+  // Retired desks' editions are withdrawn from the product (2026-07 scope
+  // reduction) — the rows stay in the database, but a direct URL must not
+  // keep serving content the list no longer offers.
+  if (agentRegistry.get(report.agent_name as AgentName)?.status === "retired") {
+    notFound();
+  }
 
   const { data: run, error: runErr } = await supabase
     .from("agent_runs")

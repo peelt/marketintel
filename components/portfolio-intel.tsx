@@ -116,8 +116,9 @@ export function PortfolioHealthBar({ health }: { health: PortfolioHealth }) {
   if (health.covered === 0) {
     return (
       <p className="text-base text-muted-foreground">
-        None of your holdings have been covered by a desk yet. Coverage builds
-        as the desks run — dividend names on Fridays, drops on Tue/Fri.
+        None of your holdings have been covered yet. Coverage builds as the
+        desk runs — a held name is covered when it screens as a sharp drop
+        or you put it in front of the desk on demand.
       </p>
     );
   }

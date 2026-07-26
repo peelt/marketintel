@@ -1,12 +1,7 @@
 import type { EvidenceItem } from "@/lib/agents/types";
 import type { SignalResolverRegistry, SignalValue } from "@/lib/scoring/types";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import {
-  loadLatestFinancials,
-  loadRecentSeries,
-  type ReactionFinancials,
-  type ReactionSecurity,
-} from "./data";
+import { loadRecentSeries, type ReactionSecurity } from "./data";
 import {
   discountToHigh,
   median,
@@ -23,10 +18,12 @@ import {
 /**
  * Reaction signal resolvers. The screen context (recent series + drop stats
  * for every screened name) is built by the agent during candidate
- * collection; deeper data (1y series, financials, news grades) loads lazily
- * for the screened names only. News grades — the expensive deep-tier calls —
- * are fetched once per candidate with bounded concurrency and shared by both
- * LLM-backed signals.
+ * collection; deeper data (1y series, news grades) loads lazily for the
+ * screened names only. News grades — the expensive deep-tier calls — are
+ * fetched once per candidate with bounded concurrency and shared by both
+ * LLM-backed signals. (The framework-v1 fundamentals resolvers were removed
+ * with migration 0015 — their financials_snapshot inputs were never
+ * populated by the source, so they resolved to no-data on every run.)
  */
 
 /** LLM fan-out width: deep-tier web-search calls are slow and rate-limited. */
@@ -48,16 +45,11 @@ export function createReactionResolver(
   ctx: ReactionRunContext,
 ): SignalResolverRegistry {
   let yearSeriesPromise: Promise<Map<string, SessionRow[]>> | null = null;
-  let financialsPromise: Promise<Map<string, ReactionFinancials>> | null = null;
   const newsGrades = new Map<string, Promise<ReactionNewsGrade | null>>();
 
   function yearSeries(ids: string[]): Promise<Map<string, SessionRow[]>> {
     yearSeriesPromise ??= loadRecentSeries(ids, 400);
     return yearSeriesPromise;
-  }
-  function financials(ids: string[]): Promise<Map<string, ReactionFinancials>> {
-    financialsPromise ??= loadLatestFinancials(ids);
-    return financialsPromise;
   }
 
   async function newsFor(ids: string[]): Promise<Map<string, ReactionNewsGrade | null>> {
@@ -160,62 +152,6 @@ export function createReactionResolver(
                 `${security.ticker}: trading ${pct(discount)} below its trailing-year high`,
                 0.8,
               ),
-            ],
-          });
-        }
-        return out;
-      }
-      case "reaction.debt_to_ebitda": {
-        const fins = await financials(securityIds);
-        for (const id of securityIds) {
-          const f = fins.get(id);
-          const security = ctx.securities.get(id);
-          if (!f || f.total_debt == null || f.ebitda == null || f.ebitda <= 0 || !security) {
-            out.set(id, NO_DATA);
-            continue;
-          }
-          const ratio = f.total_debt / f.ebitda;
-          out.set(id, {
-            raw: ratio,
-            evidence: [
-              {
-                type: "financial_snapshot",
-                sourceTable: "financials_snapshot",
-                sourceId: f.id,
-                text: `${security.ticker}: total debt / EBITDA = ${ratio.toFixed(2)}× (period end ${f.period_end}, source ${f.source})`,
-                weight: 0.85,
-              },
-            ],
-          });
-        }
-        return out;
-      }
-      case "reaction.fcf_yield": {
-        const fins = await financials(securityIds);
-        for (const id of securityIds) {
-          const f = fins.get(id);
-          const security = ctx.securities.get(id);
-          if (
-            !f ||
-            f.free_cash_flow == null ||
-            f.market_cap == null ||
-            f.market_cap <= 0 ||
-            !security
-          ) {
-            out.set(id, NO_DATA);
-            continue;
-          }
-          const fcfYield = f.free_cash_flow / f.market_cap;
-          out.set(id, {
-            raw: fcfYield,
-            evidence: [
-              {
-                type: "financial_snapshot",
-                sourceTable: "financials_snapshot",
-                sourceId: f.id,
-                text: `${security.ticker}: free-cash-flow yield ${pct(fcfYield)} on current market cap (period end ${f.period_end})`,
-                weight: 0.8,
-              },
             ],
           });
         }

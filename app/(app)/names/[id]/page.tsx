@@ -87,7 +87,7 @@ export default async function SecurityPage({
         {/* Desk verdicts — the point of the page */}
         <section className="mt-8">
           <div className="font-mono-cli text-base text-il-navy">
-            ~ what the desks say
+            ~ what the desk says
           </div>
           {desks.length === 0 ? (
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">

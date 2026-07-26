@@ -8,8 +8,12 @@ import type { SessionRow } from "./metrics";
  * Two tiers, sized deliberately:
  *  - the SCREEN reads ~60 calendar days of closes for the whole broad-market
  *    universe (hundreds of names — always paginated);
- *  - the DEEP set reads a year of prices + latest financials for only the
- *    names that passed the drop screen (a handful to a few dozen).
+ *  - the DEEP set reads a year of prices for only the names that passed the
+ *    drop screen (a handful to a few dozen).
+ *
+ * loadLatestFinancials is no longer used by Reaction itself (framework v2,
+ * migration 0015, dropped the fundamentals signals the source could never
+ * feed) — it remains only for the retired metals desk's in-tree code.
  */
 
 export interface ReactionSecurity {

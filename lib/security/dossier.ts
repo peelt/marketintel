@@ -180,6 +180,14 @@ export async function loadSecurityDossier(
   if (vErr) throw new Error(`dossier verdicts: ${getErrorMessage(vErr)}`);
   if (pErr) throw new Error(`dossier prices: ${getErrorMessage(pErr)}`);
 
+  // Retired desks' verdicts are withdrawn from the product (2026-07 scope
+  // reduction) — a dossier row would link to a report page that now 404s.
+  const liveVerdicts = (verdicts ?? []).filter(
+    (v) =>
+      v.report &&
+      agentRegistry.get(v.report.agent_name as AgentName)?.status === "live",
+  );
+
   const displayOf = (agentName: string) =>
     agentRegistry.get(agentName as AgentName)?.displayName ?? agentName;
   const colorOf = (agentName: string) => colors[agentName] ?? "#034566";
@@ -195,7 +203,7 @@ export async function loadSecurityDossier(
       currency: security.currency,
       delistedAt: security.delisted_at,
     },
-    desks: rankDeskVerdicts(verdicts ?? [], colorOf, displayOf),
+    desks: rankDeskVerdicts(liveVerdicts, colorOf, displayOf),
     prices: (prices ?? []).map((p) => ({
       date: p.snapshot_date,
       close: p.close,
