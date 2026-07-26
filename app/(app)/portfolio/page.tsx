@@ -184,7 +184,7 @@ export default async function PortfolioPage() {
                 <PortfolioHealthBar health={intel.health} />
               </div>
               <p className="mt-3 font-mono-cli text-sm text-muted-foreground">
-                The desks&apos; classifications across the names you hold. This
+                The desk&apos;s classifications across the names you hold. This
                 filters the whole service to your portfolio — it never changes
                 how any security is scored.
               </p>
@@ -281,7 +281,7 @@ export default async function PortfolioPage() {
                         ) : (
                           <span
                             className="font-mono-cli text-sm text-muted-foreground"
-                            title="No desk has screened this name yet. Coverage builds automatically as the desks run on their schedules."
+                            title="The desk has not screened this name yet. Coverage builds automatically as it runs on schedule."
                           >
                             not yet covered
                           </span>

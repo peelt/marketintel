@@ -106,10 +106,18 @@ export async function loadPortfolioIntel(
     "intel verdicts",
   );
 
-  // Bucket by (security, agent), newest first.
+  // Bucket by (security, agent), newest first. Retired desks' verdicts are
+  // withdrawn from the product (2026-07 scope reduction) — surfacing a delta
+  // from a desk that no longer files would point at content the reports
+  // pages no longer serve.
   const buckets = new Map<string, VerdictSnapshot[]>();
   for (const v of verdicts ?? []) {
     if (!v.security_id || !v.report) continue;
+    if (
+      agentRegistry.get(v.report.agent_name as AgentName)?.status !== "live"
+    ) {
+      continue;
+    }
     const key = `${v.security_id}::${v.report.agent_name}`;
     const arr = buckets.get(key) ?? [];
     arr.push({

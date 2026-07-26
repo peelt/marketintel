@@ -1,27 +1,28 @@
 import { NextResponse } from "next/server";
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
-import { dividendScheduled } from "@/lib/inngest/functions/dividend";
 import { chunkedIngest } from "@/lib/inngest/functions/ingest";
 import { holdingAlerts } from "@/lib/inngest/functions/alerts";
-import { geopoliticalScheduled } from "@/lib/inngest/functions/geopolitical";
-import { ipoScheduled } from "@/lib/inngest/functions/ipo";
-import { metalsScheduled } from "@/lib/inngest/functions/metals";
 import {
   dailyPriceRefresh,
   reactionScheduled,
 } from "@/lib/inngest/functions/reaction";
-import { weeklyDataRefresh } from "@/lib/inngest/functions/refresh";
 
-// Agent runs fan out to data providers and the LLM. The Metals desk is the
-// long pole: ~23 deep-tier web-research calls ≈ 6–10 minutes in one
-// invocation, so take the platform's full budget (Vercel Pro + Fluid compute
-// allows 800s), not the 300s that killed the first live run.
+// Agent runs fan out to data providers and the LLM. A Reaction run's news
+// research (~a dozen web-search grades at bounded concurrency) is the long
+// pole, so take the platform's full budget (Vercel Pro + Fluid compute allows
+// 800s), not the 300s that killed the first long live run.
 export const maxDuration = 800;
 
 /**
- * Inngest serves and signs invocations at this route. Functions get added to
- * the array as they're built in subsequent PRs.
+ * Inngest serves and signs invocations at this route.
+ *
+ * 2026-07 scope reduction: the retired desks (dividend, metals, ipo,
+ * geopolitical) and the weekly fundamentals/dividends refresh that existed to
+ * feed them are UNREGISTERED here — Inngest deactivates their crons on the
+ * next sync. Their function modules stay in the tree (see
+ * lib/agents/registry.ts for the rationale); re-registering one is a
+ * one-line revival.
  *
  * Local dev: run `npx inngest-cli@latest dev` and point it at
  * http://localhost:3000/api/inngest. No INNGEST_* env vars needed locally.
@@ -34,14 +35,9 @@ export const maxDuration = 800;
 const handler = serve({
   client: inngest,
   functions: [
-    dividendScheduled,
     chunkedIngest,
     reactionScheduled,
     dailyPriceRefresh,
-    weeklyDataRefresh,
-    metalsScheduled,
-    ipoScheduled,
-    geopoliticalScheduled,
     holdingAlerts,
   ],
   // Pin the public custom domain as the serve host on PRODUCTION deploys only.
