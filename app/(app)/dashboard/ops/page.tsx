@@ -31,7 +31,7 @@ export default async function OpsPage() {
         <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Run these top to bottom once, when the product is first stood up.
           After that <strong>everything runs itself</strong> — prices refresh
-          every weekday evening and the desks file their reports on schedule.
+          every weekday evening and the desk files its reports on schedule.
           Come back here only to re-run a step manually. Each step reports
           exactly what it did, including which tickers failed and why.
         </p>

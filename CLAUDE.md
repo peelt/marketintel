@@ -5,9 +5,11 @@ in full before making changes. **Renamed from "marketintel"** — the product is
 part of MXMG's `-logical` family; the GitHub repo is still `peelt/marketintel`
 (rename deferred by decision).
 
-Investorlogical is a **glass-box investment-research product**: scheduled
-specialist agents file ranked, evidence-backed reports against a scoring
-framework the user can see and edit. See the doc set:
+Investorlogical is a **glass-box investment-research product**: when a stock
+drops hard, an AI desk researches the news that evening and files a ranked,
+evidence-backed overshoot verdict against a scoring framework the user can
+see. Since the 2026-07 scope reduction the product IS the Reaction Analyser
+(plus the holdings watch riding on it) — see "Where we are". Doc set:
 
 | Doc | Owns |
 |-----|------|
@@ -16,47 +18,55 @@ framework the user can see and edit. See the doc set:
 | `docs/SPECIFICATION.md` | Architecture, data model, scoring engine, data sources |
 | `docs/DESIGN.md` | House style — the "-logical" family Manifesto-White CLI language + Investorlogical's brand variables (indigo accent). Follow it for ALL UI work. |
 
-**Where we are:** live on investorlogical.com. `main` carries PR 1–5 (Dividend
-+ Reaction both filing real reports on live Twelve Data prices), the
-verdict-first UX pass, PR 6a+6b (holdings + intel lens), PR 9 (Metals desk
-— AISC-aware cost research; framework migrations 0008/0010; Sat 12:00 UTC
-cron; classifications well_positioned/mixed/vulnerable from absolute facts;
-ETFs excluded), and PR 8 (IPO desk — 30-day S-1/F-1 discovery via EDGAR
-full-text search, each prospectus graded by one routine-tier structured call
-with NO web search; framework migration 0011; Sun 18:00 UTC cron;
-strong/mixed/weak_profile + shell_or_blank_check; issuers as exchange-"IPO"
-securities keyed by CIK, excluded from holdings), and PR 10 (Geopolitical
-desk — the last desk; a hybrid macro-read memo over a ranked table; one fresh
-web-researched macro call per run grounds a routine-tier no-search grade per
-name over the `geopolitical_exposed` universe; framework migration 0012; Sun
-20:00 UTC cron; beneficiary/mixed/at_risk/insulated from absolute facts,
-materiality-gated; uncached for weekly freshness). **All six desks are now
-live.** With desk-building complete (no cross-desk score blending — settled),
-**email alerts are in** (the deferred 6b piece; provider settled: **Postmark**,
-the MXMG family standard — `report/generated` event → `holding-alerts` Inngest
-function → intel-lens deltas → Postmark; dedupe via `alert_emails`, migration
-0013; fail-soft: alerting never fails a run). **Framework-editing UI is
-DROPPED** (Peel: "I don't want to have to do this" — bad labels get structural
-fixes, never manual tuning; transparency ≠ editing). A Monthly Brief
-(records/catalysts/concentration digest benchmarked against a human
-newsletter) is analysed and parked for the marketing era. **Product hierarchy
-is settled (2026-07, evidence-grounded):** Reaction is the hero — the
-dashboard leads with a full-width Reaction band (rolling 48h feed +
-**on-demand per-ticker analysis**: `tickers` on `agent/run.requested` →
-scoped run that keeps the FULL screened cohort for rank-normalisation context
-and force-includes the requested name; non-qualifying names get a factual
+**Where we are:** live on investorlogical.com. **2026-07-26 scope reduction
+(settled, evidence-grounded — do not re-litigate without new evidence):** the
+product is the Reaction Analyser; the weekly specialist desks are **retired**.
+A live-data audit of every filed edition found: Reaction's two fundamentals
+sub-signals null on 39/39 items in BOTH markets (Finnhub's basic-financials
+payload has no absolute debt/EBITDA/OCF figures, so `financials_snapshot`'s
+scoring columns were null in 100% of rows ever written); Dividend filing at
+64% coverage (US) / 33% (LSE) with all three sustainability ratios null for
+every name — strictly weaker than established dividend-safety services; IPO
+grading 4 of 25 prospectuses (the rest `insufficient_data` at 0%), with no
+holdings tie-in by design; Metals near-uniform 70% with the same dead
+balance-sheet columns. Verdict-by-desk: **dividend, metals, ipo retired**
+(dividend's re-entry condition: a fundamentals source that completes its
+sustainability criterion for a defined universe — the US-listed + UK-ADR
+universe was identified as viable); **geopolitical parked** (only desk at
+100% coverage, but 5/39 names in Reaction's screen and zero co-filings ever —
+as built it was a second product; candidate to rebuild inside Reaction's
+frame as the "why did it drop" macro layer). Mechanics of retirement: registry
+`status: "retired"`, Inngest functions + weekly fundamentals cron
+unregistered, content withdrawn from every surface (reports list/detail,
+dashboard, dossier, intel lens, marketing), DB rows and desk code kept —
+revival is a status flip + re-registration. **Reaction framework v2**
+(migration 0015) drops the two structurally-dead signals — effective weights
+unchanged (the engine already redistributed them; every item filed at a
+uniform 82%), coverage now reads honestly (100% when the news grade lands).
+What remains live: the **Reaction band** (rolling 48h feed + **on-demand
+per-ticker analysis**: `tickers` on `agent/run.requested` → scoped run that
+keeps the FULL screened cohort for rank-normalisation context and
+force-includes the requested name; non-qualifying names get a factual
 "doesn't clear the screen" report; on-demand runs never trip the scheduled
-same-day dedupe, which now filters `trigger='scheduled'`), and the marketing
-hero leads with the drop question. The weekly desks are the supporting
-newsroom — kept, never demoted (they feed holdings alerts and the newsroom
-moat). Remaining roadmap: London fundamentals decision, on-demand resolution
-of untracked tickers via Inngest, paid gate.
+same-day dedupe, which filters `trigger='scheduled'`), **holdings +
+portfolio valuation** (6a), the **intel lens** (6b, now filtered to live
+desks), and **email alerts** (Postmark; `report/generated` →
+`holding-alerts` → intel-lens deltas; dedupe via `alert_emails`, migration
+0013; fail-soft). **Framework-editing UI is DROPPED** (Peel: "I don't want
+to have to do this"). A Monthly Brief is parked for the marketing era.
+**The London fundamentals roadmap item is CLOSED** — the audit showed the gap
+was cross-market and source-structural, not LSE-specific; with the
+fundamentals-dependent desks retired, no live signal needs a fundamentals
+feed, so no paid source is warranted. Remaining roadmap: on-demand resolution
+of untracked tickers via Inngest, possible geopolitical rebuild inside
+Reaction's frame, paid gate.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/
 resolved/steady + `attention` on a fresh flag or worsening; `describeDelta`
 stays security-scoped, never advice). `lib/holdings/intel.ts` loads each held
-name's latest+previous verdict per desk (90-day window) and diffs them.
+name's latest+previous verdict per LIVE desk (90-day window; retired desks'
+verdicts are excluded — they'd link to withdrawn content) and diffs them.
 Surfaces: a "what changed on your names" feed + portfolio-health roll-up on
 `/portfolio`, and an attention-count alert on the dashboard strip. In-app only
 for now; the highest-value event (email a holder when a scheduled run flags an
@@ -164,8 +174,13 @@ routes resolution through Inngest.
 
 ## Settled product decisions (do not re-litigate; see plan §5)
 
+- **2026-07-26 scope reduction:** the product is the Reaction Analyser.
+  Dividend, Metals and IPO desks retired; Geopolitical parked. The bar for a
+  desk is *intrinsic to Reaction*, not merely unique or well-made. Rather
+  reduce scope than run a broad-and-patchy information service. (Supersedes
+  "weekly desks are the supporting newsroom — kept, never demoted".)
 - Dividend framework weights **25/40/15/20**; `eps_revision_trend` dropped,
-  cut-risk rebalanced 0.5/0.5.
+  cut-risk rebalanced 0.5/0.5. (Historical — desk retired.)
 - Reaction threshold **5d ≥12% OR 1d ≥8%** (stored as framework data);
   schedule **daily on weekdays, post-close** (superseded the original Tue+Fri
   17:00 — a drop is time-sensitive). Data-driven: reaction fires on the
@@ -182,20 +197,21 @@ routes resolution through Inngest.
   fundamentals (`/stock/metric`) + fallback, yfinance is the floor only.
   Full-universe refresh runs via chunked Inngest, never inline (rate cap).
   **Freshness (audit fix):** the daily price refresh covers broad ∪ all desk
-  universes + the GLD benchmark (not just index members); a weekly
-  fundamentals+dividends cron (Fri 15:00 UTC) refreshes the dividend+metals
-  names ahead of their runs; a 10-day price-staleness gate nulls
-  price-dependent signals when a refresh has failed (honest low coverage, not
-  a stale-but-confident number).
+  universes + the GLD benchmark (kept after the desk retirement — curated
+  names stay holdable, so their prices must stay fresh); the weekly
+  fundamentals+dividends cron is UNREGISTERED (it fed only the retired
+  dividend+metals desks); a 10-day price-staleness gate nulls price-dependent
+  signals when a refresh has failed (honest low coverage, not a
+  stale-but-confident number).
 - Design-for-paid, no billing yet; **sell derived analysis only**; thin
   dashboard from PR 4; Reaction Analyser is the hero pole; Energy deprioritized.
 - **Holdings (PR 6):** user-entered positions with *optional* purchase price →
   factual performance snapshot + "My Portfolio" intel lens (the priority).
   Purchase data never feeds scoring; filtering ≠ tailoring. SPECIFICATION §5.1.
-- **Product hierarchy:** Reaction leads (dashboard band + marketing hero +
-  on-demand per-ticker analysis); the weekly desks are the supporting
-  newsroom, not co-equal poles — and not features to demote either. Single-name
-  runs must NEVER be scored alone: five of seven reaction sub-signals are
+- **Product hierarchy:** Reaction IS the product (dashboard band + marketing
+  hero + on-demand per-ticker analysis); the weekly desks are retired per the
+  2026-07-26 scope reduction above. Single-name runs must NEVER be scored
+  alone: three of five reaction sub-signals (framework v2) are
   rank-normalised and a cohort of one scores 100 on every rank signal.
 
 ## What not to do

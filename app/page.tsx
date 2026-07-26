@@ -3,17 +3,12 @@ import { agentRegistry } from "@/lib/agents/registry";
 import { CliTitleBar, Star, Wordmark, MODULE_COLORS } from "@/components/cli";
 import { CliTyping } from "@/components/cli-typing";
 import { ExperimentalNotice } from "@/components/experimental-notice";
-import type { AgentName } from "@/lib/agents/types";
 
 export default function Home() {
-  // Energy is deprioritised (see settled decisions) — don't advertise it as a
-  // permanently-"planned" card the product has no intent to ship soon.
-  const agents = agentRegistry.list().filter((a) => a.name !== "energy");
-  const liveCount = agents.filter((a) => a.status === "live").length;
-  // Product hierarchy: Reaction is the hero desk (featured card); the weekly
-  // specialists are the supporting newsroom.
-  const reaction = agents.find((a) => a.name === "reaction");
-  const supporting = agents.filter((a) => a.name !== "reaction");
+  // 2026-07 scope reduction: the product IS the Reaction Analyser — the
+  // weekly specialist desks are retired and must not be advertised. The page
+  // sells one desk, one question, plus the holdings watch.
+  const reaction = agentRegistry.get("reaction");
 
   return (
     <main>
@@ -44,7 +39,7 @@ export default function Home() {
             <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
               When a stock falls hard, the Reaction desk researches the news
               that evening, grades the damage, and files a verdict with every
-              source cited — while {liveCount - 1} weekly desks watch the rest.
+              source cited — or put any covered name in front of it on demand.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
@@ -99,13 +94,13 @@ export default function Home() {
 
       <hr className="divider-cli" />
 
-      {/* The newsroom — Reaction leads (featured, full width), the weekly
-          specialists back it. Product hierarchy, not a grab-bag of equals. */}
+      {/* The desk — one desk, one question. No supporting grid: the weekly
+          specialists were retired in the 2026-07 scope reduction. */}
       <section className="bg-il-tint">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="font-mono-cli text-base text-il-navy">~ the newsroom</div>
+          <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h2 className="mt-2 text-3xl font-bold text-il-navy lg:text-4xl">
-            One desk leads. {liveCount - 1} specialists back it.
+            One desk. One question, answered with evidence.
           </h2>
           {reaction && (
             <div
@@ -128,23 +123,6 @@ export default function Home() {
               </div>
             </div>
           )}
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {supporting.map((a) => (
-              <div
-                key={a.name}
-                className="card-cli card-cli-module p-6"
-                style={{ "--module-color": MODULE_COLORS[a.name as AgentName] } as React.CSSProperties}
-              >
-                <div className="font-bold text-il-navy">{a.displayName}</div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {a.description}
-                </p>
-                <div className="mt-4 font-mono-cli text-sm text-muted-foreground">
-                  ~ {a.status === "live" ? `live · ${a.cadence}` : "planned"}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -159,9 +137,9 @@ export default function Home() {
               It watches the names you own
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Add your positions and the intel lens diffs every scheduled run
-              against the last — what&apos;s new, what worsened, what resolved.
-              When a desk flags a name you hold, an email finds you. No tips, no
+              Add your positions and the intel lens diffs every run against
+              the last — what&apos;s new, what worsened, what resolved. When
+              the desk flags a name you hold, an email finds you. No tips, no
               advice: only what changed, with the evidence behind it.
             </p>
           </div>
@@ -169,9 +147,9 @@ export default function Home() {
           <div className="card-cli overflow-hidden p-0">
             <CliTitleBar title="~ holding-alerts" />
             <div className="space-y-2 p-6 font-mono-cli text-base text-il-navy">
-              <div className="text-muted-foreground">~ metals-weekly filed a report</div>
+              <div className="text-muted-foreground">~ reaction filed a verdict on a held name</div>
               <div>
-                <Star /> AEM · well positioned → vulnerable
+                <Star /> AZN.L −9.1% · graded: proportionate
               </div>
               <div>
                 <Star /> 1 held name needs a look · evidence attached
@@ -228,7 +206,7 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-6 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            Investorlogical is an experimental exercise. Every desk is an
+            Investorlogical is an experimental exercise. The desk is an
             autonomous AI agent; all research, scores and verdicts are generated
             by AI models against published frameworks and can be wrong or
             incomplete. Nothing here is investment advice, a recommendation to

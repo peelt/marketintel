@@ -147,9 +147,9 @@ export default async function DashboardPage() {
   // Names with a fresh flag/worsening this run — the highest-value alert.
   const attentionItems = intel.items.filter((i) => i.delta.attention);
 
-  // Product hierarchy: Reaction is the hero desk — it gets a full-width band
-  // up top (rolling 48h feed + on-demand analysis); the weekly desks form the
-  // supporting newsroom grid below.
+  // Product hierarchy: Reaction IS the product — it gets a full-width band
+  // up top (rolling 48h feed + on-demand analysis); newsroomReports is empty
+  // since the 2026-07 desk retirement but the plumbing stays for a revival.
   const reactionMeta = agentRegistry.get("reaction")!;
   const reactionReport =
     latestReports.find((r) => r.agent.name === "reaction")?.report ?? null;
@@ -165,12 +165,11 @@ export default async function DashboardPage() {
           <div className="font-mono-cli text-base text-il-navy">~ the desk</div>
           <h1 className="mt-1 text-3xl font-bold text-il-navy">Dashboard</h1>
           <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            The Reaction desk leads: sharp drops screened every evening, each
-            graded on whether the move looks earned or an overshoot — and you
-            can put a name in front of it on demand. Behind it, a newsroom of
-            weekly specialist desks files ranked, evidence-backed reports
-            against frameworks you can inspect in full. Open anything for the
-            report and the evidence behind every score.
+            The Reaction desk screens for sharp drops every evening and grades
+            each one on whether the move looks earned or an overshoot — with
+            every source cited — and you can put a name in front of it on
+            demand. Add your holdings and it watches your names too. Open any
+            report for the verdict and the evidence behind every score.
           </p>
         </div>
 
@@ -272,10 +271,12 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* The newsroom — My Portfolio leads (YOUR money first), then one
-            card per weekly LIVE desk. */}
+        {/* My Portfolio — YOUR money first. (The weekly specialist desks that
+            used to fill this grid were retired in the 2026-07 scope
+            reduction; newsroomReports is empty until a desk revival, so the
+            grid renders just the portfolio card.) */}
         <section className="mt-8">
-          <div className="font-mono-cli text-base text-il-navy">~ the newsroom</div>
+          <div className="font-mono-cli text-base text-il-navy">~ your names</div>
           <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Link
               href="/portfolio"
@@ -345,8 +346,8 @@ export default async function DashboardPage() {
                 </>
               ) : (
                 <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-                  Add the shares you hold to see them valued and get every
-                  desk&apos;s verdicts filtered to your names.
+                  Add the shares you hold to see them valued daily and get the
+                  desk&apos;s verdicts on your names when they move.
                 </p>
               )}
 

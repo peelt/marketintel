@@ -1,8 +1,12 @@
 # Investorlogical — Product Positioning & Concept Revision
 
-**Status:** Positioning baseline. Supersedes the implicit "five/six equal poles" concept in
-earlier notes. Pairs with `docs/SPECIFICATION.md` (architecture / data model / build status) —
-this document owns *what we are building and why*, the spec owns *how*.
+**Status:** Positioning baseline, PARTIALLY SUPERSEDED by the 26 Jul 2026 scope reduction
+(IMPLEMENTATION_PLAN §5, CLAUDE.md "Where we are"): the product is now the Reaction Analyser
+alone — the "newsroom of specialist agents" described below is retired (dividend/metals/ipo) or
+parked (geopolitical). The moats analysis, regulatory posture and Reaction-hero framing below
+still stand; read every multi-desk passage as historical context. Pairs with
+`docs/SPECIFICATION.md` (architecture / data model / build status) — this document owns *what we
+are building and why*, the spec owns *how*.
 
 **One-line summary:** the engine is sound; the concept was leading with the wrong hand. Reposition
 around what no competitor offers — an editable scoring framework, a newsroom of specialist agents,

@@ -39,26 +39,6 @@ const STEPS: StepDef[] = [
     eta: "1–3 minutes",
   },
   {
-    task: "dividends",
-    title: "Fetch dividend history",
-    description: "Five years of dividend payments per name.",
-    eta: "1–3 minutes",
-  },
-  {
-    task: "fundamentals",
-    title: "Fetch fundamentals",
-    description:
-      "Trailing-twelve-month financials (cash flow, debt, payout) per name.",
-    eta: "1–3 minutes",
-  },
-  {
-    task: "run-dividend",
-    title: "Run the Dividend agent",
-    description:
-      "Scores the universe against the framework and files the first evidence-backed report.",
-    eta: "~30 seconds",
-  },
-  {
     task: "seed-broad-universe",
     title: "Load the broad market (Reaction)",
     description:
@@ -79,28 +59,10 @@ const STEPS: StepDef[] = [
       "Screens for sharp drops, researches the news behind each, and files overshoot verdicts with cited sources.",
     eta: "2-5 minutes",
   },
-  {
-    task: "run-metals",
-    title: "Run the Precious Metals desk",
-    description:
-      "Researches each producer's cost position (AISC vs the metal price) and files position verdicts with cited sources.",
-    eta: "3-6 minutes",
-  },
-  {
-    task: "run-ipo",
-    title: "Run the IPO desk",
-    description:
-      "Finds the last 30 days of S-1/F-1 filings and grades each from its own prospectus — business, growth, risk, governance, offering terms.",
-    eta: "queued; 5-10 minutes in background",
-  },
-  {
-    task: "run-geopolitical",
-    title: "Run the Geopolitical Scanner",
-    description:
-      "Researches the current geopolitical backdrop, then grades each exposed name on how it's positioned — files a macro read over a ranked table.",
-    eta: "queued; 5-10 minutes in background",
-  },
 ];
+// The retired desks' run steps (dividend, metals, ipo, geopolitical) and the
+// fundamentals/dividends fetches that fed them were removed in the 2026-07
+// scope reduction — the underlying ops tasks still exist for a revival.
 
 type StepState =
   | { phase: "idle" }
@@ -222,12 +184,7 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
         {summarise(task, r)}
       </p>
       <FailureList result={r} />
-      {(task === "run-dividend" ||
-        task === "run-reaction" ||
-        task === "run-metals" ||
-        task === "run-ipo" ||
-        task === "run-geopolitical") &&
-        typeof r.reportId === "string" && (
+      {task === "run-reaction" && typeof r.reportId === "string" && (
         <p className="text-sm">
           <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
             ~ open the report →
@@ -272,19 +229,8 @@ function summarise(task: string, r: Record<string, unknown>): string {
     const untagged = num(r.untagged);
     return `Universe loaded: ${num(r.inserted)} new securities, ${num(r.updated)} updated.${untagged > 0 ? ` ${untagged} removed from curated watchlists.` : ""}`;
   }
-  if (
-    (task === "run-dividend" ||
-      task === "run-reaction" ||
-      task === "run-metals" ||
-      task === "run-ipo" ||
-      task === "run-geopolitical") &&
-    typeof r.queued !== "number"
-  ) {
+  if (task === "run-reaction" && typeof r.queued !== "number") {
     return "Report filed successfully.";
-  }
-  // run-ipo / run-geopolitical always queue; the note is the whole story.
-  if ((task === "run-ipo" || task === "run-geopolitical") && typeof r.note === "string") {
-    return r.note;
   }
   if (task === "seed-broad-universe") {
     return `Broad market loaded: ${num(r.fetched)} constituents fetched — ${num(r.inserted)} new, ${num(r.tagged)} already tracked.`;
