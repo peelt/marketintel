@@ -32,10 +32,12 @@ holdings tie-in by design; Metals near-uniform 70% with the same dead
 balance-sheet columns. Verdict-by-desk: **dividend, metals, ipo retired**
 (dividend's re-entry condition: a fundamentals source that completes its
 sustainability criterion for a defined universe — the US-listed + UK-ADR
-universe was identified as viable); **geopolitical parked** (only desk at
-100% coverage, but 5/39 names in Reaction's screen and zero co-filings ever —
-as built it was a second product; candidate to rebuild inside Reaction's
-frame as the "why did it drop" macro layer). Mechanics of retirement: registry
+universe was identified as viable); **geopolitical retired as a desk, its
+macro read since rebuilt inside Reaction** (see "Macro layer" below — the desk
+filed at 100% coverage but had 5/39 names in Reaction's screen and zero
+co-filings ever, so as built it was a second product; the backdrop half was
+the part intrinsic to Reaction's question, the per-name exposure grading stays
+retired). Mechanics of retirement: registry
 `status: "retired"`, Inngest functions + weekly fundamentals cron
 unregistered, content withdrawn from every surface (reports list/detail,
 dashboard, dossier, intel lens, marketing), DB rows and desk code kept —
@@ -58,8 +60,30 @@ to have to do this"). A Monthly Brief is parked for the marketing era.
 was cross-market and source-structural, not LSE-specific; with the
 fundamentals-dependent desks retired, no live signal needs a fundamentals
 feed, so no paid source is warranted. Remaining roadmap: on-demand resolution
-of untracked tickers via Inngest, possible geopolitical rebuild inside
-Reaction's frame, paid gate.
+of untracked tickers via Inngest, paid gate.
+
+**Macro layer (live, in Reaction):** one web-research call per run
+(`lib/agents/reaction/macro.ts`) establishes the themes currently *moving
+equity prices*; those themes are injected into every per-name news call, which
+additionally attributes the drop — `idiosyncratic` / `macro_amplified` /
+`macro_driven` plus the theme. This is the rebuilt half of the retired
+Geopolitical desk, reframed: that desk asked "which themes matter" to grade
+standing exposure; Reaction asks "what is moving prices" to answer *why did
+this name fall*. **Deliberately context, not a signal** — it informs the two
+grades the news call already returns (a name that fell with its whole sector on
+a policy shock, with nothing new of its own, is the classic overshoot) and adds
+no framework weight, so there is no framework v3 and no migration. Design
+rules: the read runs AFTER the screen (no drops → no call, so calm days cost
+nothing); fail-soft null → names graded exactly as before the layer existed and
+attribution recorded as `unattributed`, never as "company-specific"; an echoed
+theme is matched back to a real one (`resolveMacroTheme`) so an invented theme
+never reaches evidence; attribution rides in the news evidence text and the
+report body, not in any score. The report emits the retired desk's `## Macro
+read` markdown shape, so `lib/reports/macro-memo.ts` + `components/
+macro-read.tsx` render it as theme accordions for free. Next step is an
+audit of filed editions (what share attribute, and do macro-driven names'
+disproportion grades actually separate) before any surface or weighting
+follow-up.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/
@@ -175,10 +199,16 @@ routes resolution through Inngest.
 ## Settled product decisions (do not re-litigate; see plan §5)
 
 - **2026-07-26 scope reduction:** the product is the Reaction Analyser.
-  Dividend, Metals and IPO desks retired; Geopolitical parked. The bar for a
-  desk is *intrinsic to Reaction*, not merely unique or well-made. Rather
-  reduce scope than run a broad-and-patchy information service. (Supersedes
-  "weekly desks are the supporting newsroom — kept, never demoted".)
+  Dividend, Metals and IPO desks retired; Geopolitical retired as a desk. The
+  bar for a desk is *intrinsic to Reaction*, not merely unique or well-made.
+  Rather reduce scope than run a broad-and-patchy information service.
+  (Supersedes "weekly desks are the supporting newsroom — kept, never
+  demoted".)
+- **Macro layer is context, not a signal:** Reaction's macro read (the rebuilt
+  half of the Geopolitical desk) informs the news call's existing grades and
+  never adds framework weight. Any move to score it is a framework v3 and
+  needs the same evidence bar v2 met — filed editions showing macro-driven
+  names' grades actually separate. Don't add a sub-signal to "use" the layer.
 - Dividend framework weights **25/40/15/20**; `eps_revision_trend` dropped,
   cut-risk rebalanced 0.5/0.5. (Historical — desk retired.)
 - Reaction threshold **5d ≥12% OR 1d ≥8%** (stored as framework data);

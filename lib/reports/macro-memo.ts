@@ -82,8 +82,12 @@ export function parseMacroMemo(markdown: string): ParsedMacroMemo | null {
     // A new section header ends the macro read.
     if (/^##\s+How this is scored\s*$/.test(trimmed)) {
       pushCurrent();
-      scoringMarkdown = lines
-        .slice(i + 1)
+      // Stop at the NEXT top-level section rather than running to the end of
+      // the document: Reaction embeds its macro read in a longer report whose
+      // verdicts follow, and those are already rendered structurally above.
+      const rest = lines.slice(i + 1);
+      const nextSection = rest.findIndex((l) => /^##\s+\S/.test(l.trim()));
+      scoringMarkdown = (nextSection === -1 ? rest : rest.slice(0, nextSection))
         .join("\n")
         .trim();
       break;

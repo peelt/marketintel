@@ -1,5 +1,6 @@
 import { getAnthropicClient, modelForTier } from "@/lib/anthropic/client";
 import { getErrorMessage } from "@/lib/errors";
+import { themesForPrompt, type MacroRead } from "./macro";
 
 /**
  * News layer for the Reaction Analyser: one routine-tier call per screened
@@ -17,6 +18,14 @@ import { getErrorMessage } from "@/lib/errors";
  * normalisation: "absolute". Language discipline (I2): grades describe the
  * SECURITY and the MOVE, never anyone's position in it.
  *
+ * When the run's macro layer (macro.ts) produced a backdrop, the themes are
+ * injected here and the call ALSO attributes the drop: idiosyncratic, macro
+ * amplified, or macro driven. That attribution is context, not a score — it
+ * informs the two grades the model already returns (a name that fell with its
+ * whole sector on a policy shock, with nothing new of its own, is the classic
+ * overshoot) rather than adding a framework signal. No extra API call: the
+ * whole macro layer costs one run-level research call plus a longer prompt.
+ *
  * Failure contract: any error or refusal returns null — the engine
  * redistributes the weight and coverage records the gap.
  */
@@ -29,7 +38,26 @@ export interface ReactionNewsRequest {
   return1d: number | null;
   return5d: number | null;
   asOf: string; // YYYY-MM-DD
+  /**
+   * The run's backdrop, or null when the macro read failed — in which case the
+   * drop is NOT asked to be attributed at all, rather than being asked against
+   * an empty backdrop and defaulting every name to "idiosyncratic". Passed
+   * whole (not as a pre-rendered block) so the prompt the model sees and the
+   * titles its answer is validated against can never disagree.
+   */
+  macro?: MacroRead | null;
 }
+
+/**
+ * How much of the drop the identified cause is specific to this company.
+ * `unattributed` is not a model output — it is what the pipeline records when
+ * there was no macro read to attribute against.
+ */
+export type MacroDriver =
+  | "idiosyncratic"
+  | "macro_amplified"
+  | "macro_driven"
+  | "unattributed";
 
 export interface ReactionNewsGrade {
   damageSeverity: number;
@@ -38,58 +66,97 @@ export interface ReactionNewsGrade {
   summary: string;
   sources: { url: string; title: string }[];
   confidence: "low" | "medium" | "high";
+  /** `unattributed` whenever the run had no macro read. */
+  macroDriver: MacroDriver;
+  /**
+   * The macro theme this drop was attributed to, matched back to a REAL theme
+   * title from the run's read; null when idiosyncratic, unattributed, or when
+   * the model echoed a title that isn't in the backdrop it was given.
+   */
+  macroTheme: string | null;
 }
+
+const BASE_PROPERTIES = {
+  damage_severity: {
+    type: "integer",
+    description:
+      "0-100 calibrated: 0 = no real fundamental damage (noise, sympathy move, technical flow); 50 = meaningful but recoverable earnings impact; 100 = existential/permanent impairment.",
+  },
+  disproportion: {
+    type: "integer",
+    description:
+      "0-100 calibrated: 0 = the price move is fully justified by the news; 50 = move looks somewhat stretched; 100 = move is wildly disproportionate to the identified cause.",
+  },
+  headline: {
+    type: "string",
+    description: "One sentence: what happened.",
+  },
+  summary: {
+    type: "string",
+    description:
+      "3-6 sentences: the identified cause of the drop, the concrete facts (numbers where reported), and why the grades were chosen. Impersonal language only.",
+  },
+  sources: {
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        title: { type: "string" },
+      },
+      required: ["url", "title"],
+      additionalProperties: false,
+    },
+    description: "The web sources actually relied upon.",
+  },
+  confidence: {
+    type: "string",
+    enum: ["low", "medium", "high"],
+    description:
+      "low when no clear cause was found or sources conflict; high only when the cause is well-documented.",
+  },
+} as const;
+
+const MACRO_PROPERTIES = {
+  macro_driver: {
+    type: "string",
+    enum: ["idiosyncratic", "macro_amplified", "macro_driven"],
+    description:
+      "How much of this drop is specific to THIS company. 'idiosyncratic' = company-specific news (earnings miss, guidance cut, litigation, management change) — the default unless the macro evidence is clear; 'macro_amplified' = real company-specific news, but one of the listed themes deepened the move; 'macro_driven' = little or no company-specific news, the name fell with its sector or the market on a listed theme.",
+  },
+  macro_theme: {
+    type: "string",
+    description:
+      "When macro_driver is not 'idiosyncratic', the title of the listed theme this drop is attributed to, copied VERBATIM from the list provided. Empty string when idiosyncratic. Never invent a theme that is not on the list.",
+  },
+} as const;
+
+const BASE_REQUIRED = [
+  "damage_severity",
+  "disproportion",
+  "headline",
+  "summary",
+  "sources",
+  "confidence",
+] as const;
 
 const GRADE_SCHEMA = {
   type: "object",
-  properties: {
-    damage_severity: {
-      type: "integer",
-      description:
-        "0-100 calibrated: 0 = no real fundamental damage (noise, sympathy move, technical flow); 50 = meaningful but recoverable earnings impact; 100 = existential/permanent impairment.",
-    },
-    disproportion: {
-      type: "integer",
-      description:
-        "0-100 calibrated: 0 = the price move is fully justified by the news; 50 = move looks somewhat stretched; 100 = move is wildly disproportionate to the identified cause.",
-    },
-    headline: {
-      type: "string",
-      description: "One sentence: what happened.",
-    },
-    summary: {
-      type: "string",
-      description:
-        "3-6 sentences: the identified cause of the drop, the concrete facts (numbers where reported), and why the grades were chosen. Impersonal language only.",
-    },
-    sources: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          url: { type: "string" },
-          title: { type: "string" },
-        },
-        required: ["url", "title"],
-        additionalProperties: false,
-      },
-      description: "The web sources actually relied upon.",
-    },
-    confidence: {
-      type: "string",
-      enum: ["low", "medium", "high"],
-      description:
-        "low when no clear cause was found or sources conflict; high only when the cause is well-documented.",
-    },
-  },
-  required: [
-    "damage_severity",
-    "disproportion",
-    "headline",
-    "summary",
-    "sources",
-    "confidence",
-  ],
+  properties: BASE_PROPERTIES,
+  required: BASE_REQUIRED,
+  additionalProperties: false,
+} as const;
+
+/**
+ * Used only when the run HAS a macro read. With no backdrop to attribute
+ * against, asking the question anyway would force a required field the model
+ * could only answer "idiosyncratic" to — manufacturing a finding out of a
+ * failed research call.
+ */
+const GRADE_SCHEMA_WITH_MACRO = {
+  type: "object",
+  properties: { ...BASE_PROPERTIES, ...MACRO_PROPERTIES },
+  required: [...BASE_REQUIRED, "macro_driver", "macro_theme"],
   additionalProperties: false,
 } as const;
 
@@ -100,6 +167,20 @@ Discipline:
 - Grades are ABSOLUTE (calibrated across all stocks and time), not relative to today's screen.
 - If you cannot identify a credible cause, say so: damage_severity near 50, confidence "low", and a summary stating that no clear cause was found.
 - Describe the security and the move. Never address any reader's holdings, decisions, or circumstances; no recommendations.`;
+
+/**
+ * Appended only when a backdrop is supplied. Attribution is deliberately
+ * conservative: a name falling on the same day as a macro theme is not
+ * evidence it fell BECAUSE of it, and a wrong attribution would explain away
+ * real company-specific damage as market noise — the exact error that turns an
+ * earned decline into a false overshoot call.
+ */
+const MACRO_DISCIPLINE = `
+Attribution:
+- You are given the macro themes currently moving prices. Judge how much of THIS drop is company-specific.
+- Attribute to a theme only when the reporting supports it — the name's sector visibly moved on that theme, or the coverage of this drop names it. Coincident timing alone is not evidence.
+- Default to "idiosyncratic". Attributing a company-specific decline to the macro backdrop would understate real damage.
+- A drop that is largely macro-driven with little company-specific news usually implies LOWER damage_severity: the news about this company is thin, whatever the market did to its price.`;
 
 function pct(v: number | null): string {
   return v === null ? "n/a" : `${(v * 100).toFixed(1)}%`;
@@ -125,9 +206,18 @@ async function attemptGrade(
   request: ReactionNewsRequest,
 ): Promise<ReactionNewsGrade | null> {
   const client = getAnthropicClient();
+  const macro = request.macro?.themes.length ? request.macro : null;
+  const themesBlock = macro ? themesForPrompt(macro) : null;
   const userPrompt = `Security: ${request.name} (${request.ticker}, ${request.exchange})
 As of ${request.asOf}, the shares are down ${pct(request.return1d)} over 1 trading day and ${pct(request.return5d)} over 5 trading days.
-
+${
+  themesBlock
+    ? `
+Macro themes currently moving prices:
+${themesBlock}
+`
+    : ""
+}
 Research what caused this move and grade it per the discipline.`;
 
   try {
@@ -139,7 +229,10 @@ Research what caused this move and grade it per the discipline.`;
       max_tokens: 10_000,
       output_config: {
         effort: "medium",
-        format: { type: "json_schema", schema: GRADE_SCHEMA },
+        format: {
+          type: "json_schema",
+          schema: themesBlock ? GRADE_SCHEMA_WITH_MACRO : GRADE_SCHEMA,
+        },
       },
       tools: [
         {
@@ -148,7 +241,7 @@ Research what caused this move and grade it per the discipline.`;
           max_uses: 3,
         },
       ],
-      system: SYSTEM_PROMPT,
+      system: themesBlock ? `${SYSTEM_PROMPT}\n${MACRO_DISCIPLINE}` : SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     });
 
@@ -164,7 +257,10 @@ Research what caused this move and grade it per the discipline.`;
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") return null;
-    return parseGrade(textBlock.text);
+    return parseGrade(
+      textBlock.text,
+      macro ? macro.themes.map((t) => t.title) : [],
+    );
   } catch (err) {
     console.error(
       `gradeReactionNews failed for ${request.ticker}: ${getErrorMessage(err)}`,
@@ -173,8 +269,39 @@ Research what caused this move and grade it per the discipline.`;
   }
 }
 
-/** Defensive parse — exported for tests. Ranges aren't schema-expressible. */
-export function parseGrade(text: string): ReactionNewsGrade | null {
+/**
+ * Match the model's echoed theme title back to a REAL theme from the run's
+ * backdrop — case- and whitespace-insensitive, with a contains-fallback for a
+ * lightly reworded title. Returns null when nothing matches, so an invented
+ * theme is dropped rather than persisted as evidence. Pure; exported for tests.
+ */
+export function resolveMacroTheme(
+  echoed: string | null | undefined,
+  themeTitles: string[],
+): string | null {
+  const needle = echoed?.trim().toLowerCase();
+  if (!needle) return null;
+  const exact = themeTitles.find((t) => t.trim().toLowerCase() === needle);
+  if (exact) return exact;
+  return (
+    themeTitles.find((t) => {
+      const hay = t.trim().toLowerCase();
+      return hay.includes(needle) || needle.includes(hay);
+    }) ?? null
+  );
+}
+
+/**
+ * Defensive parse — exported for tests. Ranges aren't schema-expressible.
+ *
+ * `themeTitles` is the run's real backdrop; pass it whenever the call was made
+ * WITH a macro read. Omitted (or empty), attribution is recorded as
+ * `unattributed` — the honest reading of "we never asked".
+ */
+export function parseGrade(
+  text: string,
+  themeTitles: string[] = [],
+): ReactionNewsGrade | null {
   try {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== "object" || parsed === null) return null;
@@ -200,6 +327,26 @@ export function parseGrade(text: string): ReactionNewsGrade | null {
           typeof (s as Record<string, unknown>).title === "string",
       )
       .slice(0, 8);
+
+    // Attribution is only meaningful when a backdrop was supplied. A driver
+    // that isn't one of the three known values is discarded rather than
+    // guessed at, and a macro driver that resolves to no real theme falls back
+    // to idiosyncratic with no theme attached.
+    const driver =
+      themeTitles.length > 0 &&
+      (c.macro_driver === "idiosyncratic" ||
+        c.macro_driver === "macro_amplified" ||
+        c.macro_driver === "macro_driven")
+        ? c.macro_driver
+        : "unattributed";
+    const theme =
+      driver === "macro_amplified" || driver === "macro_driven"
+        ? resolveMacroTheme(
+            typeof c.macro_theme === "string" ? c.macro_theme : null,
+            themeTitles,
+          )
+        : null;
+
     return {
       damageSeverity: Math.round(c.damage_severity),
       disproportion: Math.round(c.disproportion),
@@ -207,9 +354,30 @@ export function parseGrade(text: string): ReactionNewsGrade | null {
       summary: c.summary,
       sources,
       confidence: c.confidence,
+      macroDriver: theme === null && driver !== "idiosyncratic" && driver !== "unattributed"
+        ? "idiosyncratic"
+        : driver,
+      macroTheme: theme,
     };
   } catch {
     return null;
+  }
+}
+
+/** Plain-English label for a driver, for report lines. */
+export function describeMacroDriver(
+  driver: MacroDriver,
+  theme: string | null,
+): string | null {
+  switch (driver) {
+    case "macro_driven":
+      return theme ? `macro-driven · ${theme}` : "macro-driven";
+    case "macro_amplified":
+      return theme ? `macro-amplified · ${theme}` : "macro-amplified";
+    case "idiosyncratic":
+      return "company-specific";
+    case "unattributed":
+      return null;
   }
 }
 

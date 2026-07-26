@@ -3,7 +3,9 @@
 **Version:** 2.1
 **Status:** PR 1–3 merged to `main`; PR 3.5a (foundation hardening) applied.
 NOTE (26 Jul 2026): the scope reduction retired the dividend/metals/ipo desks
-and parked geopolitical — multi-desk passages below are historical; see
+and retired the geopolitical desk (its macro read was later rebuilt inside
+Reaction as the drop-attribution backdrop) — multi-desk passages below are
+historical; see
 IMPLEMENTATION_PLAN §5 and CLAUDE.md. Owns *architecture, data model, scoring
 semantics, data sources*. For what we're building and why, see
 `docs/POSITIONING.md`; for sequence and per-PR scope,

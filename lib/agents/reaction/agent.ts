@@ -17,6 +17,9 @@ import {
   type DropStats,
 } from "./metrics";
 import { createReactionResolver, type ReactionRunContext } from "./resolvers";
+import { researchReactionMacro, type MacroRead } from "./macro";
+import { describeMacroDriver, type ReactionNewsGrade } from "./news";
+import { hostOf } from "@/lib/format";
 
 /**
  * Reaction Analyser — the hero pole (PR 5, M3).
@@ -89,6 +92,43 @@ export function describeOnDemandOutcome(
 }
 
 /**
+ * One-line roll-up of how the run's drops were attributed. Returns null when
+ * no name carried an attribution (no macro read, or no grades landed) — the
+ * report then says nothing rather than implying every drop was company-
+ * specific. Pure; exported for tests.
+ */
+export function summariseDrivers(
+  grades: ReactionNewsGrade[],
+): string | null {
+  const attributed = grades.filter((g) => g.macroDriver !== "unattributed");
+  if (attributed.length === 0) return null;
+
+  const macro = attributed.filter(
+    (g) => g.macroDriver === "macro_driven" || g.macroDriver === "macro_amplified",
+  );
+  if (macro.length === 0) {
+    return `All ${attributed.length} graded drop(s) trace to company-specific news, not the macro backdrop.`;
+  }
+
+  // Name the theme carrying the most drops — the reader's question on a
+  // red day is "is this one story or many?".
+  const counts = new Map<string, number>();
+  for (const g of macro) {
+    if (g.macroTheme) counts.set(g.macroTheme, (counts.get(g.macroTheme) ?? 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null;
+  const driven = macro.filter((g) => g.macroDriver === "macro_driven").length;
+
+  return [
+    `${macro.length} of ${attributed.length} graded drop(s) trace to the macro backdrop`,
+    top ? ` — most to **${top[0]}** (${top[1]})` : "",
+    driven > 0
+      ? `; ${driven} fell with little company-specific news of ${driven === 1 ? "its" : "their"} own.`
+      : ".",
+  ].join("");
+}
+
+/**
  * Force the requested (qualifying) names into the scored cohort even past the
  * severity cap. The cohort deliberately stays the FULL screened set: three of
  * the framework's five sub-signals are rank-normalised, and a cohort of one
@@ -147,6 +187,7 @@ export class ReactionAgent extends BaseAgent {
     // same warm process.
     this.scoped = null;
     const thresholds = thresholdsFromParams(framework.params);
+    const asOf = new Date().toISOString().slice(0, 10);
     const universe = await loadBroadUniverse();
     const series = await loadRecentSeries(
       universe.map((u) => u.id),
@@ -175,14 +216,6 @@ export class ReactionAgent extends BaseAgent {
       capped: screened.length - capped.length,
     };
 
-    this.ctx = {
-      securities: new Map(universe.map((u) => [u.id, u])),
-      screenSeries: series,
-      stats,
-      universeMedian5d: median(all5d),
-      asOf: new Date().toISOString().slice(0, 10),
-    };
-
     // On-demand mode: the user asked about specific names. Screen them like
     // any other name; if one qualifies, force it into the (full) cohort so
     // it's graded in real peer context; if none qualifies, skip scoring and
@@ -190,6 +223,7 @@ export class ReactionAgent extends BaseAgent {
     const requested = (input.tickers ?? [])
       .map((t) => t.trim().toUpperCase())
       .filter(Boolean);
+    let candidates: string[];
     if (requested.length > 0) {
       const byTicker = new Map(
         universe.map((u) => [u.ticker.toUpperCase(), u]),
@@ -208,14 +242,35 @@ export class ReactionAgent extends BaseAgent {
       const requiredIds = outcomes
         .filter((o) => o.passed)
         .map((o) => byTicker.get(o.ticker)!.id);
-      if (requiredIds.length === 0) return [];
-      return mergeRequestedIntoCohort(
-        capped.map((u) => u.id),
-        requiredIds,
-      );
+      candidates =
+        requiredIds.length === 0
+          ? []
+          : mergeRequestedIntoCohort(
+              capped.map((u) => u.id),
+              requiredIds,
+            );
+    } else {
+      candidates = capped.map((u) => u.id);
     }
 
-    return capped.map((u) => u.id);
+    // The macro backdrop is researched once per run and shared by every
+    // per-name news call. Deliberately AFTER the screen: on a calm day nothing
+    // qualifies, and a backdrop with no drops to attribute is a call paid for
+    // nothing. Fail-soft — a null read means names are graded exactly as they
+    // were before this layer existed.
+    const macro = candidates.length > 0 ? await researchReactionMacro(asOf) : null;
+
+    this.ctx = {
+      securities: new Map(universe.map((u) => [u.id, u])),
+      screenSeries: series,
+      stats,
+      universeMedian5d: median(all5d),
+      asOf,
+      macro,
+      newsGrades: new Map(),
+    };
+
+    return candidates;
   }
 
   protected override emptySummary(): string {
@@ -239,6 +294,44 @@ export class ReactionAgent extends BaseAgent {
     classification?: string | null;
   } {
     return classifyReaction(scored, this.ctx?.stats.get(scored.securityId) ?? null);
+  }
+
+  /**
+   * The run's backdrop, emitted in the same markdown shape the retired
+   * Geopolitical desk used — `lib/reports/macro-memo.ts` already parses that
+   * shape into the theme accordions on the report page, so the layer gets its
+   * render for free. Empty when nothing was screened: with no drops to
+   * attribute, a backdrop is noise.
+   */
+  private macroSection(hasCandidates: boolean): string[] {
+    if (!hasCandidates) return [];
+    const macro: MacroRead | null = this.ctx?.macro ?? null;
+    if (!macro) {
+      return [
+        `## Macro read`,
+        ``,
+        `_No macro read was available this run — each drop was researched on its own news, without a shared backdrop to attribute it against._`,
+        ``,
+      ];
+    }
+    const lines = [`## Macro read`, ``, `_${macro.asOfNote}_`, ``];
+    for (const t of macro.themes) {
+      lines.push(
+        `### ${t.title}  ·  confidence: ${t.confidence}`,
+        ``,
+        t.summary,
+        ``,
+        `**Which way it cuts:** ${t.direction}${t.affectedSectors.length ? `  ·  _${t.affectedSectors.join(", ")}_` : ""}`,
+        ``,
+      );
+    }
+    if (macro.sources.length) {
+      lines.push(
+        `**Sources:** ${macro.sources.map((s) => `[${hostOf(s.url)}](${s.url})`).join(" · ")}`,
+        ``,
+      );
+    }
+    return lines;
   }
 
   protected async composeReport(input: {
@@ -286,6 +379,12 @@ export class ReactionAgent extends BaseAgent {
             .map((c) => `**${label(c.s)}**`)
             .join(", ")}.`
         : "",
+      // What drove the day, once — the reader's "is this one story or many?".
+      summariseDrivers(
+        scored
+          .map((s) => this.ctx?.newsGrades.get(s.securityId))
+          .filter((g): g is ReactionNewsGrade => !!g),
+      ) ?? "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -295,17 +394,24 @@ export class ReactionAgent extends BaseAgent {
       ``,
       summaryMarkdown,
       ``,
+      ...this.macroSection(scored.length > 0),
       `## How this is scored`,
       ``,
       `Inclusion: 5-session drawdown or 1-session drop past the framework's thresholds (v${framework.version} params). Each name is then scored on **overshoot-ness** — excess decline vs the market, the earned damage identified in current news (web-researched, graded 0–100 absolute), and how deep the repricing runs. Higher composite = more disproportionate move. Missing data redistributes weight and shows as coverage, never as zero.`,
+      ``,
+      `The macro read above is CONTEXT, not a scored signal: it tells each name's news research what is already moving prices, so a drop can be read as company-specific or as part of a wider move. It never adds or removes framework weight.`,
       ``,
     ];
 
     if (scored.length > 0) {
       lines.push(`## Verdicts`, ``);
       for (const c of classified) {
+        const grade = this.ctx?.newsGrades.get(c.s.securityId);
+        const driver = grade
+          ? describeMacroDriver(grade.macroDriver, grade.macroTheme)
+          : null;
         lines.push(
-          `- **${label(c.s)}** — ${String(c.classification).replace(/_/g, " ")} (composite ${c.s.composite.toFixed(1)}, coverage ${Math.round(c.s.coverage * 100)}%). ${c.verdict ?? ""}`,
+          `- **${label(c.s)}** — ${String(c.classification).replace(/_/g, " ")} (composite ${c.s.composite.toFixed(1)}, coverage ${Math.round(c.s.coverage * 100)}%${driver ? `, ${driver}` : ""}). ${c.verdict ?? ""}`,
         );
       }
     }
