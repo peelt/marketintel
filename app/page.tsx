@@ -27,22 +27,24 @@ export default function Home() {
             </span>
           </div>
         </div>
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pt-16 pb-10 sm:px-6 lg:grid-cols-[5fr_7fr] lg:px-8">
+        {/* Equal columns: the copy is the heavier side, so giving it the
+            NARROWER half (the old 5fr/7fr) forced the h1 to three ragged lines
+            and the paragraph to six, while the short terminal panel floated in
+            acres of its own space. Matched widths + trimmed copy + a fuller
+            panel make the two sides read as one block. */}
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 pt-10 pb-10 sm:px-6 lg:grid-cols-2 lg:px-8">
           <div>
             <CliTyping text="~ initialising research desk… [OK]" className="text-base text-il-navy" />
             <span className="tag-cli mt-4 inline-flex">
               AI-powered · evidence-backed · glass-box
             </span>
-            <h1 className="mt-4 text-4xl font-bold text-il-navy lg:text-6xl">
+            <h1 className="mt-4 text-balance text-4xl font-bold text-il-navy lg:text-6xl">
               A sharp drop. Earned, or overshoot?
             </h1>
-            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
               When a stock falls hard, the Reaction desk researches the news
-              the same evening, grades the damage, and files a verdict with
-              every source cited. A newsroom of weekly specialist desks
-              watches the rest — glass-box research where every score is
-              inspectable and every run tells you what changed on your
-              holdings.
+              that evening, grades the damage, and files a verdict with every
+              source cited — while {liveCount - 1} weekly desks watch the rest.
             </p>
             <div className="mt-8 flex gap-3">
               <Link href="/login" className="btn-cli btn-cli-lg">
@@ -57,16 +59,31 @@ export default function Home() {
           {/* Self-framing terminal panel */}
           <div className="card-cli overflow-hidden p-0">
             <CliTitleBar title="~ investorlogical.com/reports" />
-            <div className="space-y-2 p-6 font-mono-cli text-base text-il-navy">
+            {/* Lines are deliberately short enough to survive the narrower
+                half-width column without wrapping, and there are enough of
+                them to stand level with the copy beside it. */}
+            {/* text-sm until sm: the lines are long enough to wrap mid-verdict
+                on a phone at the full size, which reads as broken output. */}
+            <div className="space-y-2 p-6 font-mono-cli text-sm text-il-navy sm:text-base">
               <div className="text-muted-foreground">~ run reaction --screen sp500,ftse350</div>
               <div>
-                <Star /> 3 drops cleared the threshold this session
+                <Star /> 847 screened · 3 cleared the threshold
               </div>
               <div>
-                <Star /> NXT.L −14.2% · verdict: mild_overshoot · 6 sources cited
+                <Star /> NXT.L −14.2% · mild_overshoot · 6 sources
+              </div>
+              <div>
+                <Star /> APP −11.8% · proportionate · 4 sources
+              </div>
+              <div>
+                <Star /> BT.A −9.4% · underreaction · 5 sources
               </div>
               <div>
                 <Star /> coverage 82% · framework v1 · evidence attached
+              </div>
+              <div className="text-muted-foreground">~ analyse NVDA --now</div>
+              <div>
+                <Star /> queued · files after tonight&apos;s close
               </div>
               <div className="text-muted-foreground">
                 ~ done in 214s <span className="cursor-blink" />
