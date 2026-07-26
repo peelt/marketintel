@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionContext } from "@/lib/auth/session";
 import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
+import { loadReactionCoverageSplit } from "@/lib/reports/reaction-coverage";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function DiagnosticsPage() {
   // Counts via the RLS-scoped client — the entitled-read policies cover these
   // tables, and the service-role client must never run on a request-reachable
   // path (see lib/supabase/service.ts).
+  const reactionSplitPromise = loadReactionCoverageSplit(supabase);
   const counts = await Promise.all(
     [
       "securities",
@@ -35,6 +37,7 @@ export default async function DiagnosticsPage() {
       return { table, count: count ?? 0 };
     }),
   );
+  const reactionSplit = await reactionSplitPromise;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -84,6 +87,56 @@ export default async function DiagnosticsPage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Reaction evidence split — UK vs US">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Feeds the London-fundamentals decision: whether LSE names actually
+          file with thinner evidence than US names (the predicted ≈18% gap from
+          the blocked LSE fundamentals source), measured over the last{" "}
+          {reactionSplit.editions || "—"} reaction edition
+          {reactionSplit.editions === 1 ? "" : "s"}
+          {reactionSplit.from
+            ? ` (${reactionSplit.from.slice(0, 10)} → ${reactionSplit.to?.slice(0, 10)})`
+            : ""}
+          .
+        </p>
+        {reactionSplit.editions === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No succeeded reaction editions yet.
+          </p>
+        ) : (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="py-1 font-medium">market</th>
+                <th className="py-1 text-right font-medium">names scored</th>
+                <th className="py-1 text-right font-medium">avg coverage</th>
+                <th className="py-1 text-right font-medium">with news grade</th>
+                <th className="py-1 text-right font-medium">with fundamentals</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              {reactionSplit.markets.map((m) => (
+                <tr key={m.market}>
+                  <td className="py-1">{m.market}</td>
+                  <td className="py-1 text-right">{m.n}</td>
+                  <td className="py-1 text-right">
+                    {m.avgCoverage === null
+                      ? "—"
+                      : `${Math.round(m.avgCoverage * 100)}%`}
+                  </td>
+                  <td className="py-1 text-right">
+                    {m.n === 0 ? "—" : `${m.withNews}/${m.n}`}
+                  </td>
+                  <td className="py-1 text-right">
+                    {m.n === 0 ? "—" : `${m.withFundamentals}/${m.n}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Section>
 
       <Section title="Manual ingest">
