@@ -339,13 +339,15 @@ export function parseGrade(
         c.macro_driver === "macro_driven")
         ? c.macro_driver
         : "unattributed";
-    const theme =
-      driver === "macro_amplified" || driver === "macro_driven"
-        ? resolveMacroTheme(
-            typeof c.macro_theme === "string" ? c.macro_theme : null,
-            themeTitles,
-          )
-        : null;
+    const claimsMacro = driver === "macro_amplified" || driver === "macro_driven";
+    const theme = claimsMacro
+      ? resolveMacroTheme(
+          typeof c.macro_theme === "string" ? c.macro_theme : null,
+          themeTitles,
+        )
+      : null;
+    // A macro claim that names no real theme is not a macro finding.
+    const resolvedDriver = claimsMacro && theme === null ? "idiosyncratic" : driver;
 
     return {
       damageSeverity: Math.round(c.damage_severity),
@@ -354,9 +356,7 @@ export function parseGrade(
       summary: c.summary,
       sources,
       confidence: c.confidence,
-      macroDriver: theme === null && driver !== "idiosyncratic" && driver !== "unattributed"
-        ? "idiosyncratic"
-        : driver,
+      macroDriver: resolvedDriver,
       macroTheme: theme,
     };
   } catch {
