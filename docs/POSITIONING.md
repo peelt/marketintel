@@ -3,7 +3,8 @@
 **Status:** Positioning baseline, PARTIALLY SUPERSEDED by the 26 Jul 2026 scope reduction
 (IMPLEMENTATION_PLAN §5, CLAUDE.md "Where we are"): the product is now the Reaction Analyser
 alone — the "newsroom of specialist agents" described below is retired (dividend/metals/ipo) or
-parked (geopolitical). The moats analysis, regulatory posture and Reaction-hero framing below
+retired as a desk (geopolitical — its macro read was later rebuilt inside Reaction as the
+drop-attribution backdrop). The moats analysis, regulatory posture and Reaction-hero framing below
 still stand; read every multi-desk passage as historical context. Pairs with
 `docs/SPECIFICATION.md` (architecture / data model / build status) — this document owns *what we
 are building and why*, the spec owns *how*.

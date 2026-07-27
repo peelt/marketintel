@@ -9,12 +9,14 @@ import type { AgentMeta, AgentName } from "./types";
  * desks are RETIRED — dividend, metals and ipo permanently (their frameworks
  * depended on fundamentals columns the current source can never populate, or
  * — ipo — the desk graded only 4 of 25 prospectuses and has no tie to
- * holdings by design), and geopolitical is parked (its engine filed at 100%
- * coverage; it is the candidate to rebuild inside Reaction's frame as the
- * "why did it drop" layer). Retired desks keep their metadata and code so
- * historical rows stay renderable in admin/debug contexts and a revival is a
- * status flip, but their crons are unregistered and no product surface shows
- * them.
+ * holdings by design), and geopolitical is retired AS A DESK but partly
+ * rebuilt: its macro read now runs inside Reaction (lib/agents/reaction/
+ * macro.ts) as the "why did it drop" backdrop, which was the only part
+ * intrinsic to Reaction's question. Its per-name exposure grading — the half
+ * that made it a second product — stays retired. Retired desks keep their
+ * metadata and code so historical rows stay renderable in admin/debug
+ * contexts and a revival is a status flip, but their crons are unregistered
+ * and no product surface shows them.
  *
  * Schedules are UTC.
  */
@@ -77,11 +79,13 @@ const META: Record<AgentName, AgentMeta> = {
     cadence: "weekly · Sun",
     schedule: "0 20 * * 0", // Sun 20:00 UTC
     modelTier: "routine", // web-researched macro read + structured per-name grading
-    // Parked 2026-07 (retired status; code and engine kept intact). The only
-    // desk that filed at 100% coverage — but its curated universe barely
-    // intersects Reaction's screen (5/39 names, zero co-filings), so as built
-    // it is a second product, not context for the hero. Candidate to rebuild
-    // inside Reaction's frame as the "why did it drop" macro layer.
+    // Retired 2026-07 as a DESK (code and engine kept intact). The only desk
+    // that filed at 100% coverage — but its curated universe barely intersects
+    // Reaction's screen (5/39 names, zero co-filings), so as built it was a
+    // second product, not context for the hero. Its macro read has since been
+    // rebuilt inside Reaction (lib/agents/reaction/macro.ts) as the backdrop
+    // each drop is attributed against; the per-name exposure grading here is
+    // what stays retired. Do not re-register this schedule.
     status: "retired",
   },
   energy: {
