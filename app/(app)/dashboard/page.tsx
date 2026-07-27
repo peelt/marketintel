@@ -157,6 +157,9 @@ export default async function DashboardPage() {
     (r) => r.agent.name !== "reaction",
   );
   const feedDrops = reactionFeed.drops.slice(0, 6);
+  // The portfolio card is currently the only card in "your names". Drives its
+  // layout: alone it goes full width, in company it returns to the grid.
+  const soloPortfolio = newsroomReports.length === 0;
 
   return (
     <>
@@ -271,13 +274,18 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* My Portfolio — YOUR money first. (The weekly specialist desks that
-            used to fill this grid were retired in the 2026-07 scope
-            reduction; newsroomReports is empty until a desk revival, so the
-            grid renders just the portfolio card.) */}
+        {/* My Portfolio — YOUR money first. The weekly specialist desks that
+            used to fill this grid were retired in the 2026-07 scope reduction,
+            so newsroomReports is empty until a desk revival. A lone card in a
+            three-column grid reads as a broken layout (one narrow card, two
+            columns of void), so when it IS alone the card goes full width and
+            splits its content the way the reaction band above does. Revive a
+            desk and the multi-card grid comes back on its own. */}
         <section className="mt-8">
           <div className="font-mono-cli text-base text-il-navy">~ your names</div>
-          <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            className={`mt-3 grid gap-4 ${soloPortfolio ? "" : "md:grid-cols-2 xl:grid-cols-3"}`}
+          >
             <Link
               href="/portfolio"
               className="card-cli card-cli-module block p-6"
@@ -292,70 +300,101 @@ export default async function DashboardPage() {
                 </div>
               </div>
 
-              {held.length > 0 ? (
-                <>
-                  <p className="mt-3 text-base leading-relaxed text-foreground">
-                    <span className="font-bold text-il-navy">
-                      {formatMoney(portfolioTotal.baseValue, base)}
-                    </span>
-                    <span
-                      className="ml-2 font-bold"
-                      style={{ color: changeColor(portfolioTotal.baseDayChange) }}
-                    >
-                      {formatSignedMoney(portfolioTotal.baseDayChange, base)}
-                      {dayChangeFraction(
-                        portfolioTotal.baseValue,
-                        portfolioTotal.baseDayChange,
-                      ) !== null && (
-                        <>
-                          {" "}
-                          (
-                          {formatSignedPercent(
-                            dayChangeFraction(
-                              portfolioTotal.baseValue,
-                              portfolioTotal.baseDayChange,
-                            ),
-                          )}
-                          )
-                        </>
-                      )}
-                    </span>
-                  </p>
-                  {attentionItems.length > 0 ? (
-                    <ul className="mt-4 space-y-2">
-                      {[...new Set(attentionItems.map((i) => i.ticker))]
-                        .slice(0, 3)
-                        .map((ticker) => (
-                          <li
-                            key={ticker}
-                            className="flex items-center gap-2 font-mono-cli text-base"
-                          >
-                            <span style={{ color: "#ee1d23" }}>⚠</span>
-                            <span className="font-bold text-il-navy">{ticker}</span>
-                            <span className="text-muted-foreground">
-                              changed — needs a look
-                            </span>
-                          </li>
-                        ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-4 text-base text-muted-foreground">
-                      No changes on your names since the last runs.
+              <div
+                className={
+                  soloPortfolio ? "mt-4 grid gap-8 lg:grid-cols-[7fr_5fr]" : ""
+                }
+              >
+                <div>
+                {held.length > 0 ? (
+                  <>
+                    <p className="mt-3 text-base leading-relaxed text-foreground">
+                      <span className="font-bold text-il-navy">
+                        {formatMoney(portfolioTotal.baseValue, base)}
+                      </span>
+                      <span
+                        className="ml-2 font-bold"
+                        style={{ color: changeColor(portfolioTotal.baseDayChange) }}
+                      >
+                        {formatSignedMoney(portfolioTotal.baseDayChange, base)}
+                        {dayChangeFraction(
+                          portfolioTotal.baseValue,
+                          portfolioTotal.baseDayChange,
+                        ) !== null && (
+                          <>
+                            {" "}
+                            (
+                            {formatSignedPercent(
+                              dayChangeFraction(
+                                portfolioTotal.baseValue,
+                                portfolioTotal.baseDayChange,
+                              ),
+                            )}
+                            )
+                          </>
+                        )}
+                      </span>
                     </p>
-                  )}
-                </>
-              ) : (
-                <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-                  Add the shares you hold to see them valued daily and get the
-                  desk&apos;s verdicts on your names when they move.
-                </p>
-              )}
+                    {attentionItems.length > 0 ? (
+                      <ul className="mt-4 space-y-2">
+                        {[...new Set(attentionItems.map((i) => i.ticker))]
+                          .slice(0, 3)
+                          .map((ticker) => (
+                            <li
+                              key={ticker}
+                              className="flex items-center gap-2 font-mono-cli text-base"
+                            >
+                              <span style={{ color: "#ee1d23" }}>⚠</span>
+                              <span className="font-bold text-il-navy">{ticker}</span>
+                              <span className="text-muted-foreground">
+                                changed — needs a look
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-base text-muted-foreground">
+                        No changes on your names since the last runs.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+                    Add the shares you hold to see them valued daily and get the
+                    desk&apos;s verdicts on your names when they move.
+                  </p>
+                )}
+                </div>
 
-              <div className="mt-4 flex items-baseline justify-between font-mono-cli text-sm text-muted-foreground">
-                <span>valued daily, {base}</span>
-                <span className="text-il-accent">
-                  {held.length > 0 ? "manage holdings →" : "add holdings →"}
-                </span>
+                {/* Wide layout: the footer becomes a right-hand column with
+                    room to say what the page actually does, mirroring the
+                    reaction band's action column. Narrow layout: the original
+                    one-line footer. */}
+                {soloPortfolio ? (
+                  <div className="mt-4 lg:mt-0 lg:border-l-2 lg:border-border lg:pl-8">
+                    <p className="font-mono-cli text-base text-il-navy">
+                      ~ {held.length > 0 ? "manage holdings" : "add holdings"}
+                    </p>
+                    <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                      {held.length > 0
+                        ? `Valued daily in ${base}. `
+                        : "Purchase price is optional. "}
+                      {held.length > 0 ? "Purchase price is" : "It is"} shown
+                      for your own reference only — it never feeds a score, and
+                      no verdict is tailored to what you hold.
+                    </p>
+                    <p className="mt-4 font-mono-cli text-sm text-il-accent">
+                      {held.length > 0 ? "manage holdings →" : "add holdings →"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex items-baseline justify-between font-mono-cli text-sm text-muted-foreground">
+                    <span>valued daily, {base}</span>
+                    <span className="text-il-accent">
+                      {held.length > 0 ? "manage holdings →" : "add holdings →"}
+                    </span>
+                  </div>
+                )}
               </div>
             </Link>
 
