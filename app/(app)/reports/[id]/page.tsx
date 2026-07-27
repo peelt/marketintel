@@ -273,7 +273,12 @@ export default async function ReportDetailPage({
   // The Geopolitical desk is a hybrid: its body_markdown IS the macro read
   // (the memo), shown prominently ABOVE the table rather than collapsed at
   // the bottom like other desks' analyst notes.
+  // The Geopolitical desk is a hybrid: its whole body IS the memo, so it
+  // replaces the analyst note. Reaction EMBEDS a macro read (its "why did it
+  // drop" backdrop) as one section of a longer report — same markdown shape,
+  // same accordion render, but the analyst note still applies.
   const isMacroMemo = report.agent_name === "geopolitical";
+  const hasMacroSection = isMacroMemo || report.agent_name === "reaction";
 
   // Partition: 0%-coverage names collapse to an exclusion note, and names
   // whose DEFINING evidence failed (reaction's news grade → cause_unconfirmed)
@@ -303,10 +308,12 @@ export default async function ReportDetailPage({
       ? rankedItems.reduce((sum, i) => sum + coverageOf(i), 0) / rankedItems.length
       : 0;
 
-  // Parse the Geopolitical memo into structured themes for the accordion
-  // render; null (any other desk, or an unparseable memo) falls back to raw
-  // markdown so nothing is ever dropped.
-  const parsedMemo = isMacroMemo ? parseMacroMemo(report.body_markdown) : null;
+  // Parse the macro read into structured themes for the accordion render;
+  // null (any other desk, no read this run, or an unparseable memo) falls back
+  // to raw markdown for the hybrid desk so nothing is ever dropped.
+  const parsedMemo = hasMacroSection
+    ? parseMacroMemo(report.body_markdown)
+    : null;
 
   return (
     <>
@@ -384,6 +391,17 @@ export default async function ReportDetailPage({
               avg coverage <CoverageBar coverage={avgCoverage} />
             </span>
           </div>
+        </section>
+      )}
+
+      {/* Reaction's macro backdrop — what was moving prices when these names
+          fell, so a drop reads as company-specific or as part of a wider move.
+          Sits between the conclusion and the names: it explains the day, it
+          doesn't rank it. Silently absent when the read failed (the body still
+          says so in the analyst note) — an empty backdrop is not a finding. */}
+      {!isMacroMemo && parsedMemo && (
+        <section className="card-cli mt-8 p-6">
+          <MacroRead memo={parsedMemo} />
         </section>
       )}
 

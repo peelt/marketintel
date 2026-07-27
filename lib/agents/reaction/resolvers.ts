@@ -11,9 +11,11 @@ import {
 } from "./metrics";
 import {
   confidenceWeight,
+  describeMacroDriver,
   gradeReactionNews,
   type ReactionNewsGrade,
 } from "./news";
+import type { MacroRead } from "./macro";
 
 /**
  * Reaction signal resolvers. The screen context (recent series + drop stats
@@ -37,6 +39,19 @@ export interface ReactionRunContext {
   /** Median 5-session return across the WHOLE broad universe (market context). */
   universeMedian5d: number | null;
   asOf: string;
+  /**
+   * The run's macro backdrop, or null when the read failed. Shared by every
+   * per-name news call so each drop is attributed against the SAME themes —
+   * that shared frame is the whole point of the layer.
+   */
+  macro: MacroRead | null;
+  /**
+   * Grades that landed this run, keyed by security id. Written by the resolver
+   * as each call returns; read by the agent when composing (attribution tags
+   * and the driver roll-up) so the report doesn't have to re-parse its own
+   * evidence text.
+   */
+  newsGrades: Map<string, ReactionNewsGrade>;
 }
 
 const NO_DATA: SignalValue = { raw: null, evidence: [] };
@@ -69,6 +84,7 @@ export function createReactionResolver(
           return1d: stats.return1d,
           return5d: stats.return5d,
           asOf: ctx.asOf,
+          macro: ctx.macro,
         });
       });
       missing.forEach((id, idx) => {
@@ -81,7 +97,9 @@ export function createReactionResolver(
     }
     const out = new Map<string, ReactionNewsGrade | null>();
     for (const id of ids) {
-      out.set(id, await (newsGrades.get(id) ?? Promise.resolve(null)));
+      const grade = await (newsGrades.get(id) ?? Promise.resolve(null));
+      if (grade) ctx.newsGrades.set(id, grade);
+      out.set(id, grade);
     }
     return out;
   }
@@ -222,11 +240,15 @@ function derived(text: string, weight: number): EvidenceItem {
 
 function newsEvidence(ticker: string, grade: ReactionNewsGrade): EvidenceItem {
   const sources = grade.sources.map((s) => `${s.title} — ${s.url}`).join("\n");
+  // The attribution rides in the evidence text, not just the report body: a
+  // reader inspecting why a name was graded as it was must be able to see that
+  // the drop was read as sector-wide rather than company-specific.
+  const driver = describeMacroDriver(grade.macroDriver, grade.macroTheme);
   return {
     type: "news_article",
     sourceTable: "web_search",
     sourceId: "",
-    text: `[${ticker} · damage ${grade.damageSeverity}/100 · ${grade.confidence}] ${grade.headline}\n\n${grade.summary}${sources ? `\n\nSources:\n${sources}` : ""}`,
+    text: `[${ticker} · damage ${grade.damageSeverity}/100 · ${grade.confidence}${driver ? ` · ${driver}` : ""}] ${grade.headline}\n\n${grade.summary}${sources ? `\n\nSources:\n${sources}` : ""}`,
     weight: confidenceWeight(grade.confidence),
   };
 }
