@@ -7,7 +7,7 @@ import {
   type ReactionNewsGrade,
 } from "@/lib/agents/reaction/news";
 import { summariseDrivers } from "@/lib/agents/reaction/agent";
-import { parseMacroMemo } from "@/lib/reports/macro-memo";
+import { extractDriverLine, parseMacroMemo } from "@/lib/reports/macro-memo";
 
 /**
  * Reaction's macro layer — the rebuilt half of the retired Geopolitical desk.
@@ -221,6 +221,54 @@ describe("driver roll-up", () => {
       expect(line.toLowerCase()).not.toContain(banned);
     }
   });
+});
+
+describe("driver roll-up extraction", () => {
+  // The agent writes this line as the last sentence of summary_markdown, and
+  // the report page assembles from structured data rather than that markdown —
+  // so these two must agree or the line is written every run and never seen.
+  const screened = "850 names screened; 9 cleared the drop threshold.";
+
+  it("pulls the macro roll-up, stripping markdown emphasis", () => {
+    const line = summariseDrivers([
+      grade("macro_driven", "Tariff escalation"),
+      grade("macro_driven", "Tariff escalation"),
+      grade("idiosyncratic"),
+    ])!;
+    const extracted = extractDriverLine(`${screened} ${line}`);
+    expect(extracted).toContain("2 of 3 graded drop(s) trace to the macro backdrop");
+    expect(extracted).toContain("Tariff escalation (2)");
+    expect(extracted).not.toContain("**");
+  });
+
+  it("pulls the all-company-specific roll-up", () => {
+    const line = summariseDrivers([grade("idiosyncratic"), grade("idiosyncratic")])!;
+    expect(extractDriverLine(`${screened} ${line}`)).toBe(
+      "All 2 graded drop(s) trace to company-specific news, not the macro backdrop.",
+    );
+  });
+
+  it("returns null when the run produced no roll-up", () => {
+    expect(extractDriverLine(screened)).toBeNull();
+    expect(extractDriverLine("")).toBeNull();
+  });
+
+  function grade(
+    macroDriver: ReactionNewsGrade["macroDriver"],
+    macroTheme: string | null = null,
+  ): ReactionNewsGrade {
+    return {
+      damageSeverity: 40,
+      disproportion: 60,
+      headline: "h",
+      summary: "s",
+      sources: [],
+      confidence: "medium",
+      corporateAction: "none",
+      macroDriver,
+      macroTheme,
+    };
+  }
 });
 
 describe("reaction macro read renders through the memo parser", () => {
