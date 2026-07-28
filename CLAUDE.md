@@ -243,6 +243,17 @@ routes resolution through Inngest.
   2026-07-26 scope reduction above. Single-name runs must NEVER be scored
   alone: three of five reaction sub-signals (framework v2) are
   rank-normalised and a cohort of one scores 100 on every rank signal.
+- **An overshoot claim presupposes the fall was REAL.** A corporate action in
+  an unadjusted price series (split, consolidation, demerger, big special
+  dividend) is the framework's maximum-disproportion shape by construction —
+  a huge decline against near-zero news damage — so it tops the ranking unless
+  it is excluded. The news call returns a structured `corporate_action` flag
+  (`none`/`suspected`/`confirmed`); anything but `none` is classified
+  `corporate_action`, demoted from ranking, and kept out of the 48h feed and
+  desk roll-ups. Suspected counts: if the desk can't say the move was real, it
+  can't call it disproportionate — same rule as a missing news grade
+  (`cause_unconfirmed`). Live failure that produced this: CGT filed #1 strong
+  overshoot at 98.4 on a 10-for-1 split, 27 Jul 2026.
 
 ## What not to do
 

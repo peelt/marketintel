@@ -49,7 +49,11 @@ export default async function ReportsPage() {
       .from("report_items")
       .select("report_id, classification")
       .in("report_id", latestIds)
-      .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
+      .not(
+        "classification",
+        "in",
+        "(insufficient_data,cause_unconfirmed,corporate_action)",
+      )
       .returns<{ report_id: string; classification: string | null }[]>();
     const acc = new Map<string, Map<string, number>>();
     for (const it of items ?? []) {

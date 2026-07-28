@@ -79,6 +79,7 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
   proportionate: "#034566",
   underreaction: "#6b7280",
   cause_unconfirmed: "#6b7280",
+  corporate_action: "#6b7280",
   // metals vocabulary
   well_positioned: "#22a87b",
   mixed: "#f6881c",

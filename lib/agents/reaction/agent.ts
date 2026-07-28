@@ -50,6 +50,7 @@ export type ReactionClassification =
   | "proportionate"
   | "underreaction"
   | "cause_unconfirmed"
+  | "corporate_action"
   | "insufficient_data";
 
 /** Outcome of screening one on-demand requested ticker. */
@@ -161,9 +162,18 @@ export class ReactionAgent extends BaseAgent {
    * that lacks it is classified cause_unconfirmed and must not compete with
    * fully-evidenced names — its remaining signals are price-derived and
    * circular (a big drop "proving" a big overshoot).
+   *
+   * The same reasoning excludes a corporate action: "overshoot" presupposes
+   * the fall was REAL, and a 10-for-1 split reads as -90% against near-zero
+   * news damage — the maximum-disproportion shape, so an artefact would
+   * otherwise top the ranking (it did: CGT, 27 Jul 2026). Suspected counts as
+   * well as confirmed: if the desk can't say the move was real, it can't call
+   * it disproportionate.
    */
   protected override demoteFromRanking(scored: CandidateScore): boolean {
     if (scored.coverage < this.coverageFloor) return true;
+    const grade = this.ctx?.newsGrades.get(scored.securityId);
+    if (grade && grade.corporateAction !== "none") return true;
     return (
       scored.criteria["earned_damage"]?.signals?.["news_damage_severity"]?.raw ==
       null
@@ -293,7 +303,11 @@ export class ReactionAgent extends BaseAgent {
     verdict?: string | null;
     classification?: string | null;
   } {
-    return classifyReaction(scored, this.ctx?.stats.get(scored.securityId) ?? null);
+    return classifyReaction(
+      scored,
+      this.ctx?.stats.get(scored.securityId) ?? null,
+      this.ctx?.newsGrades.get(scored.securityId) ?? null,
+    );
   }
 
   /**
@@ -345,7 +359,11 @@ export class ReactionAgent extends BaseAgent {
       this.ctx?.securities.get(s.securityId)?.ticker ?? "UNKNOWN";
     const classified = scored.map((s) => ({
       s,
-      ...classifyReaction(s, this.ctx?.stats.get(s.securityId) ?? null),
+      ...classifyReaction(
+        s,
+        this.ctx?.stats.get(s.securityId) ?? null,
+        this.ctx?.newsGrades.get(s.securityId) ?? null,
+      ),
     }));
 
     const overshoots = classified.filter(
@@ -355,6 +373,9 @@ export class ReactionAgent extends BaseAgent {
     );
     const unconfirmed = classified.filter(
       (c) => c.classification === "cause_unconfirmed",
+    );
+    const corporateActions = classified.filter(
+      (c) => c.classification === "corporate_action",
     );
 
     const summaryMarkdown = [
@@ -376,6 +397,13 @@ export class ReactionAgent extends BaseAgent {
           : "No screened move graded as overshoot — declines look earned or worse.",
       unconfirmed.length > 0
         ? `${unconfirmed.length} drop(s) unranked — no news grade this run: ${unconfirmed
+            .map((c) => `**${label(c.s)}**`)
+            .join(", ")}.`
+        : "",
+      // Named, not silently dropped: the screen did fire on these, and a
+      // reader who saw the price move deserves to know why they're absent.
+      corporateActions.length > 0
+        ? `${corporateActions.length} screened fall(s) were corporate actions rather than losses of value, so no overshoot verdict was filed: ${corporateActions
             .map((c) => `**${label(c.s)}**`)
             .join(", ")}.`
         : "",
@@ -436,6 +464,7 @@ export class ReactionAgent extends BaseAgent {
 export function classifyReaction(
   scored: CandidateScore,
   stats: DropStats | null,
+  grade: ReactionNewsGrade | null = null,
 ): { verdict: string; classification: ReactionClassification } {
   if (scored.coverage < MIN_COVERAGE_TO_CLASSIFY) {
     return {
@@ -450,6 +479,21 @@ export function classifyReaction(
       : stats?.return1d != null
         ? `${(stats.return1d * 100).toFixed(1)}% in a session`
         : "the screened decline";
+
+  // Before any overshoot call: did the shares actually fall? A split or
+  // consolidation in an unadjusted series looks exactly like a catastrophic
+  // drop on no news, which is the shape the framework scores highest. The
+  // move isn't disproportionate to the news — it didn't happen.
+  if (grade && grade.corporateAction !== "none") {
+    return {
+      classification: "corporate_action",
+      verdict:
+        grade.corporateAction === "confirmed"
+          ? `The ${move} reflects a corporate action, not a loss of value — ${grade.headline} No overshoot verdict is filed.`
+          : `The ${move} has the shape of a corporate action rather than a loss of value, though no source confirms it — ${grade.headline} No overshoot verdict is filed.`,
+    };
+  }
+
   const damage = scored.criteria["earned_damage"]?.signals?.["news_damage_severity"]?.raw;
 
   // "Overshoot" MEANS "fell further than the news justifies" — without a news

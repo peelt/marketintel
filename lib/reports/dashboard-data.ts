@@ -53,7 +53,12 @@ export function clearDeskCardCache(): void {
 }
 
 function isCardClassification(c: string | null): boolean {
-  return !!c && c !== "insufficient_data" && c !== "cause_unconfirmed";
+  return (
+    !!c &&
+    c !== "insufficient_data" &&
+    c !== "cause_unconfirmed" &&
+    c !== "corporate_action"
+  );
 }
 
 export async function loadDeskCards(
