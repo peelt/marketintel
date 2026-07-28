@@ -14,7 +14,7 @@ import {
   describeOnDemandOutcome,
   mergeRequestedIntoCohort,
 } from "@/lib/agents/reaction/agent";
-import { parseGrade } from "@/lib/agents/reaction/news";
+import { parseGrade, type ReactionNewsGrade } from "@/lib/agents/reaction/news";
 import { orderForRanking } from "@/lib/agents/base";
 import { hostOf, parseNewsEvidence } from "@/lib/format";
 import { parseConstituentsTable } from "@/lib/data-sources/index-constituents";
@@ -99,6 +99,22 @@ describe("classifyReaction", () => {
     };
   }
   const stats = { return5d: -0.14, return1d: -0.03 };
+  function grade(
+    over: Partial<ReactionNewsGrade> = {},
+  ): ReactionNewsGrade {
+    return {
+      damageSeverity: 60,
+      disproportion: 70,
+      headline: "A 10-for-1 share split took effect on 23 July 2026.",
+      summary: "s",
+      sources: [],
+      confidence: "high",
+      corporateAction: "none",
+      macroDriver: "unattributed",
+      macroTheme: null,
+      ...over,
+    };
+  }
 
   it("bands the composite into the four verdicts", () => {
     expect(classifyReaction(scored(80), stats).classification).toBe("strong_overshoot");
@@ -121,6 +137,35 @@ describe("classifyReaction", () => {
     expect(c.verdict).toContain("no news grade");
     expect(c.verdict).toContain("cannot be assessed");
     expect(c.verdict.toLowerCase()).not.toContain("the framework grades");
+  });
+
+  it("refuses an overshoot verdict on a corporate action — the fall isn't real", () => {
+    // The live failure (CGT, 27 Jul 2026): a 10-for-1 split showed as -90%
+    // over 5 sessions against news damage of 2/100 — maximum disproportion by
+    // construction — and topped the ranking at 98.4.
+    const split = grade({ corporateAction: "confirmed" });
+    const c = classifyReaction(scored(98), { return5d: -0.9, return1d: -0.9 }, split);
+    expect(c.classification).toBe("corporate_action");
+    expect(c.verdict).toContain("corporate action");
+    expect(c.verdict).toContain("No overshoot verdict is filed");
+    expect(c.verdict.toLowerCase()).not.toContain("disproportionate");
+  });
+
+  it("treats a suspected corporate action the same way", () => {
+    // If the desk can't say the move was real, it can't call it
+    // disproportionate — same rule as a missing news grade.
+    const c = classifyReaction(
+      scored(98),
+      { return5d: -0.5, return1d: -0.5 },
+      grade({ corporateAction: "suspected" }),
+    );
+    expect(c.classification).toBe("corporate_action");
+    expect(c.verdict).toContain("no source confirms it");
+  });
+
+  it("leaves a genuine fall alone when no corporate action is flagged", () => {
+    const c = classifyReaction(scored(80), stats, grade({ corporateAction: "none" }));
+    expect(c.classification).toBe("strong_overshoot");
   });
 
   it("verdict text is factual and impersonal (I2)", () => {
@@ -149,6 +194,24 @@ describe("news grade parsing", () => {
     expect(g!.damageSeverity).toBe(35);
     expect(g!.disproportion).toBe(78);
     expect(g!.sources).toHaveLength(1);
+  });
+
+  it("reads the corporate-action flag, defaulting to none", () => {
+    expect(parseGrade(JSON.stringify(valid))!.corporateAction).toBe("none");
+    expect(
+      parseGrade(JSON.stringify({ ...valid, corporate_action: "confirmed" }))!
+        .corporateAction,
+    ).toBe("confirmed");
+    expect(
+      parseGrade(JSON.stringify({ ...valid, corporate_action: "suspected" }))!
+        .corporateAction,
+    ).toBe("suspected");
+    // The flag pulls a name out of the ranking, so it must be positively
+    // asserted — anything unrecognised means "the shares genuinely fell".
+    expect(
+      parseGrade(JSON.stringify({ ...valid, corporate_action: "maybe?" }))!
+        .corporateAction,
+    ).toBe("none");
   });
 
   it("rejects out-of-range grades, bad confidence, and non-JSON", () => {

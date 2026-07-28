@@ -288,10 +288,21 @@ export default async function ReportDetailPage({
   const unconfirmedItems = allItems.filter(
     (i) => i.classification === "cause_unconfirmed",
   );
-  const rankedItems = allItems.filter(
-    (i) => coverageOf(i) > 0 && i.classification !== "cause_unconfirmed",
+  // A corporate action (split, consolidation, demerger) is not a fall at all,
+  // so it can't be ranked for overshoot-ness — it gets its own note saying
+  // what the price series was actually showing.
+  const corporateActionItems = allItems.filter(
+    (i) => i.classification === "corporate_action",
   );
-  const excludedItems = allItems.filter((i) => coverageOf(i) === 0);
+  const rankedItems = allItems.filter(
+    (i) =>
+      coverageOf(i) > 0 &&
+      i.classification !== "cause_unconfirmed" &&
+      i.classification !== "corporate_action",
+  );
+  const excludedItems = allItems.filter(
+    (i) => coverageOf(i) === 0 && i.classification !== "corporate_action",
+  );
 
   const classified = rankedItems.filter(
     (i) => i.classification && i.classification !== "insufficient_data",
@@ -658,6 +669,38 @@ export default async function ReportDetailPage({
             These moves are real, but the news research behind the verdict
             didn&apos;t complete — so no overshoot judgment is made. They
             re-qualify automatically on the next run.
+          </p>
+        </section>
+      )}
+
+      {/* Corporate actions — the screen fired, but the shares didn't fall.
+          Named rather than hidden: a reader who saw the price move needs to
+          know the desk saw it too and what it actually was. */}
+      {corporateActionItems.length > 0 && (
+        <section className="card-cli mt-6 px-5 py-4">
+          <div className="font-mono-cli text-base text-il-navy">
+            ~ {corporateActionItems.length} screened fall
+            {corporateActionItems.length === 1 ? "" : "s"} — corporate action,
+            not a loss of value
+          </div>
+          <ul className="mt-3 space-y-2">
+            {corporateActionItems.map((it) => (
+              <li key={it.id} className="text-base leading-relaxed">
+                <span className="font-mono-cli font-bold text-il-navy">
+                  {it.security ? securityDisplayLabel(it.security) : "—"}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                  {it.verdict ??
+                    "The screened fall reflects a corporate action rather than a loss of value."}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-muted-foreground">
+            A split, consolidation, demerger or large special dividend shows up
+            in an unadjusted price series as a steep drop. These aren&apos;t
+            ranked for overshoot: the price move the framework would score
+            didn&apos;t happen.
           </p>
         </section>
       )}

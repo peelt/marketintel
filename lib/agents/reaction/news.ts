@@ -59,6 +59,15 @@ export type MacroDriver =
   | "macro_driven"
   | "unattributed";
 
+/**
+ * Whether the screened fall is a corporate action / data artefact rather than
+ * a loss of value. An "overshoot" claim presupposes the price move was REAL —
+ * a 10-for-1 split reads as a -90% drop against near-zero news damage, which
+ * is the maximum-disproportion shape, so without this the artefact tops the
+ * ranking. Anything but "none" is excluded from the ranking (see the agent).
+ */
+export type CorporateActionFlag = "none" | "suspected" | "confirmed";
+
 export interface ReactionNewsGrade {
   damageSeverity: number;
   disproportion: number;
@@ -66,6 +75,7 @@ export interface ReactionNewsGrade {
   summary: string;
   sources: { url: string; title: string }[];
   confidence: "low" | "medium" | "high";
+  corporateAction: CorporateActionFlag;
   /** `unattributed` whenever the run had no macro read. */
   macroDriver: MacroDriver;
   /**
@@ -115,6 +125,12 @@ const BASE_PROPERTIES = {
     description:
       "low when no clear cause was found or sources conflict; high only when the cause is well-documented.",
   },
+  corporate_action: {
+    type: "string",
+    enum: ["none", "suspected", "confirmed"],
+    description:
+      "Whether the screened fall is a CORPORATE ACTION or data artefact rather than a loss of value: a share split or subdivision, consolidation/reverse split, demerger or spin-off, a large special dividend going ex, a redenomination, or a price series that mixes pre- and post-action closes. 'confirmed' = the action is documented and dated in the sources; 'suspected' = the pattern fits (e.g. a fall very close to an exact ratio such as -90% or -50%, with no news to explain it) but no source confirms it; 'none' = the shares genuinely fell.",
+  },
 } as const;
 
 const MACRO_PROPERTIES = {
@@ -138,6 +154,7 @@ const BASE_REQUIRED = [
   "summary",
   "sources",
   "confidence",
+  "corporate_action",
 ] as const;
 
 const GRADE_SCHEMA = {
@@ -166,6 +183,7 @@ Discipline:
 - Search for and rely on concrete, current reporting. Cite what you used.
 - Grades are ABSOLUTE (calibrated across all stocks and time), not relative to today's screen.
 - If you cannot identify a credible cause, say so: damage_severity near 50, confidence "low", and a summary stating that no clear cause was found.
+- FIRST, check whether the shares actually fell. A very large drop with no matching news is usually a corporate action — a split, consolidation, demerger or large special dividend — showing up in an unadjusted price series, not a loss of value. Check the company's own announcements for the dates involved before grading damage.
 - Describe the security and the move. Never address any reader's holdings, decisions, or circumstances; no recommendations.`;
 
 /**
@@ -349,6 +367,13 @@ export function parseGrade(
     // A macro claim that names no real theme is not a macro finding.
     const resolvedDriver = claimsMacro && theme === null ? "idiosyncratic" : driver;
 
+    // Unknown/absent → "none": the flag must be positively asserted before it
+    // pulls a name out of the ranking.
+    const corporateAction: CorporateActionFlag =
+      c.corporate_action === "confirmed" || c.corporate_action === "suspected"
+        ? c.corporate_action
+        : "none";
+
     return {
       damageSeverity: Math.round(c.damage_severity),
       disproportion: Math.round(c.disproportion),
@@ -356,6 +381,7 @@ export function parseGrade(
       summary: c.summary,
       sources,
       confidence: c.confidence,
+      corporateAction,
       macroDriver: resolvedDriver,
       macroTheme: theme,
     };

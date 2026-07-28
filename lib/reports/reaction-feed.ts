@@ -114,7 +114,13 @@ export async function loadReactionFeed(
       "security_id, classification, composite_score, scoring_breakdown, report_id, security:securities(ticker, name)",
     )
     .in("report_id", [...reportTimes.keys()])
-    .not("classification", "in", "(insufficient_data,cause_unconfirmed)")
+    // A corporate action is not a drop — it must never surface in the
+    // rolling 48h feed as one.
+    .not(
+      "classification",
+      "in",
+      "(insufficient_data,cause_unconfirmed,corporate_action)",
+    )
     .returns<ItemRow[]>();
   if (itemsErr) throw new Error(`reaction feed items: ${getErrorMessage(itemsErr)}`);
 
