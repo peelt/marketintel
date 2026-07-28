@@ -133,6 +133,26 @@ export function parseMacroMemo(markdown: string): ParsedMacroMemo | null {
   return { intro, themes, sources, scoringMarkdown: scoringMarkdown || null };
 }
 
+/**
+ * Pull the drop-attribution roll-up out of a Reaction summary — "3 of 9 graded
+ * drop(s) trace to the macro backdrop — most to X (2)…".
+ *
+ * The agent emits it as the LAST sentence of summary_markdown (see
+ * `summariseDrivers`), and the report page assembles itself from structured
+ * data rather than rendering that markdown, so without this the line is
+ * written every run and never seen. It belongs on the macro strip: it answers
+ * "is this one story or many?" exactly where the themes are.
+ *
+ * Parses our own known output and returns null when the shape isn't there —
+ * runs with no macro read produce no roll-up at all.
+ */
+export function extractDriverLine(summaryMarkdown: string): string | null {
+  const m = /(?:All \d+ graded drop|\d+ of \d+ graded drop)[\s\S]*$/.exec(
+    summaryMarkdown,
+  );
+  return m ? stripInlineMarkdown(m[0]).trim() || null : null;
+}
+
 /** Confidence → traffic-light colour for the small memo pill. */
 export function confidenceColor(confidence: string | null): string {
   switch (confidence) {

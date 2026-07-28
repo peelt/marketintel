@@ -80,10 +80,14 @@ theme is matched back to a real one (`resolveMacroTheme`) so an invented theme
 never reaches evidence; attribution rides in the news evidence text and the
 report body, not in any score. The report emits the retired desk's `## Macro
 read` markdown shape, so `lib/reports/macro-memo.ts` + `components/
-macro-read.tsx` render it as theme accordions for free. Next step is an
-audit of filed editions (what share attribute, and do macro-driven names'
-disproportion grades actually separate) before any surface or weighting
-follow-up.
+macro-read.tsx` render it for free — but on a Reaction report it renders
+**compact** (`<MacroRead compact>`: heading, leading theme titles as chips,
+and the attribution roll-up, everything else a click away). Rendered open it
+ran to a screen of market commentary between the conclusion and the names it
+exists to support. Geopolitical's archived editions keep the full accordions —
+there the memo IS the report. Next step is an audit of filed editions (what
+share attribute, and do macro-driven names' disproportion grades actually
+separate) before any weighting follow-up.
 
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/

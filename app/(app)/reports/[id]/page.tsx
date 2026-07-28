@@ -25,7 +25,7 @@ import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 import { MacroRead } from "@/components/macro-read";
-import { parseMacroMemo } from "@/lib/reports/macro-memo";
+import { extractDriverLine, parseMacroMemo } from "@/lib/reports/macro-memo";
 
 export const dynamic = "force-dynamic";
 
@@ -408,11 +408,18 @@ export default async function ReportDetailPage({
       {/* Reaction's macro backdrop — what was moving prices when these names
           fell, so a drop reads as company-specific or as part of a wider move.
           Sits between the conclusion and the names: it explains the day, it
-          doesn't rank it. Silently absent when the read failed (the body still
-          says so in the analyst note) — an empty backdrop is not a finding. */}
+          doesn't rank it. COMPACT by default — rendered open it ran to a
+          screen of market commentary between the conclusion and the names,
+          burying what it was there to support. Silently absent when the read
+          failed (the body still says so in the analyst note) — an empty
+          backdrop is not a finding. */}
       {!isMacroMemo && parsedMemo && (
-        <section className="card-cli mt-8 p-6">
-          <MacroRead memo={parsedMemo} />
+        <section className="card-cli mt-8 p-5">
+          <MacroRead
+            memo={parsedMemo}
+            compact
+            driverLine={extractDriverLine(report.summary_markdown)}
+          />
         </section>
       )}
 
