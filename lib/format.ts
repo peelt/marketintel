@@ -125,6 +125,7 @@ export function humanizeDateTime(iso: string, now: Date = new Date()): string {
 const CLASSIFICATION_PHRASES: Record<string, string> = {
   insufficient_data: "not enough data",
   cause_unconfirmed: "cause not yet confirmed",
+  corporate_action: "corporate action, not a fall",
   shell_or_blank_check: "shell / blank cheque",
 };
 

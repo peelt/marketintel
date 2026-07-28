@@ -23,7 +23,12 @@ interface ClassifiedName {
 }
 
 function isReal(c: string | null): c is string {
-  return !!c && c !== "insufficient_data" && c !== "cause_unconfirmed";
+  return (
+    !!c &&
+    c !== "insufficient_data" &&
+    c !== "cause_unconfirmed" &&
+    c !== "corporate_action"
+  );
 }
 
 export function computeDeskDelta(

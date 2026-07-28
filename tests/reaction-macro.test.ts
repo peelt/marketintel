@@ -184,6 +184,7 @@ describe("driver roll-up", () => {
     summary: "s",
     sources: [],
     confidence: "medium",
+    corporateAction: "none",
     macroDriver,
     macroTheme,
   });
