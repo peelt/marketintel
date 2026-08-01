@@ -321,14 +321,24 @@ export interface ParsedNewsEvidence {
   gradeLabel: string;
   grade: number | null;
   confidence: string | null;
+  /** Macro attribution when present ("macro_driven"), null on older rows. */
+  driver: string | null;
   headline: string;
   summary: string;
   sources: { title: string; url: string }[];
 }
 
 export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
+  // Head shapes across row generations:
+  //   [TICKER · damage 35/100 · high]                  (original)
+  //   [TICKER · damage 35/100 · high · macro_driven]   (macro-attribution layer)
+  // The driver segment is optional — when the head regex fails, the WHOLE card
+  // degrades to a raw-text dump (unlinked URLs and all), so this parser must
+  // keep accepting every shape the agent has ever persisted.
   const head =
-    /^\[([^\]·]+)·\s*([a-z][a-z ]*?)\s+(\d{1,3})\/100\s*·\s*(\w+)\]\s*/.exec(text);
+    /^\[([^\]·]+)·\s*([a-z][a-z ]*?)\s+(\d{1,3})\/100\s*·\s*(\w+)(?:\s*·\s*([a-z_]+))?\]\s*/.exec(
+      text,
+    );
   if (!head) return null;
 
   const rest = text.slice(head[0].length);
@@ -361,10 +371,34 @@ export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
     gradeLabel: head[2].trim(),
     grade: Number.isFinite(Number(head[3])) ? Number(head[3]) : null,
     confidence: head[4] ?? null,
+    driver: head[5] ?? null,
     headline,
     summary,
-    sources,
+    sources: dedupeSources(sources),
   };
+}
+
+/**
+ * Drop duplicate sources: same URL, or the same headline syndicated across
+ * outlets (the researcher regularly returns one story via two wires). First
+ * occurrence wins — order encodes the researcher's own ranking.
+ */
+function dedupeSources(
+  sources: { title: string; url: string }[],
+): { title: string; url: string }[] {
+  const seenUrl = new Set<string>();
+  const seenTitle = new Set<string>();
+  const out: { title: string; url: string }[] = [];
+  for (const s of sources) {
+    const urlKey = s.url.replace(/\/+$/, "").toLowerCase();
+    const titleKey = s.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (seenUrl.has(urlKey)) continue;
+    if (titleKey && seenTitle.has(titleKey)) continue;
+    seenUrl.add(urlKey);
+    if (titleKey) seenTitle.add(titleKey);
+    out.push(s);
+  }
+  return out;
 }
 
 /** Hostname for display ("ts2.tech") — falls back to the raw string. */
