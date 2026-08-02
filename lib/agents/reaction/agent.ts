@@ -9,12 +9,14 @@ import type {
 import type { CandidateScore, SignalResolverRegistry } from "@/lib/scoring/types";
 import { loadBroadUniverse, loadRecentSeries } from "./data";
 import {
+  DEFAULT_THRESHOLDS,
   dropSeverity,
   dropStats,
   median,
   passesDropScreen,
   thresholdsFromParams,
   type DropStats,
+  type InclusionThresholds,
 } from "./metrics";
 import { createReactionResolver, type ReactionRunContext } from "./resolvers";
 import { researchReactionMacro, type MacroRead } from "./macro";
@@ -182,6 +184,8 @@ export class ReactionAgent extends BaseAgent {
 
   private ctx: ReactionRunContext | null = null;
   private screenSummary = { universe: 0, screened: 0, capped: 0 };
+  /** Pinned at screen time so verdicts quote the leg that actually cleared. */
+  private thresholds: InclusionThresholds = DEFAULT_THRESHOLDS;
   /** Set when this run is an on-demand per-ticker request. */
   private scoped: {
     outcomes: OnDemandOutcome[];
@@ -197,6 +201,7 @@ export class ReactionAgent extends BaseAgent {
     // same warm process.
     this.scoped = null;
     const thresholds = thresholdsFromParams(framework.params);
+    this.thresholds = thresholds;
     const asOf = new Date().toISOString().slice(0, 10);
     const universe = await loadBroadUniverse();
     const series = await loadRecentSeries(
@@ -307,6 +312,7 @@ export class ReactionAgent extends BaseAgent {
       scored,
       this.ctx?.stats.get(scored.securityId) ?? null,
       this.ctx?.newsGrades.get(scored.securityId) ?? null,
+      this.thresholds,
     );
   }
 
@@ -363,6 +369,7 @@ export class ReactionAgent extends BaseAgent {
         s,
         this.ctx?.stats.get(s.securityId) ?? null,
         this.ctx?.newsGrades.get(s.securityId) ?? null,
+        this.thresholds,
       ),
     }));
 
@@ -460,11 +467,42 @@ export class ReactionAgent extends BaseAgent {
   }
 }
 
+/**
+ * Which move does a verdict quote? The leg of the screen the name actually
+ * cleared — NOT unconditionally the 5-session number. A name that qualified on
+ * the 1-day leg can have a POSITIVE 5-session return (it rallied, then fell
+ * hard today), and quoting that read as nonsense in filed reports: "the
+ * framework grades +4.1% over 5 sessions … as proportionate" (LITE, 27 Jul).
+ * When both legs cleared, quote the more severe. Pure; exported for tests.
+ */
+export function describeScreenedMove(
+  stats: DropStats | null,
+  thresholds: InclusionThresholds = DEFAULT_THRESHOLDS,
+): string {
+  const r5 = stats?.return5d ?? null;
+  const r1 = stats?.return1d ?? null;
+  const fell5 = r5 !== null && r5 <= -thresholds.drawdown5dPct / 100;
+  const fell1 = r1 !== null && r1 <= -thresholds.drop1dPct / 100;
+  const day = (v: number) => `${(v * 100).toFixed(1)}% in a session`;
+  const week = (v: number) => `${(v * 100).toFixed(1)}% over 5 sessions`;
+
+  if (fell5 && fell1) return r5! <= r1! ? week(r5!) : day(r1!);
+  if (fell5) return week(r5!);
+  if (fell1) return day(r1!);
+  // Nothing cleared (defensive — scored names cleared by construction):
+  // quote the worse actual move rather than a rise.
+  if (r5 !== null && r1 !== null) return r5 <= r1 ? week(r5) : day(r1);
+  if (r5 !== null) return week(r5);
+  if (r1 !== null) return day(r1);
+  return "the screened decline";
+}
+
 /** Pure verdict banding — exported for tests. Impersonal language (I2). */
 export function classifyReaction(
   scored: CandidateScore,
   stats: DropStats | null,
   grade: ReactionNewsGrade | null = null,
+  thresholds: InclusionThresholds = DEFAULT_THRESHOLDS,
 ): { verdict: string; classification: ReactionClassification } {
   if (scored.coverage < MIN_COVERAGE_TO_CLASSIFY) {
     return {
@@ -473,12 +511,7 @@ export function classifyReaction(
     };
   }
 
-  const move =
-    stats?.return5d != null
-      ? `${(stats.return5d * 100).toFixed(1)}% over 5 sessions`
-      : stats?.return1d != null
-        ? `${(stats.return1d * 100).toFixed(1)}% in a session`
-        : "the screened decline";
+  const move = describeScreenedMove(stats, thresholds);
 
   // Before any overshoot call: did the shares actually fall? A split or
   // consolidation in an unadjusted series looks exactly like a catastrophic
