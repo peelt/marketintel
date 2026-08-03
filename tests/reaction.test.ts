@@ -12,6 +12,7 @@ import {
 import {
   classifyReaction,
   describeOnDemandOutcome,
+  describeScreenedMove,
   mergeRequestedIntoCohort,
 } from "@/lib/agents/reaction/agent";
 import { parseGrade, type ReactionNewsGrade } from "@/lib/agents/reaction/news";
@@ -178,6 +179,40 @@ describe("classifyReaction", () => {
   });
 });
 
+describe("describeScreenedMove (verdicts quote the leg that cleared)", () => {
+  const t = { drawdown5dPct: 12, drop1dPct: 8 };
+
+  it("quotes the 1-day fall when the 5-session return is positive", () => {
+    // The filed regression: LITE qualified on the day leg while UP 4.1% over
+    // 5 sessions — the verdict read "grades +4.1% over 5 sessions" nonsense.
+    expect(
+      describeScreenedMove({ return5d: 0.041, return1d: -0.09 }, t),
+    ).toBe("-9.0% in a session");
+  });
+
+  it("quotes the 5-session leg when that is what cleared", () => {
+    expect(
+      describeScreenedMove({ return5d: -0.14, return1d: -0.03 }, t),
+    ).toBe("-14.0% over 5 sessions");
+  });
+
+  it("quotes the more severe leg when both cleared", () => {
+    expect(
+      describeScreenedMove({ return5d: -0.31, return1d: -0.1 }, t),
+    ).toBe("-31.0% over 5 sessions");
+    expect(
+      describeScreenedMove({ return5d: -0.13, return1d: -0.2 }, t),
+    ).toBe("-20.0% in a session");
+  });
+
+  it("falls back to the worse actual move, then a neutral phrase", () => {
+    expect(
+      describeScreenedMove({ return5d: -0.05, return1d: -0.02 }, t),
+    ).toBe("-5.0% over 5 sessions");
+    expect(describeScreenedMove(null, t)).toBe("the screened decline");
+  });
+});
+
 describe("news grade parsing", () => {
   const valid = {
     damage_severity: 35,
@@ -313,6 +348,38 @@ describe("news evidence parsing (report presentation)", () => {
 
   it("returns null for non-matching text so callers fall back to plain rendering", () => {
     expect(parseNewsEvidence("just some derived metric text")).toBeNull();
+  });
+
+  it("parses the macro-attribution head shape (the raw-URL regression)", () => {
+    // The driver segment broke the head regex, so every new-format row fell
+    // back to a raw-text dump with unlinked URLs — this locks the fix.
+    const text =
+      "[SNDK · damage 35/100 · high · macro_driven] Sandisk slid with the AI-memory complex.\n\n" +
+      "Sources:\nWhy Sandisk Stock Is Sinking — https://www.fool.com/investing/sndk";
+    const p = parseNewsEvidence(text);
+    expect(p).not.toBeNull();
+    expect(p!.confidence).toBe("high");
+    expect(p!.driver).toBe("macro_driven");
+    expect(p!.sources).toHaveLength(1);
+    // Old shape still parses, driver null
+    expect(
+      parseNewsEvidence("[AXON · damage 15/100 · high] Headline.")!.driver,
+    ).toBeNull();
+  });
+
+  it("dedupes syndicated sources by URL and by matching headline", () => {
+    const text =
+      "[SNDK · damage 35/100 · high] Headline.\n\n" +
+      "Sources:\n" +
+      "Kioxia's outlook miss clouds optimism — https://japantimes.co.jp/kioxia\n" +
+      "Kioxia's Outlook Miss Clouds Optimism — https://bloomberg.com/kioxia-story\n" +
+      "Kioxia's outlook miss clouds optimism — https://japantimes.co.jp/kioxia\n" +
+      "A different story — https://ft.com/other";
+    const p = parseNewsEvidence(text);
+    expect(p!.sources.map((s) => s.url)).toEqual([
+      "https://japantimes.co.jp/kioxia",
+      "https://ft.com/other",
+    ]);
   });
 
   it("hostOf strips www and survives junk", () => {
