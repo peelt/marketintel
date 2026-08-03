@@ -41,7 +41,19 @@ export async function loadScorecard(
     .eq("agent_name", "reaction")
     .order("t0_date", { ascending: true })
     .returns<DbRow[]>();
-  if (error) throw new Error(`scorecard load: ${getErrorMessage(error)}`);
+  if (error) {
+    // Deploy-order tolerance: the code can reach production before migration
+    // 0016 has been applied. A missing table must degrade to the empty state
+    // ("no outcomes computed yet"), not 500 the whole Data health page.
+    console.error(`scorecard load: ${getErrorMessage(error)}`);
+    return {
+      bands: summariseBands([]),
+      totalOutcomes: 0,
+      from: null,
+      to: null,
+      computedAt: null,
+    };
+  }
 
   const rows: OutcomeRow[] = (data ?? []).map((r) => ({
     classification: r.classification,
