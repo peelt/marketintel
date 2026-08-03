@@ -5,6 +5,8 @@ import { getSessionContext } from "@/lib/auth/session";
 import { listReadyAdapters, listStubbedAdapters } from "@/lib/data-sources";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 import { loadReactionCoverageSplit } from "@/lib/reports/reaction-coverage";
+import { loadScorecard } from "@/lib/scorecard/load";
+import { WINDOWS } from "@/lib/scorecard/calc";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,7 @@ export default async function DiagnosticsPage() {
   // tables, and the service-role client must never run on a request-reachable
   // path (see lib/supabase/service.ts).
   const reactionSplitPromise = loadReactionCoverageSplit(supabase);
+  const scorecardPromise = loadScorecard(supabase);
   const counts = await Promise.all(
     [
       "securities",
@@ -38,6 +41,7 @@ export default async function DiagnosticsPage() {
     }),
   );
   const reactionSplit = await reactionSplitPromise;
+  const scorecard = await scorecardPromise;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -87,6 +91,74 @@ export default async function DiagnosticsPage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Verdict scorecard — how the bands resolved">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Grades the framework, not securities: each classified reaction
+          verdict&apos;s forward return at t+1 / t+5 / t+20 sessions,{" "}
+          <strong>in excess of the broad-universe median</strong> over the same
+          window (a raw return would credit every band with any market-wide
+          bounce). Hit rate is measured against each band&apos;s own claim —
+          overshoots predict positive excess, underreaction negative,
+          proportionate makes no directional claim. Owner-only while n is
+          small; graduates to a user-facing track record at ≥4 weeks and ≥30
+          observations per headline band.
+          {scorecard.from
+            ? ` Verdicts ${scorecard.from} → ${scorecard.to}.`
+            : ""}
+        </p>
+        {scorecard.totalOutcomes === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No outcomes computed yet — the scorecard job fills this after the
+            next price refresh.
+          </p>
+        ) : (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="py-1 font-medium">band</th>
+                <th className="py-1 text-right font-medium">obs (names)</th>
+                {WINDOWS.map((w) => (
+                  <th key={w} className="py-1 text-right font-medium">
+                    t+{w} excess
+                  </th>
+                ))}
+                {WINDOWS.map((w) => (
+                  <th key={w} className="py-1 text-right font-medium">
+                    hit t+{w}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              {scorecard.bands.map((b) => (
+                <tr key={b.classification}>
+                  <td className="py-1">{b.classification.replace(/_/g, " ")}</td>
+                  <td className="py-1 text-right">
+                    {b.observations} ({b.uniqueNames})
+                  </td>
+                  {WINDOWS.map((w) => (
+                    <td key={w} className="py-1 text-right">
+                      {b.medianExcess[w] === null
+                        ? b.pending[w] > 0
+                          ? "pending"
+                          : "—"
+                        : `${(b.medianExcess[w]! * 100).toFixed(1)}%`}
+                    </td>
+                  ))}
+                  {WINDOWS.map((w) => (
+                    <td key={w} className="py-1 text-right">
+                      {b.hitRate[w] === null
+                        ? "—"
+                        : `${Math.round(b.hitRate[w]! * 100)}%`}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Section>
 
       <Section title="Reaction evidence split — UK vs US">

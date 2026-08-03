@@ -59,8 +59,17 @@ to have to do this"). A Monthly Brief is parked for the marketing era.
 **The London fundamentals roadmap item is CLOSED** — the audit showed the gap
 was cross-market and source-structural, not LSE-specific; with the
 fundamentals-dependent desks retired, no live signal needs a fundamentals
-feed, so no paid source is warranted. Remaining roadmap: on-demand resolution
-of untracked tickers via Inngest, paid gate.
+feed, so no paid source is warranted. **Verdict scorecard (live, owner-only):**
+migration 0016 `verdict_outcomes` + `verdict-scorecard` Inngest job (fires on
+the nightly price event; cron backstop) persist each classified reaction
+verdict's t+1/t+5/t+20 forward return AND the broad-universe median over the
+same window — the metric is EXCESS vs universe (raw returns credit every band
+with any market-wide bounce), hit rate is per-band-claim (overshoots predict
+positive excess, underreaction negative, proportionate no claim), repeat
+flags report observations and unique names separately, unmatured windows are
+"pending" never 0. Renders on Data health; graduates to a user-facing track
+record only at ≥4 weeks AND ≥30 observations per headline band. Remaining
+roadmap: on-demand resolution of untracked tickers via Inngest, paid gate.
 
 **Macro layer (live, in Reaction):** one web-research call per run
 (`lib/agents/reaction/macro.ts`) establishes the themes currently *moving
