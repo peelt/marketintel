@@ -12,10 +12,16 @@ import {
 import {
   classifyReaction,
   describeOnDemandOutcome,
+  describeRepeatFlag,
   describeScreenedMove,
   mergeRequestedIntoCohort,
 } from "@/lib/agents/reaction/agent";
-import { parseGrade, type ReactionNewsGrade } from "@/lib/agents/reaction/news";
+import { returnSinceDate } from "@/lib/agents/reaction/prior-flags";
+import {
+  describeMacroDriver,
+  parseGrade,
+  type ReactionNewsGrade,
+} from "@/lib/agents/reaction/news";
 import { orderForRanking } from "@/lib/agents/base";
 import { hostOf, parseNewsEvidence } from "@/lib/format";
 import { parseConstituentsTable } from "@/lib/data-sources/index-constituents";
@@ -78,7 +84,11 @@ describe("return and drop metrics", () => {
   });
 
   it("dropStats carries nulls through, never zeros", () => {
-    expect(dropStats([])).toEqual({ return1d: null, return5d: null });
+    expect(dropStats([])).toEqual({
+      return1d: null,
+      return5d: null,
+      asOf: null,
+    });
   });
 });
 
@@ -350,21 +360,73 @@ describe("news evidence parsing (report presentation)", () => {
     expect(parseNewsEvidence("just some derived metric text")).toBeNull();
   });
 
-  it("parses the macro-attribution head shape (the raw-URL regression)", () => {
-    // The driver segment broke the head regex, so every new-format row fell
-    // back to a raw-text dump with unlinked URLs — this locks the fix.
+  it("parses the REAL macro-attribution head (the raw-URL regression)", () => {
+    // The persisted driver is describeMacroDriver's output: a hyphenated word
+    // AND its own "·" before a free-text theme. Two earlier fixes assumed a
+    // single token like "macro_driven" and still failed on every live row, so
+    // this test uses the exact production shape.
     const text =
-      "[SNDK · damage 35/100 · high · macro_driven] Sandisk slid with the AI-memory complex.\n\n" +
-      "Sources:\nWhy Sandisk Stock Is Sinking — https://www.fool.com/investing/sndk";
+      "[FICO · damage 20/100 · high · macro-amplified · AI infrastructure / chip stock volatility] " +
+      "Fair Isaac slid on mixed quarterly results.\n\n" +
+      "Sources:\nWhy Fair Isaac Stock Is Trading Lower - StockStory — https://stockstory.org/us/stocks/nyse/fico";
     const p = parseNewsEvidence(text);
     expect(p).not.toBeNull();
+    expect(p!.ticker).toBe("FICO");
+    expect(p!.gradeLabel).toBe("damage");
+    expect(p!.grade).toBe(20);
     expect(p!.confidence).toBe("high");
-    expect(p!.driver).toBe("macro_driven");
-    expect(p!.sources).toHaveLength(1);
-    // Old shape still parses, driver null
-    expect(
-      parseNewsEvidence("[AXON · damage 15/100 · high] Headline.")!.driver,
-    ).toBeNull();
+    expect(p!.driver).toBe(
+      "macro-amplified · AI infrastructure / chip stock volatility",
+    );
+    expect(p!.sources).toEqual([
+      {
+        title: "Why Fair Isaac Stock Is Trading Lower - StockStory",
+        url: "https://stockstory.org/us/stocks/nyse/fico",
+      },
+    ]);
+  });
+
+  it("parses every head shape the producer can emit (drift guard)", () => {
+    // Composed through the REAL producer so a change to describeMacroDriver
+    // fails here rather than silently degrading the card in production.
+    const cases: [string | null, string | null][] = [
+      ["macro_driven", "Fed rate-hike repricing"],
+      ["macro_amplified", "AI capex rotation and semis"],
+      ["idiosyncratic", null],
+      ["unattributed", null],
+    ];
+    for (const [driverKind, theme] of cases) {
+      const driver = describeMacroDriver(
+        driverKind as Parameters<typeof describeMacroDriver>[0],
+        theme,
+      );
+      const text = `[TEST · damage 40/100 · medium${driver ? ` · ${driver}` : ""}] Headline.\n\nBody.`;
+      const p = parseNewsEvidence(text);
+      expect(p, `failed for driver=${driver}`).not.toBeNull();
+      expect(p!.ticker).toBe("TEST");
+      expect(p!.grade).toBe(40);
+      expect(p!.confidence).toBe("medium");
+      expect(p!.driver).toBe(driver);
+    }
+  });
+
+  it("keeps em-dashes inside a headline instead of truncating the title", () => {
+    const p = parseNewsEvidence(
+      "[X · damage 10/100 · low] H.\n\nSources:\n" +
+        "Kioxia's miss — what it means — for memory — https://ft.com/a",
+    );
+    expect(p!.sources[0]).toEqual({
+      title: "Kioxia's miss — what it means — for memory",
+      url: "https://ft.com/a",
+    });
+  });
+
+  it("still parses pre-macro rows and other desks' grade labels", () => {
+    const old = parseNewsEvidence("[AXON · damage 15/100 · high] Headline.");
+    expect(old!.driver).toBeNull();
+    const metals = parseNewsEvidence("[AEM · cost margin 80/100 · medium] Headline.");
+    expect(metals!.gradeLabel).toBe("cost margin");
+    expect(metals!.grade).toBe(80);
   });
 
   it("dedupes syndicated sources by URL and by matching headline", () => {
@@ -452,5 +514,113 @@ describe("on-demand analysis (scoped runs)", () => {
     ]);
     expect(mergeRequestedIntoCohort([], ["x"])).toEqual(["x"]);
     expect(mergeRequestedIntoCohort(["a"], [])).toEqual(["a"]);
+  });
+});
+
+describe("freshness honesty and repeat-flag context", () => {
+  const t = { drawdown5dPct: 12, drop1dPct: 8 };
+
+  it("stamps the print date when the close predates the run", () => {
+    // The live case: AZN's 3 Aug fall was graded in the 4 Aug edition, and
+    // "-9.0% in a session" read as if it happened on the 4th.
+    const stale = describeScreenedMove(
+      { return5d: -0.107, return1d: -0.0896, asOf: "2026-08-03" },
+      t,
+      "2026-08-04",
+    );
+    expect(stale).toContain("-9.0% in a session");
+    expect(stale).toContain("as of the 3 Aug 2026 close");
+  });
+
+  it("adds no stamp when the print is same-day (the normal case)", () => {
+    expect(
+      describeScreenedMove(
+        { return5d: -0.14, return1d: -0.02, asOf: "2026-08-04" },
+        t,
+        "2026-08-04",
+      ),
+    ).toBe("-14.0% over 5 sessions");
+    // and no stamp when we simply don't know the print date
+    expect(
+      describeScreenedMove({ return5d: -0.14, return1d: -0.02 }, t, "2026-08-04"),
+    ).toBe("-14.0% over 5 sessions");
+  });
+
+  it("dropStats records the latest session date", () => {
+    expect(
+      dropStats([
+        { date: "2026-08-03", close: 100 },
+        { date: "2026-08-04", close: 90 },
+      ]).asOf,
+    ).toBe("2026-08-04");
+    expect(dropStats([]).asOf).toBeNull();
+  });
+
+  it("describeRepeatFlag states the move since the first flag, impersonally", () => {
+    // SNDK re-flagged strong_overshoot on 3 Aug after a ~34% rally from its
+    // 29 Jul flag — the repeat must not read as a fresh call.
+    const line = describeRepeatFlag({
+      firstFlaggedAt: "2026-07-29",
+      returnSince: 0.341,
+    });
+    expect(line).toContain("First flagged 29 Jul 2026");
+    expect(line).toContain("+34.1% since");
+    for (const banned of ["buy", "sell", "you ", "your "]) {
+      expect(line.toLowerCase()).not.toContain(banned);
+    }
+  });
+
+  it("omits the move when it can't be computed, and says nothing for new names", () => {
+    expect(
+      describeRepeatFlag({ firstFlaggedAt: "2026-07-29", returnSince: null }),
+    ).toBe(" First flagged 29 Jul 2026.");
+    expect(describeRepeatFlag(null)).toBe("");
+  });
+
+  it("classifyReaction carries both annotations into the verdict", () => {
+    const scored = {
+      securityId: "s1",
+      composite: 80,
+      coverage: 1,
+      criteria: {
+        earned_damage: {
+          score: 50,
+          signals: { news_damage_severity: { raw: 20, normalised: 40, weight: 0.6 } },
+        },
+      },
+      evidence: [],
+    } as unknown as CandidateScore;
+    const c = classifyReaction(
+      scored,
+      { return5d: -0.2, return1d: -0.03, asOf: "2026-08-03" },
+      null,
+      t,
+      {
+        runDate: "2026-08-04",
+        priorFlag: { firstFlaggedAt: "2026-07-29", returnSince: 0.341 },
+      },
+    );
+    expect(c.classification).toBe("strong_overshoot");
+    expect(c.verdict).toContain("as of the 3 Aug 2026 close");
+    expect(c.verdict).toContain("+34.1% since");
+  });
+});
+
+describe("returnSinceDate", () => {
+  const s = [
+    { date: "2026-07-29", close: 100 },
+    { date: "2026-07-30", close: 110 },
+    { date: "2026-07-31", close: 134.1 },
+  ];
+  it("measures from the flag date's close to the latest close", () => {
+    expect(returnSinceDate(s, "2026-07-29")).toBeCloseTo(0.341);
+  });
+  it("anchors to the last print on or before a non-trading flag date", () => {
+    expect(returnSinceDate(s, "2026-07-30")).toBeCloseTo(134.1 / 110 - 1);
+  });
+  it("returns null rather than zero when it can't be computed", () => {
+    expect(returnSinceDate([], "2026-07-29")).toBeNull();
+    expect(returnSinceDate(s, "2026-07-31")).toBeNull(); // flag IS the latest
+    expect(returnSinceDate(s, "2026-01-01")).toBeNull(); // before the series
   });
 });

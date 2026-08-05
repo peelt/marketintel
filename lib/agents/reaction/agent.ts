@@ -21,7 +21,8 @@ import {
 import { createReactionResolver, type ReactionRunContext } from "./resolvers";
 import { researchReactionMacro, type MacroRead } from "./macro";
 import { describeMacroDriver, type ReactionNewsGrade } from "./news";
-import { hostOf } from "@/lib/format";
+import { formatPriceDate, hostOf } from "@/lib/format";
+import { loadPriorOvershootFlags } from "./prior-flags";
 
 /**
  * Reaction Analyser — the hero pole (PR 5, M3).
@@ -186,6 +187,8 @@ export class ReactionAgent extends BaseAgent {
   private screenSummary = { universe: 0, screened: 0, capped: 0 };
   /** Pinned at screen time so verdicts quote the leg that actually cleared. */
   private thresholds: InclusionThresholds = DEFAULT_THRESHOLDS;
+  /** Earlier overshoot flags on this run's names (repeat-flag context). */
+  private priorFlags = new Map<string, PriorFlag>();
   /** Set when this run is an on-demand per-ticker request. */
   private scoped: {
     outcomes: OnDemandOutcome[];
@@ -200,6 +203,7 @@ export class ReactionAgent extends BaseAgent {
     // on-demand run never leaks its scope into a later scheduled run in the
     // same warm process.
     this.scoped = null;
+    this.priorFlags = new Map();
     const thresholds = thresholdsFromParams(framework.params);
     this.thresholds = thresholds;
     const asOf = new Date().toISOString().slice(0, 10);
@@ -275,6 +279,14 @@ export class ReactionAgent extends BaseAgent {
     // were before this layer existed.
     const macro = candidates.length > 0 ? await researchReactionMacro(asOf) : null;
 
+    // Repeat-flag context: which of these names an earlier edition already
+    // called, and what price has done since. Fail-soft — a failure here just
+    // omits the annotation.
+    this.priorFlags =
+      candidates.length > 0
+        ? await loadPriorOvershootFlags(candidates, series)
+        : new Map();
+
     this.ctx = {
       securities: new Map(universe.map((u) => [u.id, u])),
       screenSeries: series,
@@ -313,6 +325,10 @@ export class ReactionAgent extends BaseAgent {
       this.ctx?.stats.get(scored.securityId) ?? null,
       this.ctx?.newsGrades.get(scored.securityId) ?? null,
       this.thresholds,
+      {
+        runDate: this.ctx?.asOf ?? null,
+        priorFlag: this.priorFlags.get(scored.securityId) ?? null,
+      },
     );
   }
 
@@ -370,6 +386,10 @@ export class ReactionAgent extends BaseAgent {
         this.ctx?.stats.get(s.securityId) ?? null,
         this.ctx?.newsGrades.get(s.securityId) ?? null,
         this.thresholds,
+        {
+          runDate: this.ctx?.asOf ?? null,
+          priorFlag: this.priorFlags.get(s.securityId) ?? null,
+        },
       ),
     }));
 
@@ -467,6 +487,35 @@ export class ReactionAgent extends BaseAgent {
   }
 }
 
+/** An earlier edition's flag on the same name, and what price did since. */
+export interface PriorFlag {
+  /** ISO date of the FIRST overshoot flag in the lookback window. */
+  firstFlaggedAt: string;
+  /** Fractional return from that edition's close to the latest close. */
+  returnSince: number | null;
+}
+
+/**
+ * Context line for a name flagged in an earlier edition.
+ *
+ * The framework re-flags a name for as long as its 5-session window still
+ * spans the fall — which is correct, but means an edition can re-advertise an
+ * overshoot AFTER the bounce it called has already happened (live case: SNDK
+ * re-flagged strong_overshoot on 3 Aug, having risen ~34% since its 29 Jul
+ * flag). Stating the move since the first flag is CONTEXT, not a score: it
+ * changes no weight and no band, it just stops the repeat reading as a fresh
+ * call. Pure; exported for tests. Impersonal (I2) — no entry/exit language.
+ */
+export function describeRepeatFlag(prior: PriorFlag | null): string {
+  if (!prior) return "";
+  const when = formatPriceDate(prior.firstFlaggedAt);
+  if (prior.returnSince == null) {
+    return ` First flagged ${when}.`;
+  }
+  const pct = `${prior.returnSince >= 0 ? "+" : ""}${(prior.returnSince * 100).toFixed(1)}%`;
+  return ` First flagged ${when}; ${pct} since.`;
+}
+
 /**
  * Which move does a verdict quote? The leg of the screen the name actually
  * cleared — NOT unconditionally the 5-session number. A name that qualified on
@@ -478,13 +527,22 @@ export class ReactionAgent extends BaseAgent {
 export function describeScreenedMove(
   stats: DropStats | null,
   thresholds: InclusionThresholds = DEFAULT_THRESHOLDS,
+  runDate?: string | null,
 ): string {
   const r5 = stats?.return5d ?? null;
   const r1 = stats?.return1d ?? null;
   const fell5 = r5 !== null && r5 <= -thresholds.drawdown5dPct / 100;
   const fell1 = r1 !== null && r1 <= -thresholds.drop1dPct / 100;
-  const day = (v: number) => `${(v * 100).toFixed(1)}% in a session`;
-  const week = (v: number) => `${(v * 100).toFixed(1)}% over 5 sessions`;
+  // Stale-print stamp: when the newest close feeding these returns predates
+  // the run, "-9.0% in a session" reads to a reader of TODAY's edition as if
+  // the fall happened today. It didn't — say which close it came from. (Live
+  // case: AZN's 3 Aug fall was graded in the 4 Aug edition because its 4 Aug
+  // close hadn't landed.)
+  const asOf = stats?.asOf ?? null;
+  const stamp =
+    asOf && runDate && asOf < runDate ? ` (as of the ${formatPriceDate(asOf)} close)` : "";
+  const day = (v: number) => `${(v * 100).toFixed(1)}% in a session${stamp}`;
+  const week = (v: number) => `${(v * 100).toFixed(1)}% over 5 sessions${stamp}`;
 
   if (fell5 && fell1) return r5! <= r1! ? week(r5!) : day(r1!);
   if (fell5) return week(r5!);
@@ -503,6 +561,12 @@ export function classifyReaction(
   stats: DropStats | null,
   grade: ReactionNewsGrade | null = null,
   thresholds: InclusionThresholds = DEFAULT_THRESHOLDS,
+  context: {
+    /** The run's date — enables the stale-print stamp. */
+    runDate?: string | null;
+    /** Set when this name was flagged in an earlier edition. */
+    priorFlag?: PriorFlag | null;
+  } = {},
 ): { verdict: string; classification: ReactionClassification } {
   if (scored.coverage < MIN_COVERAGE_TO_CLASSIFY) {
     return {
@@ -511,7 +575,8 @@ export function classifyReaction(
     };
   }
 
-  const move = describeScreenedMove(stats, thresholds);
+  const move = describeScreenedMove(stats, thresholds, context.runDate);
+  const repeat = describeRepeatFlag(context.priorFlag ?? null);
 
   // Before any overshoot call: did the shares actually fall? A split or
   // consolidation in an unadjusted series looks exactly like a catastrophic
@@ -544,24 +609,24 @@ export function classifyReaction(
   if (scored.composite >= BANDS.strongOvershootMin) {
     return {
       classification: "strong_overshoot",
-      verdict: `The framework grades ${move}${damageNote} as strongly disproportionate.`,
+      verdict: `The framework grades ${move}${damageNote} as strongly disproportionate.${repeat}`,
     };
   }
   if (scored.composite >= BANDS.mildOvershootMin) {
     return {
       classification: "mild_overshoot",
-      verdict: `The framework grades ${move}${damageNote} as somewhat disproportionate.`,
+      verdict: `The framework grades ${move}${damageNote} as somewhat disproportionate.${repeat}`,
     };
   }
   if (scored.composite >= BANDS.proportionateMin) {
     return {
       classification: "proportionate",
-      verdict: `The framework grades ${move}${damageNote} as broadly in line with the identified cause.`,
+      verdict: `The framework grades ${move}${damageNote} as broadly in line with the identified cause.${repeat}`,
     };
   }
   return {
     classification: "underreaction",
-    verdict: `The framework grades the identified damage as heavier than ${move} reflects.`,
+    verdict: `The framework grades the identified damage as heavier than ${move} reflects.${repeat}`,
   };
 }
 

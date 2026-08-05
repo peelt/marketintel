@@ -321,27 +321,65 @@ export interface ParsedNewsEvidence {
   gradeLabel: string;
   grade: number | null;
   confidence: string | null;
-  /** Macro attribution when present ("macro_driven"), null on older rows. */
+  /**
+   * Macro attribution as persisted — e.g. "macro-amplified · AI capex
+   * rotation" or "company-specific". Null on rows written before the macro
+   * layer, and on unattributed grades.
+   */
   driver: string | null;
   headline: string;
   summary: string;
   sources: { title: string; url: string }[];
 }
 
-export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
-  // Head shapes across row generations:
-  //   [TICKER · damage 35/100 · high]                  (original)
-  //   [TICKER · damage 35/100 · high · macro_driven]   (macro-attribution layer)
-  // The driver segment is optional — when the head regex fails, the WHOLE card
-  // degrades to a raw-text dump (unlinked URLs and all), so this parser must
-  // keep accepting every shape the agent has ever persisted.
-  const head =
-    /^\[([^\]·]+)·\s*([a-z][a-z ]*?)\s+(\d{1,3})\/100\s*·\s*(\w+)(?:\s*·\s*([a-z_]+))?\]\s*/.exec(
-      text,
-    );
-  if (!head) return null;
+/** Recognised confidence words in the head (see ReactionNewsGrade). */
+const CONFIDENCE_WORDS = new Set(["high", "medium", "low"]);
 
-  const rest = text.slice(head[0].length);
+export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
+  // The head is parsed STRUCTURALLY, not by one growing regex.
+  //
+  // Rows in the wild carry at least these shapes:
+  //   [AXON · damage 15/100 · high]
+  //   [FICO · damage 20/100 · high · macro-amplified · AI capex rotation]
+  //   [AEM · cost margin 80/100 · medium]
+  // The attribution segment is free text (hyphens, slashes, and its OWN "·"
+  // before the theme name), so matching it with a character class is how the
+  // previous two attempts at this parser broke. Instead: take everything
+  // inside the brackets, split on the separator, and identify each part by
+  // what it looks like. Anything unrecognised becomes part of the driver
+  // rather than failing the parse — because a failed parse dumps the whole
+  // row as raw text, unlinked URLs and all.
+  const headMatch = /^\[([^\]]+)\]\s*/.exec(text);
+  if (!headMatch) return null;
+
+  const segments = headMatch[1].split("·").map((s) => s.trim()).filter(Boolean);
+  if (segments.length < 2) return null;
+
+  const ticker = segments[0];
+  let gradeLabel: string | null = null;
+  let grade: number | null = null;
+  let confidence: string | null = null;
+  const driverParts: string[] = [];
+
+  for (const seg of segments.slice(1)) {
+    const g = /^([a-z][a-z ]*?)\s+(\d{1,3})\/100$/i.exec(seg);
+    if (g && gradeLabel === null) {
+      gradeLabel = g[1].trim();
+      const n = Number(g[2]);
+      grade = Number.isFinite(n) ? n : null;
+      continue;
+    }
+    if (confidence === null && CONFIDENCE_WORDS.has(seg.toLowerCase())) {
+      confidence = seg.toLowerCase();
+      continue;
+    }
+    driverParts.push(seg);
+  }
+  // The grade is what makes this an evidence card; without it the caller's
+  // plain rendering is the honest fallback.
+  if (gradeLabel === null) return null;
+
+  const rest = text.slice(headMatch[0].length);
   const [beforeSources, sourcesBlock] = splitOnce(rest, /\n\s*Sources:\s*\n?/);
   const paragraphs = beforeSources.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   const headline = paragraphs[0] ?? "";
@@ -352,7 +390,11 @@ export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
     // One per line: "Title — url". Older rows may run them together; also
     // sweep for bare URLs so nothing is lost.
     for (const line of sourcesBlock.split("\n")) {
-      const m = /^(.*?)\s+—\s+(https?:\/\/\S+)\s*$/.exec(line.trim());
+      // GREEDY title: news headlines contain em-dashes of their own ("Kioxia's
+      // miss — what it means — for memory"), and a non-greedy match would cut
+      // the title at the first one. The separator is the LAST " — " before the
+      // URL.
+      const m = /^(.*)\s+—\s+(https?:\/\/\S+)\s*$/.exec(line.trim());
       if (m) sources.push({ title: m[1].trim(), url: m[2] });
     }
     if (sources.length === 0) {
@@ -367,11 +409,11 @@ export function parseNewsEvidence(text: string): ParsedNewsEvidence | null {
   }
 
   return {
-    ticker: head[1].trim(),
-    gradeLabel: head[2].trim(),
-    grade: Number.isFinite(Number(head[3])) ? Number(head[3]) : null,
-    confidence: head[4] ?? null,
-    driver: head[5] ?? null,
+    ticker,
+    gradeLabel,
+    grade,
+    confidence,
+    driver: driverParts.length > 0 ? driverParts.join(" · ") : null,
     headline,
     summary,
     sources: dedupeSources(sources),

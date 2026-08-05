@@ -66,9 +66,9 @@ export function NewsEvidenceCard({
             {parsed.confidence} confidence
           </span>
         )}
-        {parsed.driver && parsed.driver !== "unattributed" && (
+        {parsed.driver && (
           <span className="font-mono-cli text-sm text-muted-foreground">
-            {parsed.driver.replace(/_/g, " ")}
+            {parsed.driver}
           </span>
         )}
       </div>
