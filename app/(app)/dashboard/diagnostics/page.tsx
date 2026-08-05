@@ -36,10 +36,27 @@ export default async function DiagnosticsPage() {
       "news_articles",
       "filings",
     ].map(async (table) => {
-      const { count } = await supabase
+      // An exact count on a multi-million-row table (price_snapshots) hits the
+      // statement timeout, and the old `count ?? 0` rendered that failure as
+      // "0" — the missing-≠-zero violation, on the diagnostics page of all
+      // places, claiming the price table was EMPTY while the freshness table
+      // below read ~900 securities' prints from it. Fall back to the planner's
+      // estimate (fast, from pg_class) and mark it approximate; only a genuine
+      // double failure shows "—".
+      const exact = await supabase
         .from(table)
         .select("*", { count: "exact", head: true });
-      return { table, count: count ?? 0 };
+      if (!exact.error && exact.count !== null) {
+        return { table, count: exact.count, approx: false };
+      }
+      const planned = await supabase
+        .from(table)
+        .select("*", { count: "planned", head: true });
+      return {
+        table,
+        count: planned.error ? null : planned.count,
+        approx: true,
+      };
     }),
   );
   const reactionSplit = await reactionSplitPromise;
@@ -81,7 +98,9 @@ export default async function DiagnosticsPage() {
 
       <Section title="Seed universe">
         <p className="mt-3 text-sm text-muted-foreground">
-          {seedCount} curated securities across metals, energy and dividend buckets.
+          {seedCount} curated securities seeded beyond the index constituents.
+          They stay tracked and priced because they remain holdable, even though
+          the desks that once scored them are retired.
         </p>
       </Section>
 
@@ -90,7 +109,11 @@ export default async function DiagnosticsPage() {
           {counts.map((c) => (
             <li key={c.table} className="flex justify-between">
               <span>{c.table}</span>
-              <span>{c.count.toLocaleString()}</span>
+              <span>
+                {c.count === null
+                  ? "—"
+                  : `${c.approx ? "~" : ""}${c.count.toLocaleString()}`}
+              </span>
             </li>
           ))}
         </ul>
@@ -253,6 +276,12 @@ export default async function DiagnosticsPage() {
             </tbody>
           </table>
         )}
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          The fundamentals column now reads 0/n by construction: framework v2
+          removed both fundamentals sub-signals, so no reaction verdict has one
+          to carry. Coverage at 100% in both markets is the answer this section
+          was built to get — the London-fundamentals question is closed.
+        </p>
       </Section>
 
       <Section title="Manual ingest">
