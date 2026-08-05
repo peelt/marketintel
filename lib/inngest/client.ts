@@ -30,5 +30,16 @@ export type InngestEvent =
         lookbackDays?: number;
         /** Restrict to specific tickers; defaults to the full seed universe. */
         tickers?: { ticker: string; exchange: string }[];
+        /**
+         * Observation-only pass: update prices, but do NOT wake the desks that
+         * file reader-visible content. The late catch-up refresh uses this so
+         * it can measure whether a later fetch gets same-day closes without filing a
+         * second edition of the day.
+         */
+        silent?: boolean;
       };
+    }
+  | {
+      name: "ingest/refresh.completed";
+      data: { feed: "prices" | "dividends" | "fundamentals"; silent?: boolean };
     };

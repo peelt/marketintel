@@ -20,6 +20,15 @@ describe("isNavActive", () => {
     expect(isNavActive("/dashboard/ops", "/dashboard/ops")).toBe(true);
   });
 
+  it("keeps the two owner routes independent of each other", () => {
+    // Both live under /dashboard/, so a sloppy prefix rule would light up
+    // "setup" while on "data health".
+    expect(isNavActive("/dashboard/diagnostics", "/dashboard/diagnostics")).toBe(true);
+    expect(isNavActive("/dashboard/diagnostics", "/dashboard/ops")).toBe(false);
+    expect(isNavActive("/dashboard/ops", "/dashboard/diagnostics")).toBe(false);
+    expect(isNavActive("/dashboard/diagnostics", "/dashboard")).toBe(false);
+  });
+
   it("does not match unrelated or partially-similar routes", () => {
     expect(isNavActive("/reports", "/portfolio")).toBe(false);
     // prefix-of-a-word must not count: /report-archive is not under /reports

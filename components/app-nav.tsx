@@ -76,6 +76,7 @@ export function AppNav({
           <NavLink href="/portfolio" label="portfolio" />
           <NavLink href="/reports" label="reports" />
           {isOwner && <NavLink href="/dashboard/ops" label="setup" />}
+          {isOwner && <NavLink href="/dashboard/diagnostics" label="data health" />}
           {userEmail && (
             <>
               <span aria-hidden className="text-border">
