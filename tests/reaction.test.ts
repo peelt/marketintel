@@ -15,7 +15,11 @@ import {
   describeScreenedMove,
   mergeRequestedIntoCohort,
 } from "@/lib/agents/reaction/agent";
-import { parseGrade, type ReactionNewsGrade } from "@/lib/agents/reaction/news";
+import {
+  describeMacroDriver,
+  parseGrade,
+  type ReactionNewsGrade,
+} from "@/lib/agents/reaction/news";
 import { orderForRanking } from "@/lib/agents/base";
 import { hostOf, parseNewsEvidence } from "@/lib/format";
 import { parseConstituentsTable } from "@/lib/data-sources/index-constituents";
@@ -350,21 +354,73 @@ describe("news evidence parsing (report presentation)", () => {
     expect(parseNewsEvidence("just some derived metric text")).toBeNull();
   });
 
-  it("parses the macro-attribution head shape (the raw-URL regression)", () => {
-    // The driver segment broke the head regex, so every new-format row fell
-    // back to a raw-text dump with unlinked URLs — this locks the fix.
+  it("parses the REAL macro-attribution head (the raw-URL regression)", () => {
+    // The persisted driver is describeMacroDriver's output: a hyphenated word
+    // AND its own "·" before a free-text theme. Two earlier fixes assumed a
+    // single token like "macro_driven" and still failed on every live row, so
+    // this test uses the exact production shape.
     const text =
-      "[SNDK · damage 35/100 · high · macro_driven] Sandisk slid with the AI-memory complex.\n\n" +
-      "Sources:\nWhy Sandisk Stock Is Sinking — https://www.fool.com/investing/sndk";
+      "[FICO · damage 20/100 · high · macro-amplified · AI infrastructure / chip stock volatility] " +
+      "Fair Isaac slid on mixed quarterly results.\n\n" +
+      "Sources:\nWhy Fair Isaac Stock Is Trading Lower - StockStory — https://stockstory.org/us/stocks/nyse/fico";
     const p = parseNewsEvidence(text);
     expect(p).not.toBeNull();
+    expect(p!.ticker).toBe("FICO");
+    expect(p!.gradeLabel).toBe("damage");
+    expect(p!.grade).toBe(20);
     expect(p!.confidence).toBe("high");
-    expect(p!.driver).toBe("macro_driven");
-    expect(p!.sources).toHaveLength(1);
-    // Old shape still parses, driver null
-    expect(
-      parseNewsEvidence("[AXON · damage 15/100 · high] Headline.")!.driver,
-    ).toBeNull();
+    expect(p!.driver).toBe(
+      "macro-amplified · AI infrastructure / chip stock volatility",
+    );
+    expect(p!.sources).toEqual([
+      {
+        title: "Why Fair Isaac Stock Is Trading Lower - StockStory",
+        url: "https://stockstory.org/us/stocks/nyse/fico",
+      },
+    ]);
+  });
+
+  it("parses every head shape the producer can emit (drift guard)", () => {
+    // Composed through the REAL producer so a change to describeMacroDriver
+    // fails here rather than silently degrading the card in production.
+    const cases: [string | null, string | null][] = [
+      ["macro_driven", "Fed rate-hike repricing"],
+      ["macro_amplified", "AI capex rotation and semis"],
+      ["idiosyncratic", null],
+      ["unattributed", null],
+    ];
+    for (const [driverKind, theme] of cases) {
+      const driver = describeMacroDriver(
+        driverKind as Parameters<typeof describeMacroDriver>[0],
+        theme,
+      );
+      const text = `[TEST · damage 40/100 · medium${driver ? ` · ${driver}` : ""}] Headline.\n\nBody.`;
+      const p = parseNewsEvidence(text);
+      expect(p, `failed for driver=${driver}`).not.toBeNull();
+      expect(p!.ticker).toBe("TEST");
+      expect(p!.grade).toBe(40);
+      expect(p!.confidence).toBe("medium");
+      expect(p!.driver).toBe(driver);
+    }
+  });
+
+  it("keeps em-dashes inside a headline instead of truncating the title", () => {
+    const p = parseNewsEvidence(
+      "[X · damage 10/100 · low] H.\n\nSources:\n" +
+        "Kioxia's miss — what it means — for memory — https://ft.com/a",
+    );
+    expect(p!.sources[0]).toEqual({
+      title: "Kioxia's miss — what it means — for memory",
+      url: "https://ft.com/a",
+    });
+  });
+
+  it("still parses pre-macro rows and other desks' grade labels", () => {
+    const old = parseNewsEvidence("[AXON · damage 15/100 · high] Headline.");
+    expect(old!.driver).toBeNull();
+    const metals = parseNewsEvidence("[AEM · cost margin 80/100 · medium] Headline.");
+    expect(metals!.gradeLabel).toBe("cost margin");
+    expect(metals!.grade).toBe(80);
   });
 
   it("dedupes syndicated sources by URL and by matching headline", () => {
