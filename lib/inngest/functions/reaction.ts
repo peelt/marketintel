@@ -45,7 +45,12 @@ export const reactionScheduled = inngest.createFunction(
   { id: "reaction-daily", retries: 1, concurrency: { limit: 1 } },
   [
     { cron: reactionAgent.meta.schedule },
-    { event: "ingest/refresh.completed", if: "event.data.feed == 'prices'" },
+    {
+      event: "ingest/refresh.completed",
+      // Never wake on an observation-only pass: the late catch-up refresh
+      // exists to measure data timing, not to file a second edition.
+      if: "event.data.feed == 'prices' && event.data.silent != true",
+    },
     { event: "agent/run.requested", if: "event.data.agentName == 'reaction'" },
   ],
   async ({ event, step }) => {
@@ -105,5 +110,51 @@ export const dailyPriceRefresh = inngest.createFunction(
       data: { feed: "prices", lookbackDays: 7, tickers: universe },
     });
     return { requested: universe.length };
+  },
+);
+
+/**
+ * Late price catch-up — OBSERVATION ONLY (see CLAUDE.md "freshness").
+ *
+ * The desk is screening T-1: the 21:30 UTC refresh lands inside Twelve Data's
+ * window between publishing an unconfirmed EOD bar and finalising it after the
+ * exchange's reconciliation, so each evening's run grades the PREVIOUS
+ * session's closes (~26h from close to verdict). Their docs give no cutoff, so
+ * rather than retime the product on a guess, this second pass fetches again
+ * after midnight and lets the Data health freshness table report whether the
+ * latest print advanced to same-day.
+ *
+ * `silent: true` keeps it invisible to readers: prices update and the verdict
+ * scorecard matures on fresher closes, but the Reaction desk does not fire, so
+ * no extra edition is filed. If the freshness table shows the print advancing,
+ * the follow-up is a deliberate retime of the desk (a product decision); if it
+ * doesn't, this function is deleted and the gap is genuinely intraday-shaped.
+ *
+ * Tue-Sat in UTC covers Mon-Fri closes.
+ */
+export const latePriceCatchup = inngest.createFunction(
+  { id: "late-price-catchup", retries: 1 },
+  { cron: "30 0 * * 2-6" }, // 00:30 UTC, the morning after each weekday close
+  async ({ step }) => {
+    const universe = await step.run("load-price-universe", async () => {
+      const broad = (await loadBroadUniverse()).map((r) => ({
+        ticker: r.ticker,
+        exchange: r.exchange,
+      }));
+      return dailyPriceUniverse(broad);
+    });
+    if (universe.length === 0) {
+      return { skipped: "no securities seeded yet" };
+    }
+    await step.sendEvent("request-late-price-refresh", {
+      name: "ingest/refresh.requested",
+      data: {
+        feed: "prices",
+        lookbackDays: 3,
+        tickers: universe,
+        silent: true,
+      },
+    });
+    return { requested: universe.length, silent: true };
   },
 );

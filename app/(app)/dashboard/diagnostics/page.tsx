@@ -177,8 +177,11 @@ export default async function DiagnosticsPage() {
         </p>
         {scorecard.totalOutcomes === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
-            No outcomes computed yet — the scorecard job fills this after the
-            next price refresh.
+            {scorecard.tableMissing
+              ? `Migration 0016 hasn't been applied — verdict_outcomes doesn't exist yet. ${scorecard.eligibleVerdicts} classified verdict(s) are waiting to be scored.`
+              : scorecard.eligibleVerdicts === 0
+                ? "No classified verdicts to score yet."
+                : `0 outcomes computed from ${scorecard.eligibleVerdicts} eligible verdict(s) — the job fills this after the next price refresh. If it stays at 0 once a refresh has landed, check the verdict-scorecard function in Inngest.`}
           </p>
         ) : (
           <table className="mt-3 w-full text-sm">
