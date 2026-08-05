@@ -68,7 +68,19 @@ with any market-wide bounce), hit rate is per-band-claim (overshoots predict
 positive excess, underreaction negative, proportionate no claim), repeat
 flags report observations and unique names separately, unmatured windows are
 "pending" never 0. Renders on Data health; graduates to a user-facing track
-record only at ≥4 weeks AND ≥30 observations per headline band. Remaining
+record only at ≥4 weeks AND ≥30 observations per headline band.
+**Freshness honesty (live):** `dropStats` records the latest print date, and a
+verdict whose close predates the run stamps it ("as of the 3 Aug 2026 close")
+— the AZN case: its 3 Aug fall was graded in the 4 Aug edition because the
+print landed late, and a one-day lag is invisible to the 10-day staleness
+gate. A per-market freshness table on Data health (`lib/reports/
+price-freshness.ts`, counts PRINT DATES not calendar days) exists to answer
+whether LSE lags US systematically — that reading, not a hunch, decides
+whether the free evening refresh needs retiming or a paid intraday tier is
+warranted. **Repeat-flag context:** a name re-flagged while its 5-session
+window still spans the fall gets "First flagged 29 Jul; +34.1% since"
+appended to the verdict (`prior-flags.ts`, fail-soft) — context only, no
+weight, no band change; it stops a repeat reading as a fresh call. Remaining
 roadmap: on-demand resolution of untracked tickers via Inngest, paid gate.
 
 **Macro layer (live, in Reaction):** one web-research call per run

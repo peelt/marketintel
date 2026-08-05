@@ -55,12 +55,21 @@ export function discountToHigh(series: SessionRow[]): number | null {
 export interface DropStats {
   return1d: number | null;
   return5d: number | null;
+  /**
+   * The date of the LATEST session these returns were computed from. A run
+   * screens whatever closes have landed, and a name whose newest print is
+   * older than the run date is being graded on stale prices — the verdict
+   * must say so rather than imply the move happened today. Null on an empty
+   * series.
+   */
+  asOf?: string | null;
 }
 
 export function dropStats(series: SessionRow[]): DropStats {
   return {
     return1d: returnOverSessions(series, 1),
     return5d: returnOverSessions(series, 5),
+    asOf: series.length > 0 ? series[series.length - 1].date : null,
   };
 }
 
