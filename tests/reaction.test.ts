@@ -12,9 +12,11 @@ import {
 import {
   classifyReaction,
   describeOnDemandOutcome,
+  describeRepeatFlag,
   describeScreenedMove,
   mergeRequestedIntoCohort,
 } from "@/lib/agents/reaction/agent";
+import { returnSinceDate } from "@/lib/agents/reaction/prior-flags";
 import {
   describeMacroDriver,
   parseGrade,
@@ -82,7 +84,11 @@ describe("return and drop metrics", () => {
   });
 
   it("dropStats carries nulls through, never zeros", () => {
-    expect(dropStats([])).toEqual({ return1d: null, return5d: null });
+    expect(dropStats([])).toEqual({
+      return1d: null,
+      return5d: null,
+      asOf: null,
+    });
   });
 });
 
@@ -508,5 +514,113 @@ describe("on-demand analysis (scoped runs)", () => {
     ]);
     expect(mergeRequestedIntoCohort([], ["x"])).toEqual(["x"]);
     expect(mergeRequestedIntoCohort(["a"], [])).toEqual(["a"]);
+  });
+});
+
+describe("freshness honesty and repeat-flag context", () => {
+  const t = { drawdown5dPct: 12, drop1dPct: 8 };
+
+  it("stamps the print date when the close predates the run", () => {
+    // The live case: AZN's 3 Aug fall was graded in the 4 Aug edition, and
+    // "-9.0% in a session" read as if it happened on the 4th.
+    const stale = describeScreenedMove(
+      { return5d: -0.107, return1d: -0.0896, asOf: "2026-08-03" },
+      t,
+      "2026-08-04",
+    );
+    expect(stale).toContain("-9.0% in a session");
+    expect(stale).toContain("as of the 3 Aug 2026 close");
+  });
+
+  it("adds no stamp when the print is same-day (the normal case)", () => {
+    expect(
+      describeScreenedMove(
+        { return5d: -0.14, return1d: -0.02, asOf: "2026-08-04" },
+        t,
+        "2026-08-04",
+      ),
+    ).toBe("-14.0% over 5 sessions");
+    // and no stamp when we simply don't know the print date
+    expect(
+      describeScreenedMove({ return5d: -0.14, return1d: -0.02 }, t, "2026-08-04"),
+    ).toBe("-14.0% over 5 sessions");
+  });
+
+  it("dropStats records the latest session date", () => {
+    expect(
+      dropStats([
+        { date: "2026-08-03", close: 100 },
+        { date: "2026-08-04", close: 90 },
+      ]).asOf,
+    ).toBe("2026-08-04");
+    expect(dropStats([]).asOf).toBeNull();
+  });
+
+  it("describeRepeatFlag states the move since the first flag, impersonally", () => {
+    // SNDK re-flagged strong_overshoot on 3 Aug after a ~34% rally from its
+    // 29 Jul flag — the repeat must not read as a fresh call.
+    const line = describeRepeatFlag({
+      firstFlaggedAt: "2026-07-29",
+      returnSince: 0.341,
+    });
+    expect(line).toContain("First flagged 29 Jul 2026");
+    expect(line).toContain("+34.1% since");
+    for (const banned of ["buy", "sell", "you ", "your "]) {
+      expect(line.toLowerCase()).not.toContain(banned);
+    }
+  });
+
+  it("omits the move when it can't be computed, and says nothing for new names", () => {
+    expect(
+      describeRepeatFlag({ firstFlaggedAt: "2026-07-29", returnSince: null }),
+    ).toBe(" First flagged 29 Jul 2026.");
+    expect(describeRepeatFlag(null)).toBe("");
+  });
+
+  it("classifyReaction carries both annotations into the verdict", () => {
+    const scored = {
+      securityId: "s1",
+      composite: 80,
+      coverage: 1,
+      criteria: {
+        earned_damage: {
+          score: 50,
+          signals: { news_damage_severity: { raw: 20, normalised: 40, weight: 0.6 } },
+        },
+      },
+      evidence: [],
+    } as unknown as CandidateScore;
+    const c = classifyReaction(
+      scored,
+      { return5d: -0.2, return1d: -0.03, asOf: "2026-08-03" },
+      null,
+      t,
+      {
+        runDate: "2026-08-04",
+        priorFlag: { firstFlaggedAt: "2026-07-29", returnSince: 0.341 },
+      },
+    );
+    expect(c.classification).toBe("strong_overshoot");
+    expect(c.verdict).toContain("as of the 3 Aug 2026 close");
+    expect(c.verdict).toContain("+34.1% since");
+  });
+});
+
+describe("returnSinceDate", () => {
+  const s = [
+    { date: "2026-07-29", close: 100 },
+    { date: "2026-07-30", close: 110 },
+    { date: "2026-07-31", close: 134.1 },
+  ];
+  it("measures from the flag date's close to the latest close", () => {
+    expect(returnSinceDate(s, "2026-07-29")).toBeCloseTo(0.341);
+  });
+  it("anchors to the last print on or before a non-trading flag date", () => {
+    expect(returnSinceDate(s, "2026-07-30")).toBeCloseTo(134.1 / 110 - 1);
+  });
+  it("returns null rather than zero when it can't be computed", () => {
+    expect(returnSinceDate([], "2026-07-29")).toBeNull();
+    expect(returnSinceDate(s, "2026-07-31")).toBeNull(); // flag IS the latest
+    expect(returnSinceDate(s, "2026-01-01")).toBeNull(); // before the series
   });
 });

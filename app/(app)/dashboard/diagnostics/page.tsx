@@ -7,6 +7,7 @@ import { allSeedSecurities } from "@/lib/data-sources/universes";
 import { loadReactionCoverageSplit } from "@/lib/reports/reaction-coverage";
 import { loadScorecard } from "@/lib/scorecard/load";
 import { WINDOWS } from "@/lib/scorecard/calc";
+import { loadPriceFreshness } from "@/lib/reports/price-freshness";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function DiagnosticsPage() {
   // path (see lib/supabase/service.ts).
   const reactionSplitPromise = loadReactionCoverageSplit(supabase);
   const scorecardPromise = loadScorecard(supabase);
+  const freshnessPromise = loadPriceFreshness(supabase);
   const counts = await Promise.all(
     [
       "securities",
@@ -42,6 +44,7 @@ export default async function DiagnosticsPage() {
   );
   const reactionSplit = await reactionSplitPromise;
   const scorecard = await scorecardPromise;
+  const freshness = await freshnessPromise;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -91,6 +94,47 @@ export default async function DiagnosticsPage() {
             </li>
           ))}
         </ul>
+      </Section>
+
+      <Section title="Price freshness — are we screening today's closes?">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          A drop can only be screened once its close has landed. AZN fell 8.96%
+          on 3 Aug but was graded in the 4 Aug edition because its 3 Aug print
+          arrived late — a one-day lag that the 10-day staleness gate can&apos;t
+          see. &quot;Behind&quot; counts PRINT DATES for that market, so weekends
+          and holidays never read as staleness. If LSE sits persistently behind
+          US, every UK drop files a day late.
+        </p>
+        {freshness.markets.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No price snapshots in the last few days.
+          </p>
+        ) : (
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="py-1 font-medium">market</th>
+                <th className="py-1 text-right font-medium">tracked</th>
+                <th className="py-1 text-right font-medium">latest print</th>
+                <th className="py-1 text-right font-medium">current</th>
+                <th className="py-1 text-right font-medium">1 behind</th>
+                <th className="py-1 text-right font-medium">2+ behind</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              {freshness.markets.map((m) => (
+                <tr key={m.market}>
+                  <td className="py-1">{m.market}</td>
+                  <td className="py-1 text-right">{m.tracked}</td>
+                  <td className="py-1 text-right">{m.latestPrint ?? "—"}</td>
+                  <td className="py-1 text-right">{m.current}</td>
+                  <td className="py-1 text-right">{m.oneBehind}</td>
+                  <td className="py-1 text-right">{m.staler}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Section>
 
       <Section title="Verdict scorecard — how the bands resolved">
