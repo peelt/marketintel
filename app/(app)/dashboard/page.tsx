@@ -574,8 +574,8 @@ export default async function DashboardPage() {
                 <span className="font-bold text-il-navy">data health</span>
               </div>
               <p className="mt-2 text-base text-muted-foreground">
-                Source readiness and row counts. UK fundamentals are a known gap
-                on current sources.
+                Price freshness, the verdict scorecard, source readiness and row
+                counts — is the engine seeing today&apos;s market?
               </p>
             </Link>
           )}

@@ -5,6 +5,7 @@ import { chunkedIngest } from "@/lib/inngest/functions/ingest";
 import { holdingAlerts } from "@/lib/inngest/functions/alerts";
 import {
   dailyPriceRefresh,
+  latePriceCatchup,
   reactionScheduled,
 } from "@/lib/inngest/functions/reaction";
 import { verdictScorecard } from "@/lib/inngest/functions/scorecard";
@@ -39,6 +40,7 @@ const handler = serve({
     chunkedIngest,
     reactionScheduled,
     dailyPriceRefresh,
+    latePriceCatchup,
     holdingAlerts,
     verdictScorecard,
   ],

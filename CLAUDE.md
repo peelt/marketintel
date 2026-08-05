@@ -77,7 +77,18 @@ gate. A per-market freshness table on Data health (`lib/reports/
 price-freshness.ts`, counts PRINT DATES not calendar days) exists to answer
 whether LSE lags US systematically — that reading, not a hunch, decides
 whether the free evening refresh needs retiming or a paid intraday tier is
-warranted. **Repeat-flag context:** a name re-flagged while its 5-session
+warranted. **T-1 finding (5 Aug):** the freshness table showed the newest
+close in the DB was 3 Aug on the 5th — every market, not just LSE — so the
+desk screens the PREVIOUS session's closes (~26h from close to verdict).
+Cause is Twelve Data publishing EOD unconfirmed then finalising after
+exchange reconciliation, with our 21:30 UTC fetch inside that window; their
+docs give no cutoff, so `late-price-catchup` (00:30 UTC, `silent: true`) is
+an OBSERVATION-ONLY second pass — prices update and the scorecard matures,
+but reaction's trigger excludes silent refreshes so no second edition is
+filed. If the freshness table shows the print advancing, retiming the desk
+is the follow-up (a product decision, ~21h faster); if not, delete the
+function — the residual gap is genuinely intraday-shaped and only then does
+a paid tier merit discussion. **Repeat-flag context:** a name re-flagged while its 5-session
 window still spans the fall gets "First flagged 29 Jul; +34.1% since"
 appended to the verdict (`prior-flags.ts`, fail-soft) — context only, no
 weight, no band change; it stops a repeat reading as a fresh call. Remaining

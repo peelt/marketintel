@@ -132,9 +132,11 @@ export const chunkedIngest = inngest.createFunction(
     // than at a guessed clock time — the Reaction Analyser fires on this event
     // (feed == 'prices') so a same-day drop is screened as soon as the evening
     // price refresh lands, whatever the data plan's speed.
+    // `silent` rides through so an observation-only refresh can update prices
+    // (and let the scorecard mature) without waking the desks that publish.
     await step.sendEvent("refresh-completed", {
       name: "ingest/refresh.completed",
-      data: { feed },
+      data: { feed, silent: event.data.silent === true },
     });
 
     return merged;
