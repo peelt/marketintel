@@ -3,6 +3,7 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { loadBroadUniverse, loadRecentSeries } from "@/lib/agents/reaction/data";
 import type { SessionRow } from "@/lib/agents/reaction/metrics";
 import { getErrorMessage } from "@/lib/errors";
+import { resolveScreenedDate } from "./screened-date";
 import {
   forwardReturn,
   latestSessionOnOrBefore,
@@ -31,6 +32,8 @@ interface VerdictItemRow {
   security_id: string;
   classification: string;
   composite_score: number | null;
+  verdict: string | null;
+  scoring_breakdown: { screenedAt?: string | null } | null;
   report: { generated_at: string; agent_name: string } | null;
 }
 
@@ -38,6 +41,8 @@ export interface ScorecardRunResult {
   considered: number;
   written: number;
   skippedNoSeries: number;
+  /** Rows whose screened close had to be inferred rather than read. */
+  inferredAnchors: number;
 }
 
 export async function computeVerdictOutcomes(): Promise<ScorecardRunResult> {
@@ -54,7 +59,7 @@ export async function computeVerdictOutcomes(): Promise<ScorecardRunResult> {
       supabase
         .from("report_items")
         .select(
-          "id, security_id, classification, composite_score, report:reports!inner(generated_at, agent_name, agent_runs!inner(status))",
+          "id, security_id, classification, composite_score, verdict, scoring_breakdown, report:reports!inner(generated_at, agent_name, agent_runs!inner(status))",
         )
         .eq("report.agent_name", "reaction")
         .eq("report.agent_runs.status", "succeeded")
@@ -66,7 +71,7 @@ export async function computeVerdictOutcomes(): Promise<ScorecardRunResult> {
     "scorecard verdict items",
   );
   if (items.length === 0) {
-    return { considered: 0, written: 0, skippedNoSeries: 0 };
+    return { considered: 0, written: 0, skippedNoSeries: 0, inferredAnchors: 0 };
   }
 
   // One series load covers both the verdict names and the universe medians.
@@ -100,16 +105,28 @@ export async function computeVerdictOutcomes(): Promise<ScorecardRunResult> {
 
   let written = 0;
   let skippedNoSeries = 0;
+  let inferredAnchors = 0;
   const upserts: Record<string, unknown>[] = [];
 
   for (const item of items) {
     const genDate = (item.report?.generated_at ?? "").slice(0, 10);
     const s = series.get(item.security_id) ?? [];
-    const t0Date = genDate ? latestSessionOnOrBefore(s, genDate) : null;
+    // t0 is the close the RUN SAW, not the freshest close that has since
+    // landed — see lib/scorecard/screened-date.ts. Pinned value first, the
+    // verdict's own stamp second, the old rule only as a last resort.
+    const resolved = resolveScreenedDate({
+      breakdown: item.scoring_breakdown,
+      verdict: item.verdict,
+      fallback: genDate ? latestSessionOnOrBefore(s, genDate) : null,
+    });
+    // A pinned/stamped date must still be a session this security actually
+    // printed; anchor to its last print on or before that date.
+    const t0Date = resolved.date ? latestSessionOnOrBefore(s, resolved.date) : null;
     if (!t0Date) {
       skippedNoSeries++;
       continue;
     }
+    if (resolved.source === "inferred") inferredAnchors++;
     const t0Close = s.find((row) => row.date === t0Date)!.close;
 
     const r: Record<Window, number | null> = { 1: null, 5: null, 20: null };
@@ -148,7 +165,7 @@ export async function computeVerdictOutcomes(): Promise<ScorecardRunResult> {
     written += chunk.length;
   }
 
-  return { considered: items.length, written, skippedNoSeries };
+  return { considered: items.length, written, skippedNoSeries, inferredAnchors };
 }
 
 /** Narrow re-export so the Inngest function doesn't reach into internals. */

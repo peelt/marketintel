@@ -105,30 +105,34 @@ export const dailyPriceRefresh = inngest.createFunction(
     if (universe.length === 0) {
       return { skipped: "no securities seeded yet" };
     }
+    // SILENT since the retime: this pass reliably lands only the PREVIOUS
+    // session's closes (Twelve Data finalises after the exchange's
+    // reconciliation, later than 21:30 UTC). It keeps prices topped up and
+    // lets the scorecard mature, but the edition is filed by the 00:30 pass
+    // that actually carries same-day closes.
     await step.sendEvent("request-price-refresh", {
       name: "ingest/refresh.requested",
-      data: { feed: "prices", lookbackDays: 7, tickers: universe },
+      data: { feed: "prices", lookbackDays: 7, tickers: universe, silent: true },
     });
-    return { requested: universe.length };
+    return { requested: universe.length, silent: true };
   },
 );
 
 /**
- * Late price catch-up — OBSERVATION ONLY (see CLAUDE.md "freshness").
+ * Late price refresh — the desk's PRIMARY data pass since the 14 Aug retime.
  *
- * The desk is screening T-1: the 21:30 UTC refresh lands inside Twelve Data's
- * window between publishing an unconfirmed EOD bar and finalising it after the
- * exchange's reconciliation, so each evening's run grades the PREVIOUS
- * session's closes (~26h from close to verdict). Their docs give no cutoff, so
- * rather than retime the product on a guess, this second pass fetches again
- * after midnight and lets the Data health freshness table report whether the
- * latest print advanced to same-day.
+ * Measured, not assumed: run first as a silent observation pass, this fetch
+ * landed 930 same-day closes across both markets on its first firing
+ * (13 Aug prints, absent at 21:44, present by morning) while the 21:30 pass
+ * had reliably delivered only T-1. Twelve Data publishes an unconfirmed EOD
+ * bar and finalises it after the exchange's reconciliation; 21:30 UTC sits
+ * inside that window and 00:30 sits outside it.
  *
- * `silent: true` keeps it invisible to readers: prices update and the verdict
- * scorecard matures on fresher closes, but the Reaction desk does not fire, so
- * no extra edition is filed. If the freshness table shows the print advancing,
- * the follow-up is a deliberate retime of the desk (a product decision); if it
- * doesn't, this function is deleted and the gap is genuinely intraday-shaped.
+ * So the roles swapped: this pass is no longer silent and its
+ * `ingest/refresh.completed` fires the desk, which now grades the session that
+ * just closed instead of the one before it — ~21 hours faster, and the edition
+ * is waiting before the UK market opens. The 21:30 pass went silent in
+ * exchange, so no edition is ever filed on T-1 prices.
  *
  * Tue-Sat in UTC covers Mon-Fri closes.
  */
@@ -148,13 +152,8 @@ export const latePriceCatchup = inngest.createFunction(
     }
     await step.sendEvent("request-late-price-refresh", {
       name: "ingest/refresh.requested",
-      data: {
-        feed: "prices",
-        lookbackDays: 3,
-        tickers: universe,
-        silent: true,
-      },
+      data: { feed: "prices", lookbackDays: 3, tickers: universe },
     });
-    return { requested: universe.length, silent: true };
+    return { requested: universe.length };
   },
 );
