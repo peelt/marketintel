@@ -8,6 +8,10 @@ import {
   type OutcomeRow,
 } from "@/lib/scorecard/calc";
 import type { SessionRow } from "@/lib/agents/reaction/metrics";
+import {
+  parseScreenedStamp,
+  resolveScreenedDate,
+} from "@/lib/scorecard/screened-date";
 
 function series(closes: number[], startDay = 1): SessionRow[] {
   return closes.map((close, i) => ({
@@ -111,5 +115,49 @@ describe("summariseBands", () => {
   it("medianOf handles evens and empties", () => {
     expect(medianOf([1, 3])).toBe(2);
     expect(medianOf([])).toBeNull();
+  });
+});
+
+describe("resolveScreenedDate (t0 must be the close the run SAW)", () => {
+  it("prefers the date pinned at report time", () => {
+    expect(
+      resolveScreenedDate({
+        breakdown: { screenedAt: "2026-08-12" },
+        verdict: "The framework grades -9.0% in a session (as of the 11 Aug 2026 close) …",
+        fallback: "2026-08-13",
+      }),
+    ).toEqual({ date: "2026-08-12", source: "pinned" });
+  });
+
+  it("falls back to the verdict's own stamp for rows filed before pinning", () => {
+    // The live skew: the 13 Aug edition screened the 12 Aug close, but by the
+    // time the scorecard ran the 13 Aug close had landed and became t0 —
+    // starting the clock 7.3% higher for WDC.
+    expect(
+      resolveScreenedDate({
+        breakdown: null,
+        verdict:
+          "The framework grades -20.3% over 5 sessions (as of the 12 Aug 2026 close) against news damage graded 10/100 as strongly disproportionate.",
+        fallback: "2026-08-13",
+      }),
+    ).toEqual({ date: "2026-08-12", source: "stamp" });
+  });
+
+  it("marks the old rule as inferred rather than trusting it silently", () => {
+    expect(
+      resolveScreenedDate({
+        breakdown: null,
+        verdict: "The framework grades -14.0% over 5 sessions against news damage graded 30/100 as somewhat disproportionate.",
+        fallback: "2026-07-15",
+      }),
+    ).toEqual({ date: "2026-07-15", source: "inferred" });
+  });
+
+  it("parses stamp dates and rejects malformed ones", () => {
+    expect(parseScreenedStamp("… (as of the 3 Aug 2026 close).")).toBe("2026-08-03");
+    expect(parseScreenedStamp("… (as of the 12 December 2026 close).")).toBe("2026-12-12");
+    expect(parseScreenedStamp("no stamp here")).toBeNull();
+    expect(parseScreenedStamp(null)).toBeNull();
+    expect(parseScreenedStamp("(as of the 4 Foo 2026 close)")).toBeNull();
   });
 });

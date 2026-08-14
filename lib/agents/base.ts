@@ -61,6 +61,15 @@ export abstract class BaseAgent implements Agent {
   }
 
   /**
+   * The close date this candidate was screened on, if the agent tracks it.
+   * Pinned into the persisted item so downstream analysis (the verdict
+   * scorecard) measures from the price the run actually saw. Default: unknown.
+   */
+  protected screenedDate(_scored: CandidateScore): string | null {
+    return null;
+  }
+
+  /**
    * Coverage share (0–1) below which a candidate's composite is considered
    * too thinly evidenced to compete for rank. Agents that withhold
    * classification under a floor set the same value here so ranking and
@@ -122,6 +131,7 @@ export abstract class BaseAgent implements Agent {
       const { verdict, classification } = this.classify(s);
       return {
         securityId: s.securityId,
+        screenedAt: this.screenedDate(s),
         composite: roundTo(s.composite, 1),
         coverage: roundTo(s.coverage, 3),
         verdict: verdict ?? null,

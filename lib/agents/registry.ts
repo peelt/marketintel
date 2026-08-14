@@ -25,14 +25,16 @@ const META: Record<AgentName, AgentMeta> = {
     name: "reaction",
     displayName: "Reaction Analyser",
     description:
-      "Daily, post-close: screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
+      "Overnight, on the session that just closed: screens the broad market for sharp drops and judges overshoot versus earned fundamental damage, with cited evidence per verdict.",
     scope:
-      "Watches the S&P 500 and FTSE 350 — about 850 names — for sharp falls: 12% or more over five sessions, or 8% in one. Each qualifying fall is researched in the news and scored on whether the move looks disproportionate to the damage identified, with every source cited. Runs every weekday after the US close, as soon as the evening prices land — a sharp drop is time-sensitive, so this desk is the exception to the weekly cadence.",
-    cadence: "daily · post-close",
-    // Weekday backstop after the close; the real driver is the
-    // ingest/refresh.completed event (see lib/inngest/functions/reaction.ts),
-    // so it usually runs earlier, right when the evening prices land.
-    schedule: "0 22 * * 1-5", // weekdays 22:00 UTC (post-close)
+      "Watches the S&P 500 and FTSE 350 — about 850 names — for sharp falls: 12% or more over five sessions, or 8% in one. Each qualifying fall is researched in the news and scored on whether the move looks disproportionate to the damage identified, with every source cited. Runs overnight after each weekday close, once the exchanges have finalised their closing prices — so each edition grades the session that just ended and is waiting before London opens.",
+    cadence: "daily · overnight",
+    // Backstop only — the real driver is the ingest/refresh.completed event
+    // from the 00:30 UTC price pass (see lib/inngest/functions/reaction.ts).
+    // It sits AFTER that pass deliberately: the 21:30 evening fetch reliably
+    // returns only the previous session's closes, so a 22:00 backstop would
+    // file exactly the T-1 edition the retime removed.
+    schedule: "0 1 * * 2-6", // 01:00 UTC Tue-Sat, after the 00:30 price pass
     modelTier: "routine", // research runs on the routine tier since the cost-control pass
 
     status: "live",
