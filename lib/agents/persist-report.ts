@@ -50,6 +50,9 @@ export async function persistReport(input: {
       scoring_breakdown: {
         coverage: candidate.coverage,
         criteria: candidate.breakdown,
+        // Pinned at report time — see ScoredCandidate.screenedAt. jsonb, so
+        // this needs no migration.
+        screenedAt: candidate.screenedAt ?? null,
       },
       verdict: candidate.verdict ?? null,
       classification: candidate.classification ?? null,

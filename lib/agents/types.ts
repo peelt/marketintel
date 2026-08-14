@@ -134,6 +134,16 @@ export interface ScoredCandidate {
   verdict?: string | null;
   /** Constrained classification, e.g. Metals' buy/hold/avoid. Agent-assigned. */
   classification?: string | null;
+  /**
+   * The date of the close this candidate was actually SCREENED on — pinned
+   * here at report time because it cannot be reconstructed later. A run grades
+   * whatever prices have landed; if a fresher close arrives afterwards (the
+   * late catch-up does exactly that), any "latest close on or before the
+   * report" rule silently resolves to a session the run never saw, and the
+   * scorecard then measures forward returns from a price that already contains
+   * the move the verdict predicted.
+   */
+  screenedAt?: string | null;
   evidenceRefs: number[]; // indexes into the EvidenceItem array for this run
 }
 

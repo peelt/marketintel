@@ -88,7 +88,24 @@ but reaction's trigger excludes silent refreshes so no second edition is
 filed. If the freshness table shows the print advancing, retiming the desk
 is the follow-up (a product decision, ~21h faster); if not, delete the
 function — the residual gap is genuinely intraday-shaped and only then does
-a paid tier merit discussion. **Repeat-flag context:** a name re-flagged while its 5-session
+a paid tier merit discussion. **RETIME (14 Aug, measured):** the silent catch-up's first firing landed 930
+same-day closes in BOTH markets (13 Aug prints absent at 21:44, present by
+morning) — 21:30 UTC sits inside Twelve Data's unconfirmed-then-finalised
+window, 00:30 sits outside it. So the two passes SWAPPED roles: the 00:30
+pass is no longer silent and its `refresh.completed` fires the desk (which
+now grades the session that just closed, ~21h faster, waiting before London
+opens); the 21:30 pass went silent so no edition is ever filed on T-1
+prices; the desk's cron backstop moved 22:00 weekdays → 01:00 Tue-Sat
+(a 22:00 backstop would have re-filed exactly the T-1 edition the retime
+removes). **t0 pinning (same PR, load-bearing):** the scorecard resolved t0
+as "latest close ≤ generated_at" AT COMPUTE TIME, so once the catch-up
+landed a fresher print it measured forward returns from a close the edition
+never saw — WDC 454.10 screened vs 487.29 measured (+7.3%), flattering the
+track record. `ScoredCandidate.screenedAt` is now pinned at report time
+into `scoring_breakdown` (jsonb, no migration); the scorecard reads it,
+falls back to parsing the verdict's own "(as of the … close)" stamp, and
+only then to the old rule — counting those as `inferredAnchors` rather than
+trusting them silently. **Repeat-flag context:** a name re-flagged while its 5-session
 window still spans the fall gets "First flagged 29 Jul; +34.1% since"
 appended to the verdict (`prior-flags.ts`, fail-soft) — context only, no
 weight, no band change; it stops a repeat reading as a fresh call. Remaining

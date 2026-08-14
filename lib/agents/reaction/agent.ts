@@ -316,6 +316,11 @@ export class ReactionAgent extends BaseAgent {
     return createReactionResolver(this.ctx);
   }
 
+  /** The security's latest print at screen time — what this run actually saw. */
+  protected override screenedDate(scored: CandidateScore): string | null {
+    return this.ctx?.stats.get(scored.securityId)?.asOf ?? null;
+  }
+
   protected override classify(scored: CandidateScore): {
     verdict?: string | null;
     classification?: string | null;
