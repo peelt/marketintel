@@ -20,7 +20,7 @@ import { loadSecurityDossier } from "@/lib/security/dossier";
 export const dynamic = "force-dynamic";
 
 /**
- * The per-security page: every desk's latest read on ONE name, plus price,
+ * The per-security page: the desk's latest read on ONE name, plus price,
  * with a link out to each report for the cited evidence. A company-first view
  * over an edition-first data model.
  */
@@ -68,9 +68,9 @@ export default async function SecurityPage({
             {security.delistedAt ? " · delisted" : ""}
           </div>
           <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            Every desk&apos;s current read on this name in one place, most
-            concerning first, with what changed since each desk&apos;s last
-            edition. Open a report for the evidence behind any verdict.
+            The desk&apos;s current read on this name, and what changed since
+            its last edition. Open a report for the evidence behind any
+            verdict.
           </p>
         </header>
 

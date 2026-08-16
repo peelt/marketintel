@@ -630,7 +630,7 @@ export default async function ReportDetailPage({
                             href={`/names/${it.security_id}`}
                             className="text-il-accent hover:text-il-orange"
                           >
-                            see every desk on{" "}
+                            see the desk&apos;s read on{" "}
                             {it.security ? securityDisplayLabel(it.security) : "this name"} →
                           </Link>
                         </p>

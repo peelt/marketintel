@@ -76,7 +76,7 @@ export function WhatChangedFeed({
                 <Link
                   href={`/names/${item.securityId}`}
                   className="font-mono-cli text-base font-bold text-il-navy hover:text-il-orange"
-                  title="See every desk's read on this name"
+                  title="See the desk's read on this name"
                 >
                   {item.ticker}
                 </Link>
