@@ -86,7 +86,7 @@ export default async function PortfolioPage() {
           </Link>
         </div>
         <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-          The names you hold, valued daily, with every desk&apos;s verdicts
+          The names you hold, valued daily, with the desk&apos;s verdicts
           filtered to them. Purchase price is optional — it powers your P/L
           display and never influences any score.
         </p>
@@ -218,7 +218,7 @@ export default async function PortfolioPage() {
                         <Link
                           href={`/names/${h.securityId}`}
                           className="group"
-                          title="See every desk's read on this name"
+                          title="See the desk's read on this name"
                         >
                           <span className="font-mono-cli font-bold text-il-navy group-hover:text-il-orange">
                             {h.ticker}
