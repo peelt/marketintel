@@ -162,6 +162,62 @@ export function formatPriceDate(iso: string): string {
 }
 
 /**
+ * First non-empty line of a (markdown-stripped) summary, capped for list and
+ * standfirst use. Pure; shared by the reports list and detail pages.
+ */
+export function firstSentences(text: string, max = 220): string {
+  const flat = text.split("\n").filter((l) => l.trim().length > 0)[0] ?? "";
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/**
+ * The screened move a reaction verdict quotes — "-19.2% over 5 sessions" or
+ * "-9.0% in a session" (see describeScreenedMove). Parsed back out so the
+ * ranked table can show the fall itself without opening the row. Null when
+ * the verdict doesn't quote a move (absent verdict, on-demand screen notes) —
+ * the cell renders "—", never a fabricated number.
+ */
+export function parseVerdictDrop(
+  verdict: string | null,
+): { pct: number; sessions: 1 | 5 } | null {
+  if (!verdict) return null;
+  const m = /(-?\d+(?:\.\d+)?)% (over 5 sessions|in a session)/.exec(verdict);
+  if (!m) return null;
+  const pct = Number(m[1]);
+  if (!Number.isFinite(pct)) return null;
+  return { pct, sessions: m[2] === "in a session" ? 1 : 5 };
+}
+
+/** "-19.2% / 5d" — the drop cell's text. */
+export function dropDisplay(drop: { pct: number; sessions: 1 | 5 }): string {
+  return `${drop.pct.toFixed(1)}% / ${drop.sessions}d`;
+}
+
+/**
+ * Summaries filed before the prose fix carry printf plurals — "3 move(s)",
+ * "1 drop(s)". Filed editions are immutable, so old ones are normalised at
+ * display time instead ("3 moves", "1 drop").
+ */
+export function pluralizeCounts(text: string): string {
+  // The count may sit a word or two before the "(s)" noun — "4 graded
+  // drop(s)", "2 screened fall(s)" — so allow short intermediates.
+  return text.replace(
+    /(\d+)((?:\s+[A-Za-z]+){0,2}?)\s+([A-Za-z]+)\(s\)/g,
+    (_, num: string, mid: string, word: string) =>
+      `${num}${mid} ${Number(num) === 1 ? word : `${word}s`}`,
+  );
+}
+
+/**
+ * An edition's line in the archive list. Every reaction summary opens with the
+ * same "NNN names screened; " — identical on every row, so the list drops it
+ * and each row leads with what that run actually found.
+ */
+export function editionListLine(summary: string): string {
+  return pluralizeCounts(summary).replace(/^\d[\d,]* names screened; /, "");
+}
+
+/**
  * Pre-listing IPO issuers carry a placeholder ticker derived from their SEC
  * CIK ("CIK2102720") until the prospectus discloses a proposed symbol. A raw
  * CIK is meaningless to a reader, so display surfaces should lead with the

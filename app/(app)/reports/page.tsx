@@ -5,9 +5,15 @@ import { getSessionContext } from "@/lib/auth/session";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
 import { Disclaimer } from "@/components/disclaimer";
-import { ClassificationChip, MODULE_COLORS } from "@/components/cli";
-import { humanizeDateTime, stripInlineMarkdown } from "@/lib/format";
-import { severityOf } from "@/lib/holdings/deltas";
+import { MODULE_COLORS } from "@/components/cli";
+import {
+  editionListLine,
+  firstSentences,
+  formatPriceDate,
+  humanizeDateTime,
+  pluralizeCounts,
+  stripInlineMarkdown,
+} from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -39,40 +45,6 @@ export default async function ReportsPage() {
     .order("generated_at", { ascending: false })
     .limit(50)
     .returns<ReportRow[]>();
-
-  // Classification counts for each desk's LATEST edition, so the list can lead
-  // with chips (what the run found) instead of a grey prose snippet.
-  const latestIds = groupByDesk(reports ?? []).map((g) => g.latest.id);
-  const countsByReport = new Map<string, { classification: string; count: number }[]>();
-  if (latestIds.length > 0) {
-    const { data: items } = await supabase
-      .from("report_items")
-      .select("report_id, classification")
-      .in("report_id", latestIds)
-      .not(
-        "classification",
-        "in",
-        "(insufficient_data,cause_unconfirmed,corporate_action)",
-      )
-      .returns<{ report_id: string; classification: string | null }[]>();
-    const acc = new Map<string, Map<string, number>>();
-    for (const it of items ?? []) {
-      if (!it.classification) continue;
-      const m = acc.get(it.report_id) ?? new Map<string, number>();
-      m.set(it.classification, (m.get(it.classification) ?? 0) + 1);
-      acc.set(it.report_id, m);
-    }
-    for (const [reportId, m] of acc) {
-      countsByReport.set(
-        reportId,
-        [...m.entries()]
-          .map(([classification, count]) => ({ classification, count }))
-          .sort(
-            (a, b) => severityOf(b.classification).rank - severityOf(a.classification).rank,
-          ),
-      );
-    }
-  }
 
   return (
     <>
@@ -113,57 +85,70 @@ export default async function ReportsPage() {
                 >
                   <div className="flex items-baseline justify-between gap-4">
                     <div className="text-base font-bold text-il-navy">
-                      Latest report
+                      Latest edition —{" "}
+                      {formatPriceDate(latest.generated_at.slice(0, 10))}
                     </div>
                     <div className="font-mono-cli text-sm text-muted-foreground">
-                      {humanizeDateTime(latest.generated_at)}
+                      filed {humanizeDateTime(latest.generated_at)}
                     </div>
                   </div>
-                  {(countsByReport.get(latest.id)?.length ?? 0) > 0 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      {countsByReport.get(latest.id)!.map((c) => (
-                        <span key={c.classification} className="flex items-center gap-1.5">
-                          <span className="font-mono-cli text-sm text-il-navy">
-                            {c.count}×
-                          </span>
-                          <ClassificationChip classification={c.classification} />
-                        </span>
-                      ))}
-                    </div>
-                  )}
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                    {firstSentences(stripInlineMarkdown(latest.summary_markdown))}
+                    {firstSentences(stripInlineMarkdown(pluralizeCounts(latest.summary_markdown)))}
                   </p>
                 </Link>
 
+                {/* Previous editions, VISIBLE — date first, since "the one
+                    from Tuesday" is how a reader looks for an edition. Only
+                    the long tail collapses. */}
                 {previous.length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer font-mono-cli text-sm text-muted-foreground hover:text-il-orange">
-                      ~ {previous.length} previous edition
-                      {previous.length === 1 ? "" : "s"}
-                    </summary>
-                    <ul className="mt-2 space-y-2">
-                      {previous.map((r) => (
-                        <li key={r.id}>
+                  <div className="card-cli mt-2 p-0">
+                    <ul>
+                      {previous.slice(0, VISIBLE_PREVIOUS).map((r) => (
+                        <li key={r.id} className="border-t border-border first:border-t-0">
                           <Link
                             href={`/reports/${r.id}`}
-                            className="card-cli block px-5 py-3"
+                            className="flex items-baseline gap-4 px-5 py-2.5 hover:bg-il-tint/60"
                           >
-                            <div className="flex items-baseline justify-between gap-4">
-                              <p className="line-clamp-1 min-w-0 text-base text-muted-foreground">
-                                {firstSentences(
-                                  stripInlineMarkdown(r.summary_markdown),
-                                )}
-                              </p>
-                              <span className="shrink-0 font-mono-cli text-sm text-muted-foreground">
-                                {humanizeDateTime(r.generated_at)}
-                              </span>
-                            </div>
+                            <span className="shrink-0 font-mono-cli text-sm font-bold text-il-navy">
+                              {formatPriceDate(r.generated_at.slice(0, 10))}
+                            </span>
+                            <span className="line-clamp-1 min-w-0 text-sm text-muted-foreground">
+                              {firstSentences(
+                                stripInlineMarkdown(editionListLine(r.summary_markdown)),
+                              )}
+                            </span>
                           </Link>
                         </li>
                       ))}
                     </ul>
-                  </details>
+                    {previous.length > VISIBLE_PREVIOUS && (
+                      <details>
+                        <summary className="cursor-pointer border-t border-border px-5 py-2.5 font-mono-cli text-sm text-muted-foreground marker:content-none hover:text-il-orange">
+                          ~ {previous.length - VISIBLE_PREVIOUS} older edition
+                          {previous.length - VISIBLE_PREVIOUS === 1 ? "" : "s"}
+                        </summary>
+                        <ul>
+                          {previous.slice(VISIBLE_PREVIOUS).map((r) => (
+                            <li key={r.id} className="border-t border-border">
+                              <Link
+                                href={`/reports/${r.id}`}
+                                className="flex items-baseline gap-4 px-5 py-2.5 hover:bg-il-tint/60"
+                              >
+                                <span className="shrink-0 font-mono-cli text-sm font-bold text-il-navy">
+                                  {formatPriceDate(r.generated_at.slice(0, 10))}
+                                </span>
+                                <span className="line-clamp-1 min-w-0 text-sm text-muted-foreground">
+                                  {firstSentences(
+                                    stripInlineMarkdown(editionListLine(r.summary_markdown)),
+                                  )}
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
                 )}
               </section>
             );
@@ -177,10 +162,8 @@ export default async function ReportsPage() {
   );
 }
 
-function firstSentences(text: string, max = 220): string {
-  const flat = text.split("\n").filter((l) => l.trim().length > 0)[0] ?? "";
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
-}
+/** How many previous editions stay visible before the list collapses. */
+const VISIBLE_PREVIOUS = 12;
 
 /**
  * Group the (already newest-first) report list by desk: each desk shows its

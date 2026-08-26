@@ -16,25 +16,21 @@ export default function ReportLoading() {
     <SkeletonPage>
       <SkeletonPageHead />
 
-      {/* verdict summary band */}
-      <div className="card-cli mt-6 p-6">
+      {/* standfirst + edition switcher */}
+      <div className="mt-4 space-y-2">
+        <Skeleton className="h-4 w-full max-w-3xl" />
+        <Skeleton className="h-4 w-11/12 max-w-3xl" />
+      </div>
+      <div className="mt-4 flex gap-4">
         <Skeleton className="h-4 w-32" />
-        <div className="mt-4 space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-11/12" />
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Skeleton className="h-6 w-28" />
-          <Skeleton className="h-6 w-24" />
-          <Skeleton className="h-6 w-32" />
-        </div>
+        <Skeleton className="h-4 w-24" />
       </div>
 
       {/* ranked table */}
       <div className="mt-8">
         <Skeleton className="h-5 w-36" />
         <div className="mt-3">
-          <SkeletonRows count={6} />
+          <SkeletonRows count={7} />
         </div>
       </div>
 

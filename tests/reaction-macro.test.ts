@@ -197,7 +197,7 @@ describe("driver roll-up", () => {
   it("reports an all-company-specific run without naming a theme", () => {
     const line = summariseDrivers([grade("idiosyncratic"), grade("idiosyncratic")]);
     expect(line).toBe(
-      "All 2 graded drop(s) trace to company-specific news, not the macro backdrop.",
+      "All 2 graded drops trace to company-specific news, not the macro backdrop.",
     );
   });
 
@@ -210,7 +210,7 @@ describe("driver roll-up", () => {
       grade("unattributed"),
     ])!;
     // 4 attributed (the unattributed one is not counted), 3 of them macro.
-    expect(line).toContain("3 of 4 graded drop(s) trace to the macro backdrop");
+    expect(line).toContain("3 of 4 graded drops trace to the macro backdrop");
     expect(line).toContain("**Tariff escalation** (2)");
     expect(line).toContain("2 fell with little company-specific news");
   });
@@ -236,7 +236,7 @@ describe("driver roll-up extraction", () => {
       grade("idiosyncratic"),
     ])!;
     const extracted = extractDriverLine(`${screened} ${line}`);
-    expect(extracted).toContain("2 of 3 graded drop(s) trace to the macro backdrop");
+    expect(extracted).toContain("2 of 3 graded drops trace to the macro backdrop");
     expect(extracted).toContain("Tariff escalation (2)");
     expect(extracted).not.toContain("**");
   });
@@ -244,7 +244,7 @@ describe("driver roll-up extraction", () => {
   it("pulls the all-company-specific roll-up", () => {
     const line = summariseDrivers([grade("idiosyncratic"), grade("idiosyncratic")])!;
     expect(extractDriverLine(`${screened} ${line}`)).toBe(
-      "All 2 graded drop(s) trace to company-specific news, not the macro backdrop.",
+      "All 2 graded drops trace to company-specific news, not the macro backdrop.",
     );
   });
 
