@@ -4,7 +4,12 @@ import {
   compositeDisplay,
   confidenceWord,
   criterionShortLabel,
+  dropDisplay,
+  editionListLine,
+  firstSentences,
   formatPriceDate,
+  parseVerdictDrop,
+  pluralizeCounts,
   isPlaceholderTicker,
   priceChangeSummary,
   dayChangeFraction,
@@ -63,6 +68,83 @@ describe("stripInlineMarkdown", () => {
   it("handles headings, italics, links and code", () => {
     expect(stripInlineMarkdown("# Title\n_em_ and *star* and [x](http://y) and `c`")).toBe(
       "Title\nem and star and x and c",
+    );
+  });
+});
+
+describe("parseVerdictDrop", () => {
+  it("reads the 5-session move a filed verdict quotes, stamp and all", () => {
+    expect(
+      parseVerdictDrop(
+        "The framework grades -19.2% over 5 sessions (as of the 19 Aug 2026 close) against news damage graded 25/100 as somewhat disproportionate.",
+      ),
+    ).toEqual({ pct: -19.2, sessions: 5 });
+  });
+
+  it("reads the 1-day leg", () => {
+    expect(
+      parseVerdictDrop("The framework grades -9.0% in a session against …"),
+    ).toEqual({ pct: -9, sessions: 1 });
+  });
+
+  it("finds the move mid-sentence in underreaction verdicts", () => {
+    expect(
+      parseVerdictDrop(
+        "The framework grades the identified damage as heavier than -14.0% over 5 sessions reflects.",
+      ),
+    ).toEqual({ pct: -14, sessions: 5 });
+  });
+
+  it("returns null when no move is quoted — the cell shows a dash, not a number", () => {
+    expect(parseVerdictDrop(null)).toBeNull();
+    expect(
+      parseVerdictDrop(
+        "AAPL was requested on demand but has too little recent price history to screen.",
+      ),
+    ).toBeNull();
+  });
+
+  it("formats for the table cell", () => {
+    expect(dropDisplay({ pct: -19.2, sessions: 5 })).toBe("-19.2% / 5d");
+    expect(dropDisplay({ pct: -9, sessions: 1 })).toBe("-9.0% / 1d");
+  });
+});
+
+describe("firstSentences", () => {
+  it("takes the first non-empty line and caps long ones", () => {
+    expect(firstSentences("\n\nFirst line.\nSecond.")).toBe("First line.");
+    expect(firstSentences("x".repeat(300)).length).toBe(220);
+    expect(firstSentences("x".repeat(300)).endsWith("…")).toBe(true);
+  });
+});
+
+describe("pluralizeCounts / editionListLine", () => {
+  it("normalises printf plurals in already-filed summaries", () => {
+    expect(pluralizeCounts("Framework flags 3 move(s) as overshoot.")).toBe(
+      "Framework flags 3 moves as overshoot.",
+    );
+    expect(pluralizeCounts("1 drop(s) unranked")).toBe("1 drop unranked");
+    expect(pluralizeCounts("no counts here")).toBe("no counts here");
+    // The count can sit a word or two before the noun.
+    expect(pluralizeCounts("2 of 4 graded drop(s) trace to the macro backdrop")).toBe(
+      "2 of 4 graded drops trace to the macro backdrop",
+    );
+    expect(pluralizeCounts("1 screened fall(s) were corporate actions")).toBe(
+      "1 screened fall were corporate actions",
+    );
+  });
+
+  it("drops the identical screened-count prefix for archive rows", () => {
+    expect(
+      editionListLine(
+        "853 names screened; 8 cleared the drop threshold. Framework flags 3 move(s) as overshoot: **COHR**.",
+      ),
+    ).toBe(
+      "8 cleared the drop threshold. Framework flags 3 moves as overshoot: **COHR**.",
+    );
+    // A summary without the prefix passes through untouched.
+    expect(editionListLine("No qualifying drops this run.")).toBe(
+      "No qualifying drops this run.",
     );
   });
 });
