@@ -111,7 +111,9 @@ export function summariseDrivers(
     (g) => g.macroDriver === "macro_driven" || g.macroDriver === "macro_amplified",
   );
   if (macro.length === 0) {
-    return `All ${attributed.length} graded drop(s) trace to company-specific news, not the macro backdrop.`;
+    return attributed.length === 1
+      ? "The graded drop traces to company-specific news, not the macro backdrop."
+      : `All ${attributed.length} graded drops trace to company-specific news, not the macro backdrop.`;
   }
 
   // Name the theme carrying the most drops — the reader's question on a
@@ -124,7 +126,7 @@ export function summariseDrivers(
   const driven = macro.filter((g) => g.macroDriver === "macro_driven").length;
 
   return [
-    `${macro.length} of ${attributed.length} graded drop(s) trace to the macro backdrop`,
+    `${macro.length} of ${attributed.length} graded drop${attributed.length === 1 ? "" : "s"} trace${macro.length === 1 ? "s" : ""} to the macro backdrop`,
     top ? ` — most to **${top[0]}** (${top[1]})` : "",
     driven > 0
       ? `; ${driven} fell with little company-specific news of ${driven === 1 ? "its" : "their"} own.`
@@ -422,20 +424,24 @@ export class ReactionAgent extends BaseAgent {
       scored.length === 0
         ? "No qualifying drops this run."
         : overshoots.length > 0
-          ? `Framework flags ${overshoots.length} move(s) as overshoot: ${overshoots
+          ? `Framework flags ${overshoots.length} move${overshoots.length === 1 ? "" : "s"} as overshoot: ${overshoots
               .slice(0, 3)
               .map((c) => `**${label(c.s)}**`)
               .join(", ")}.`
           : "No screened move graded as overshoot — declines look earned or worse.",
       unconfirmed.length > 0
-        ? `${unconfirmed.length} drop(s) unranked — no news grade this run: ${unconfirmed
+        ? `${unconfirmed.length} drop${unconfirmed.length === 1 ? "" : "s"} unranked — no news grade this run: ${unconfirmed
             .map((c) => `**${label(c.s)}**`)
             .join(", ")}.`
         : "",
       // Named, not silently dropped: the screen did fire on these, and a
       // reader who saw the price move deserves to know why they're absent.
       corporateActions.length > 0
-        ? `${corporateActions.length} screened fall(s) were corporate actions rather than losses of value, so no overshoot verdict was filed: ${corporateActions
+        ? `${
+            corporateActions.length === 1
+              ? "1 screened fall was a corporate action rather than a loss of value"
+              : `${corporateActions.length} screened falls were corporate actions rather than losses of value`
+          }, so no overshoot verdict was filed: ${corporateActions
             .map((c) => `**${label(c.s)}**`)
             .join(", ")}.`
         : "",
@@ -479,7 +485,7 @@ export class ReactionAgent extends BaseAgent {
     if (capped > 0) {
       lines.push(
         ``,
-        `_${capped} additional name(s) cleared the screen but were deferred this run (severity-ranked cap of ${MAX_CANDIDATES}); they re-qualify automatically next run if still down._`,
+        `_${capped} additional name${capped === 1 ? "" : "s"} cleared the screen but ${capped === 1 ? "was" : "were"} deferred this run (severity-ranked cap of ${MAX_CANDIDATES}); ${capped === 1 ? "it re-qualifies" : "they re-qualify"} automatically next run if still down._`,
       );
     }
 

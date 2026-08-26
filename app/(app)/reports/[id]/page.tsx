@@ -16,7 +16,11 @@ import {
   classificationLabel,
   compositeDisplay,
   confidenceWord,
+  dropDisplay,
+  formatPriceDate,
   humanizeDateTime,
+  parseVerdictDrop,
+  pluralizeCounts,
   securityDisplayLabel,
   securitySecondaryLabel,
 } from "@/lib/format";
@@ -25,7 +29,7 @@ import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { PriceChart, type PricePoint } from "@/components/price-chart";
 import { MacroRead } from "@/components/macro-read";
-import { extractDriverLine, parseMacroMemo } from "@/lib/reports/macro-memo";
+import { parseMacroMemo } from "@/lib/reports/macro-memo";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +123,11 @@ interface RunRow {
   started_at: string;
   finished_at: string | null;
   status: string;
+}
+
+interface NeighborRow {
+  id: string;
+  generated_at: string;
 }
 
 export default async function ReportDetailPage({
@@ -215,8 +224,27 @@ export default async function ReportDetailPage({
     .map((i) => i.security_id)
     .filter((v): v is string => v !== null);
 
-  const [{ data: evidence, error: evidenceErr }, { data: priceHistory }] =
-    await Promise.all([
+  // Adjacent editions of the same desk, for the header's edition switcher —
+  // succeeded runs only, same rule as the list. Fail-soft: navigation is a
+  // convenience, so a failed neighbour read renders no link, not an error.
+  const neighbourQuery = (dir: "prev" | "next") =>
+    supabase
+      .from("reports")
+      .select("id, generated_at, agent_runs!inner(status)")
+      .eq("agent_name", report.agent_name)
+      .eq("agent_runs.status", "succeeded")
+      [dir === "prev" ? "lt" : "gt"]("generated_at", report.generated_at)
+      .order("generated_at", { ascending: dir === "next" })
+      .limit(1)
+      .maybeSingle<NeighborRow>()
+      .then((r) => r.data ?? null);
+
+  const [
+    { data: evidence, error: evidenceErr },
+    { data: priceHistory },
+    prevEdition,
+    nextEdition,
+  ] = await Promise.all([
     itemIds.length
       ? supabase
           .from("evidence")
@@ -250,6 +278,8 @@ export default async function ReportDetailPage({
           "report price history",
         ).then((rows) => ({ data: rows }))
       : Promise.resolve({ data: [] as PriceHistoryRow[] }),
+    neighbourQuery("prev"),
+    neighbourQuery("next"),
   ]);
   // Evidence is the glass-box promise — a report silently rendering WITHOUT
   // the rows behind its scores is worse than an error page. Surface it.
@@ -304,21 +334,6 @@ export default async function ReportDetailPage({
     (i) => coverageOf(i) === 0 && i.classification !== "corporate_action",
   );
 
-  const classified = rankedItems.filter(
-    (i) => i.classification && i.classification !== "insufficient_data",
-  );
-  const classificationCounts = new Map<string, number>();
-  for (const i of classified) {
-    classificationCounts.set(
-      i.classification!,
-      (classificationCounts.get(i.classification!) ?? 0) + 1,
-    );
-  }
-  const avgCoverage =
-    rankedItems.length > 0
-      ? rankedItems.reduce((sum, i) => sum + coverageOf(i), 0) / rankedItems.length
-      : 0;
-
   // Parse the macro read into structured themes for the accordion render;
   // null (any other desk, no read this run, or an unparseable memo) falls back
   // to raw markdown for the hybrid desk so nothing is ever dropped.
@@ -345,20 +360,40 @@ export default async function ReportDetailPage({
             />
             {meta?.displayName ?? report.agent_name}
           </h1>
-          <div className="font-mono-cli text-base text-muted-foreground">
-            {humanizeDateTime(report.generated_at)}
-            {run?.framework?.version != null && (
-              <> · framework v{run.framework.version}</>
-            )}
+          <div className="font-mono-cli text-base text-il-navy">
+            {formatPriceDate(report.generated_at.slice(0, 10))} edition
           </div>
         </div>
-        {/* What this desk covers — why these names and not others. Shown on
-            every edition so the reader never has to guess the scope. */}
-        {meta?.scope && (
-          <p className="mt-3 max-w-3xl text-base leading-relaxed text-muted-foreground">
-            {meta.scope}
-          </p>
-        )}
+        {/* Standfirst — the edition's conclusion in words, straight from the
+            desk's own summary. (What this desk is and how it scores lives in
+            the collapsed "how this edition was made" footer, not up here.) */}
+        <div className="mt-4 max-w-3xl text-base leading-relaxed text-il-navy [&_p+p]:mt-2">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {pluralizeCounts(report.summary_markdown)}
+          </ReactMarkdown>
+        </div>
+        {/* Edition switcher — previous/next filed editions, one click away. */}
+        <nav className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono-cli text-sm text-muted-foreground">
+          {prevEdition && (
+            <Link
+              href={`/reports/${prevEdition.id}`}
+              className="hover:text-il-orange"
+            >
+              ← {formatPriceDate(prevEdition.generated_at.slice(0, 10))} edition
+            </Link>
+          )}
+          <Link href="/reports" className="hover:text-il-orange">
+            all editions
+          </Link>
+          {nextEdition && (
+            <Link
+              href={`/reports/${nextEdition.id}`}
+              className="hover:text-il-orange"
+            >
+              {formatPriceDate(nextEdition.generated_at.slice(0, 10))} edition →
+            </Link>
+          )}
+        </nav>
       </header>
 
       {/* (Non-succeeded runs never reach here — they return the "not
@@ -383,63 +418,30 @@ export default async function ReportDetailPage({
           </section>
         ))}
 
-      {/* Verdict strip — the conclusion at a glance: how the run broke down by
-          classification, plus average coverage. (The per-name verdicts live in
-          the ranked table below; repeating the top three here was duplication.) */}
-      {rankedItems.length > 0 && (
-        <section className="card-cli mt-8 p-5">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <span className="font-mono-cli text-base text-il-navy">
-              {rankedItems.length} name{rankedItems.length === 1 ? "" : "s"} ranked
-            </span>
-            {[...classificationCounts.entries()].map(([cls, count]) => (
-              <span key={cls} className="flex items-center gap-2">
-                <span className="font-mono-cli text-base text-il-navy">{count}×</span>
-                <ClassificationChip classification={cls} />
-              </span>
-            ))}
-            <span className="ml-auto flex items-center gap-2 font-mono-cli text-base text-muted-foreground">
-              avg coverage <CoverageBar coverage={avgCoverage} />
-            </span>
-          </div>
-        </section>
-      )}
-
-      {/* Reaction's macro backdrop — what was moving prices when these names
-          fell, so a drop reads as company-specific or as part of a wider move.
-          Sits between the conclusion and the names: it explains the day, it
-          doesn't rank it. COMPACT by default — rendered open it ran to a
-          screen of market commentary between the conclusion and the names,
-          burying what it was there to support. Silently absent when the read
-          failed (the body still says so in the analyst note) — an empty
-          backdrop is not a finding. */}
-      {!isMacroMemo && parsedMemo && (
-        <section className="card-cli mt-8 p-5">
-          <MacroRead
-            memo={parsedMemo}
-            compact
-            driverLine={extractDriverLine(report.summary_markdown)}
-          />
-        </section>
-      )}
-
       {/* Ranked candidates — one scannable table whose rows OPEN into the
           evidence behind each score. (Previously this was two stacked lists
           repeating the same names; the ranking and its evidence are one thing,
           so they're one thing here.) */}
       {rankedItems.length > 0 && (
-        <section className="mt-10">
+        <section className="mt-8">
           <div className="font-mono-cli text-base text-il-navy">~ ranked candidates</div>
-          <p className="mt-1 text-base text-muted-foreground">
-            Ranked by composite. Open any row to see the framework read behind
-            its score — criteria, price, and every cited source.
+          <p className="mt-1 text-sm text-muted-foreground">
+            open a row for the evidence behind its verdict
           </p>
           <div className="card-cli mt-3 overflow-x-auto p-0">
             <div className="min-w-[720px]">
               {/* Column header — shares the row grid so cells line up */}
-              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_5rem_6.5rem_9rem_1.25rem] items-center gap-3 border-b border-border bg-il-tint px-4 py-2.5 font-mono-cli text-sm text-il-navy">
+              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] items-center gap-3 border-b border-border bg-il-tint px-4 py-2.5 font-mono-cli text-sm text-il-navy">
                 <span>#</span>
                 <span>Name</span>
+                <span className="text-right">
+                  <abbr
+                    title="The screened fall the verdict grades — % move / window in trading days"
+                    className="no-underline"
+                  >
+                    Drop
+                  </abbr>
+                </span>
                 <span className="text-right">
                   <abbr
                     title="Weighted composite against the framework, out of 100. Higher is stronger."
@@ -448,7 +450,6 @@ export default async function ReportDetailPage({
                     Score
                   </abbr>
                 </span>
-                <span>Coverage</span>
                 <span>Classification</span>
                 <span aria-hidden />
               </div>
@@ -465,13 +466,15 @@ export default async function ReportDetailPage({
                 const currency =
                   prices.find((p) => p.currency)?.currency ?? null;
                 const criteria = it.scoring_breakdown?.criteria ?? {};
+                const drop = parseVerdictDrop(it.verdict);
+                const partial = coverageOf(it) < 0.999;
 
                 return (
                   <details
                     key={it.id}
                     className="group border-t border-border first:border-t-0"
                   >
-                    <summary className="grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_5rem_6.5rem_9rem_1.25rem] items-center gap-3 px-4 py-2.5 text-base marker:content-none hover:bg-il-tint/60">
+                    <summary className="grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] items-center gap-3 px-4 py-2.5 text-base marker:content-none hover:bg-il-tint/60">
                       <span className="font-mono-cli text-sm text-muted-foreground">
                         {it.rank}
                       </span>
@@ -483,21 +486,28 @@ export default async function ReportDetailPage({
                           {it.security ? securitySecondaryLabel(it.security) : ""}
                         </span>
                       </span>
+                      {/* The fall itself — small red figure per the family
+                          spec (alert colours are glyph-scale only). "—" when
+                          the verdict quotes no move; never a made-up number. */}
+                      <span className="text-right font-mono-cli text-sm">
+                        {drop ? (
+                          <span style={{ color: drop.pct < 0 ? "#EE1D23" : undefined }}>
+                            {dropDisplay(drop)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </span>
                       <span className="text-right font-mono-cli">
                         {displayComposite(it)}
-                      </span>
-                      <span>
-                        {/* Coverage is near-always 100% post-freshness-fixes,
-                            so show the bar only when there's a genuine gap —
-                            a partial then stands out instead of being noise. */}
-                        {coverageOf(it) < 0.999 ? (
-                          <CoverageBar coverage={coverageOf(it)} />
-                        ) : (
+                        {/* Coverage is near-always full now; a partial scores
+                            from less data, and says so in the open row. */}
+                        {partial && (
                           <span
-                            className="font-mono-cli text-sm text-muted-foreground"
-                            title="Full data coverage against the framework"
+                            className="ml-0.5 text-muted-foreground"
+                            title="Scored from partial data — open the row for what was missing"
                           >
-                            full
+                            *
                           </span>
                         )}
                       </span>
@@ -521,6 +531,16 @@ export default async function ReportDetailPage({
                         <p className="mb-4 text-base leading-relaxed">
                           {it.verdict}
                         </p>
+                      )}
+
+                      {partial && (
+                        <div className="mb-4 flex items-center gap-2 font-mono-cli text-sm text-muted-foreground">
+                          coverage <CoverageBar coverage={coverageOf(it)} />
+                          <span>
+                            — the score is computed from the framework weight
+                            that had data; the gaps are named below.
+                          </span>
+                        </div>
                       )}
 
                       {Object.keys(criteria).length > 0 && (
@@ -630,7 +650,7 @@ export default async function ReportDetailPage({
                             href={`/names/${it.security_id}`}
                             className="text-il-accent hover:text-il-orange"
                           >
-                            see every desk on{" "}
+                            see the desk&apos;s read on{" "}
                             {it.security ? securityDisplayLabel(it.security) : "this name"} →
                           </Link>
                         </p>
@@ -641,12 +661,20 @@ export default async function ReportDetailPage({
               })}
             </div>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Score = weighted composite against the framework (higher is
-            stronger). Coverage = how much of the framework had data for that
-            name; classifications are withheld below 35%. Every score is
-            defensible from the sources inside its row.
-          </p>
+        </section>
+      )}
+
+      {/* Reaction's macro backdrop — what was moving prices when these names
+          fell, so a drop reads as company-specific or as part of a wider move.
+          Below the names: it explains the day, it doesn't rank it. COMPACT by
+          default — rendered open it ran to a screen of market commentary.
+          Silently absent when the read failed (the body still says so in the
+          analyst note) — an empty backdrop is not a finding. */}
+      {/* No driverLine here: the standfirst up top already ends with the
+          attribution roll-up — repeating it one screen later read as an echo. */}
+      {!isMacroMemo && parsedMemo && (
+        <section className="card-cli mt-6 p-5">
+          <MacroRead memo={parsedMemo} compact />
         </section>
       )}
 
@@ -744,6 +772,30 @@ export default async function ReportDetailPage({
           </article>
         </details>
       )}
+
+      {/* Methodology, in one collapsed place — the desk's scope, the scoring
+          explainer, and the run's provenance. Repeating these open on every
+          edition buried the names under boilerplate. */}
+      <details className="card-cli mt-4 px-5 py-4">
+        <summary className="cursor-pointer font-mono-cli text-base text-muted-foreground marker:content-none">
+          ~ how this edition was made
+        </summary>
+        <div className="mt-3 space-y-3 text-base leading-relaxed text-muted-foreground">
+          {meta?.scope && <p>{meta.scope}</p>}
+          <p>
+            Score = weighted composite against the framework (higher is
+            stronger). Coverage = how much of the framework had data for that
+            name; classifications are withheld below 35%. Every score is
+            defensible from the sources inside its row.
+          </p>
+          <p className="font-mono-cli text-sm">
+            filed {humanizeDateTime(report.generated_at)}
+            {run?.framework?.version != null && (
+              <> · framework v{run.framework.version}</>
+            )}
+          </p>
+        </div>
+      </details>
 
       <Disclaimer />
     </main>
