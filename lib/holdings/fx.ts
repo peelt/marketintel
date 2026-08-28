@@ -44,6 +44,11 @@ export async function fetchRates(
   const rates = new Map<string, number>();
   const key = apiKey();
 
+  // Serve everything the process cache already holds, then fetch only what's
+  // missing — IN PARALLEL. This loop used to await each pair in turn behind a
+  // 200ms host throttle, inside a page render: a portfolio spanning three
+  // currencies serialised three network calls before the page could finish.
+  const missing: Array<{ from: string; to: string }> = [];
   for (const { from, to } of pairs) {
     const k = rateKey(from, to);
     const cached = cache.get(k);
@@ -51,24 +56,35 @@ export async function fetchRates(
       rates.set(k, cached.rate);
       continue;
     }
-    if (!key) continue; // no key → no rates; caller degrades gracefully
-
-    try {
-      const url = `${BASE}/exchange_rate?symbol=${encodeURIComponent(
-        `${from}/${to}`,
-      )}&apikey=${key}`;
-      const res = await httpFetch(url, { hostThrottleMs: 200 });
-      if (!res.ok) continue;
-      const parsed = RateZ.safeParse(await res.json());
-      if (parsed.success && typeof parsed.data.rate === "number") {
-        cache.set(k, { rate: parsed.data.rate, at: Date.now() });
-        rates.set(k, parsed.data.rate);
-      }
-    } catch (err) {
-      // Best-effort: log-and-skip, never throw into a page render.
-      console.warn(`fx: ${from}/${to} unavailable — ${getErrorMessage(err)}`);
-    }
+    missing.push({ from, to });
   }
+  if (!key || missing.length === 0) return rates; // no key → caller degrades
+
+  const fetched = await Promise.all(
+    missing.map(async ({ from, to }) => {
+      try {
+        const url = `${BASE}/exchange_rate?symbol=${encodeURIComponent(
+          `${from}/${to}`,
+        )}&apikey=${key}`;
+        const res = await httpFetch(url, { hostThrottleMs: 200 });
+        if (!res.ok) return null;
+        const parsed = RateZ.safeParse(await res.json());
+        if (parsed.success && typeof parsed.data.rate === "number") {
+          return { k: rateKey(from, to), rate: parsed.data.rate };
+        }
+      } catch (err) {
+        // Best-effort: log-and-skip, never throw into a page render.
+        console.warn(`fx: ${from}/${to} unavailable — ${getErrorMessage(err)}`);
+      }
+      return null;
+    }),
+  );
+  for (const r of fetched) {
+    if (!r) continue;
+    cache.set(r.k, { rate: r.rate, at: Date.now() });
+    rates.set(r.k, r.rate);
+  }
+
   return rates;
 }
 

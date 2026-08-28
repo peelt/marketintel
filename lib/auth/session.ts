@@ -2,6 +2,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { isEntitledEmail } from "./entitlement";
 import { isOwnerEmail } from "./allowlist";
+import { verifyUser } from "./verify";
 
 export interface SessionContext {
   userId: string | null;
@@ -25,15 +26,19 @@ export interface SessionContext {
  */
 export const getSessionContext = cache(async (): Promise<SessionContext> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Local signature verification, not a call to the auth server — see
+  // lib/auth/verify.ts. This used to be one of TWO getUser() round-trips paid
+  // serially before any page could start its first query.
+  // Local signature verification, not a call to the auth server — see
+  // lib/auth/verify.ts. This used to be one of TWO getUser() round-trips paid
+  // serially before any page could start its first query.
+  const user = await verifyUser(supabase);
   if (!user) {
     return { userId: null, email: null, entitled: false, isOwner: false };
   }
   return {
     userId: user.id,
-    email: user.email ?? null,
+    email: user.email,
     entitled: await isEntitledEmail(user.email),
     isOwner: isOwnerEmail(user.email),
   };

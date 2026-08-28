@@ -1,8 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { agentRegistry } from "@/lib/agents/registry";
 import type { AgentName } from "@/lib/agents/types";
-import { fetchAllRows } from "@/lib/supabase/fetch-all";
-import { getErrorMessage } from "@/lib/errors";
+import { loadHeldVerdictRows, loadHoldingRows } from "./data";
 import {
   computeDelta,
   severityOf,
@@ -37,38 +36,13 @@ export interface PortfolioIntel {
   health: PortfolioHealth;
 }
 
-interface HeldSecurity {
-  security_id: string;
-  security: { ticker: string; name: string } | null;
-}
-
-interface VerdictRow {
-  security_id: string | null;
-  classification: string | null;
-  composite_score: number;
-  scoring_breakdown: { coverage?: number } | null;
-  report: {
-    id: string;
-    agent_name: string;
-    generated_at: string;
-    agent_runs: { status: string } | null;
-  } | null;
-}
-
 export async function loadPortfolioIntel(
   supabase: SupabaseClient,
   portfolioId: string,
 ): Promise<PortfolioIntel> {
-  const { data: holdings, error: holdingsErr } = await supabase
-    .from("holdings")
-    .select("security_id, security:securities(ticker, name)")
-    .eq("portfolio_id", portfolioId)
-    .returns<HeldSecurity[]>();
-  if (holdingsErr) {
-    throw new Error(`loadPortfolioIntel holdings: ${getErrorMessage(holdingsErr)}`);
-  }
-
-  const rows = holdings ?? [];
+  // Shared with the valuation path (lib/holdings/data.ts) — one holdings read
+  // per request, not one per consumer.
+  const rows = await loadHoldingRows(supabase, portfolioId);
   if (rows.length === 0) {
     return { items: [], attentionCount: 0, health: summarizeHealth([]) };
   }
@@ -83,27 +57,13 @@ export async function loadPortfolioIntel(
   const securityIds = [...tickerBySecurity.keys()];
 
   // Recent succeeded verdicts for the held names. 90 days covers "latest +
-  // previous" for the weekly desks and the daily Reaction Analyser alike.
+  // previous" for the daily Reaction Analyser. The rows come from the shared
+  // 120-day fetch (lib/holdings/data.ts) that the valuation path already
+  // needs, narrowed here rather than paginated a second time.
   const sinceIso = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  // Paginated with a deterministic total order (security_id, then id): even
-  // inside the 90-day window a large portfolio's report_items can exceed
-  // 1,000 rows, and an unbounded read would silently drop the last-sorted
-  // names' deltas — which feed both the dashboard strip and the alert emails.
-  const verdicts = await fetchAllRows<VerdictRow>(
-    (from, to) =>
-      supabase
-        .from("report_items")
-        .select(
-          "id, security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
-        )
-        .in("security_id", securityIds)
-        .eq("report.agent_runs.status", "succeeded")
-        .gte("report.generated_at", sinceIso)
-        .order("security_id", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to)
-        .returns<VerdictRow[]>(),
-    "intel verdicts",
+  const allVerdicts = await loadHeldVerdictRows(supabase, portfolioId);
+  const verdicts = allVerdicts.filter(
+    (v) => (v.report?.generated_at ?? "") >= sinceIso,
   );
 
   // Bucket by (security, agent), newest first. Retired desks' verdicts are
