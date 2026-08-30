@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Ubuntu, Ubuntu_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 // Family type pairing: Ubuntu for prose, Ubuntu Mono for anything "machine".
@@ -33,6 +34,7 @@ export default function RootLayout({
     <html lang="en" className={`${ubuntu.variable} ${ubuntuMono.variable}`}>
       <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
