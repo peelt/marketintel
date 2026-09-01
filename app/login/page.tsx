@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnerEmail } from "@/lib/auth/allowlist";
+import { verifyUser } from "@/lib/auth/verify";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
 import { CliTitleBar, Wordmark } from "@/components/cli";
 
@@ -16,11 +17,10 @@ export default async function LoginPage({
 }) {
   const { error, sent, requested, reqerror } = await searchParams;
 
-  // If already logged in, go to dashboard.
+  // If already logged in, go to dashboard. Verified locally (lib/auth/verify.ts)
+  // rather than via a round-trip to the auth server.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await verifyUser(supabase);
   if (user && (await isEntitledEmail(user.email))) {
     redirect("/dashboard");
   }
@@ -28,7 +28,7 @@ export default async function LoginPage({
   return (
     <main className="mx-auto max-w-md px-6 py-24">
       <div className="mb-8 flex justify-center">
-        <Wordmark size="h-14" />
+        <Wordmark size="h-14" priority />
       </div>
 
       <div className="card-cli overflow-hidden p-0">

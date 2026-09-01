@@ -24,10 +24,8 @@ import {
   securityDisplayLabel,
   securitySecondaryLabel,
 } from "@/lib/format";
-import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
-import { PriceChart, type PricePoint } from "@/components/price-chart";
 import { MacroRead } from "@/components/macro-read";
 import { parseMacroMemo } from "@/lib/reports/macro-memo";
 
@@ -66,6 +64,8 @@ interface ReportItemRow {
   verdict: string | null;
   classification: string | null;
   security: { ticker: string; exchange: string; name: string } | null;
+  /** Embedded on the items query so the evidence isn't a second round-trip. */
+  evidence: EvidenceRow[] | null;
 }
 
 /**
@@ -110,13 +110,6 @@ interface EvidenceRow {
   redistributable: boolean;
 }
 
-interface PriceHistoryRow {
-  security_id: string;
-  snapshot_date: string;
-  close: number;
-  currency: string | null;
-}
-
 interface RunRow {
   framework_id: string | null;
   framework: { version: number } | null;
@@ -156,13 +149,51 @@ export default async function ReportDetailPage({
     notFound();
   }
 
-  const { data: run, error: runErr } = await supabase
-    .from("agent_runs")
-    .select(
-      "framework_id, started_at, finished_at, status, framework:scoring_frameworks(version)",
-    )
-    .eq("id", report.agent_run_id)
-    .maybeSingle<RunRow>();
+  // Adjacent editions of the same desk, for the header's edition switcher —
+  // succeeded runs only, same rule as the list. Fail-soft: navigation is a
+  // convenience, so a failed neighbour read renders no link, not an error.
+  const neighbourQuery = (dir: "prev" | "next") =>
+    supabase
+      .from("reports")
+      .select("id, generated_at, agent_runs!inner(status)")
+      .eq("agent_name", report.agent_name)
+      .eq("agent_runs.status", "succeeded")
+      [dir === "prev" ? "lt" : "gt"]("generated_at", report.generated_at)
+      .order("generated_at", { ascending: dir === "next" })
+      .limit(1)
+      .maybeSingle<NeighborRow>()
+      .then((r) => r.data ?? null);
+
+  // Everything else the page needs, in ONE parallel wave. These used to run as
+  // a serial chain (run -> items -> evidence), each hop paying a full network
+  // round-trip before the next could start; the evidence rows now ride along
+  // as an embedded select on their own items rather than a fourth hop.
+  // The run's status still gates rendering below — a non-succeeded run just
+  // means the fetched items are discarded rather than never fetched.
+  const [
+    { data: run, error: runErr },
+    { data: items, error: itemsErr },
+    prevEdition,
+    nextEdition,
+  ] = await Promise.all([
+    supabase
+      .from("agent_runs")
+      .select(
+        "framework_id, started_at, finished_at, status, framework:scoring_frameworks(version)",
+      )
+      .eq("id", report.agent_run_id)
+      .maybeSingle<RunRow>(),
+    supabase
+      .from("report_items")
+      .select(
+        "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name), evidence(id, report_item_id, evidence_type, source_table, source_text, weight, redistributable)",
+      )
+      .eq("report_id", report.id)
+      .order("rank", { ascending: true })
+      .returns<ReportItemRow[]>(),
+    neighbourQuery("prev"),
+    neighbourQuery("next"),
+  ]);
   if (runErr) throw new Error(`report run load: ${runErr.message}`);
 
   // Invariant: a report whose run did not SUCCEED must never render its
@@ -204,98 +235,21 @@ export default async function ReportDetailPage({
     );
   }
 
-  const { data: items, error: itemsErr } = await supabase
-    .from("report_items")
-    .select(
-      "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name)",
-    )
-    .eq("report_id", report.id)
-    .order("rank", { ascending: true })
-    .returns<ReportItemRow[]>();
   // Don't let an errored items read render as a report with zero candidates
   // (indistinguishable from a genuinely empty one).
   if (itemsErr) throw new Error(`report items load: ${itemsErr.message}`);
 
-  // Evidence + 1y price history for the evidence viewer — the whole point of
-  // the architecture (I1/I4): every score defensible from its cited rows.
   const allItems = items ?? [];
-  const itemIds = allItems.map((i) => i.id);
-  const securityIds = allItems
-    .map((i) => i.security_id)
-    .filter((v): v is string => v !== null);
 
-  // Adjacent editions of the same desk, for the header's edition switcher —
-  // succeeded runs only, same rule as the list. Fail-soft: navigation is a
-  // convenience, so a failed neighbour read renders no link, not an error.
-  const neighbourQuery = (dir: "prev" | "next") =>
-    supabase
-      .from("reports")
-      .select("id, generated_at, agent_runs!inner(status)")
-      .eq("agent_name", report.agent_name)
-      .eq("agent_runs.status", "succeeded")
-      [dir === "prev" ? "lt" : "gt"]("generated_at", report.generated_at)
-      .order("generated_at", { ascending: dir === "next" })
-      .limit(1)
-      .maybeSingle<NeighborRow>()
-      .then((r) => r.data ?? null);
-
-  const [
-    { data: evidence, error: evidenceErr },
-    { data: priceHistory },
-    prevEdition,
-    nextEdition,
-  ] = await Promise.all([
-    itemIds.length
-      ? supabase
-          .from("evidence")
-          .select(
-            "id, report_item_id, evidence_type, source_table, source_text, weight, redistributable",
-          )
-          .in("report_item_id", itemIds)
-          .order("weight", { ascending: false })
-          .returns<EvidenceRow[]>()
-      : Promise.resolve({ data: [] as EvidenceRow[], error: null }),
-    securityIds.length
-      ? // N candidates × ~250 sessions exceeds PostgREST's silent 1,000-row
-        // cap — an unpaginated read here chopped the most RECENT months off
-        // every chart (dates ascending, so the tail is what got cut), showing
-        // a rising line under a verdict about a crash. Always paginate.
-        fetchAllRows<PriceHistoryRow>(
-          (from, to) =>
-            supabase
-              .from("price_snapshots")
-              .select("security_id, snapshot_date, close, currency")
-              .in("security_id", securityIds)
-              .gte(
-                "snapshot_date",
-                new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
-                  .toISOString()
-                  .slice(0, 10),
-              )
-              .order("security_id", { ascending: true })
-              .order("snapshot_date", { ascending: true })
-              .range(from, to),
-          "report price history",
-        ).then((rows) => ({ data: rows }))
-      : Promise.resolve({ data: [] as PriceHistoryRow[] }),
-    neighbourQuery("prev"),
-    neighbourQuery("next"),
-  ]);
-  // Evidence is the glass-box promise — a report silently rendering WITHOUT
-  // the rows behind its scores is worse than an error page. Surface it.
-  if (evidenceErr) throw new Error(`report evidence load: ${evidenceErr.message}`);
-
+  // Evidence rides along on each item (embedded select above) — the glass-box
+  // promise: every score defensible from its cited rows. Heaviest-weighted
+  // source first, which the embed doesn't order for us.
   const evidenceByItem = new Map<string, EvidenceRow[]>();
-  for (const ev of evidence ?? []) {
-    const arr = evidenceByItem.get(ev.report_item_id) ?? [];
-    arr.push(ev);
-    evidenceByItem.set(ev.report_item_id, arr);
-  }
-  const pricesBySecurity = new Map<string, PriceHistoryRow[]>();
-  for (const p of priceHistory ?? []) {
-    const arr = pricesBySecurity.get(p.security_id) ?? [];
-    arr.push(p);
-    pricesBySecurity.set(p.security_id, arr);
+  for (const it of allItems) {
+    evidenceByItem.set(
+      it.id,
+      [...(it.evidence ?? [])].sort((a, b) => b.weight - a.weight),
+    );
   }
 
   const meta = agentRegistry.get(report.agent_name as AgentName);
@@ -456,15 +410,6 @@ export default async function ReportDetailPage({
 
               {rankedItems.map((it) => {
                 const evidenceRows = evidenceByItem.get(it.id) ?? [];
-                const prices = it.security_id
-                  ? (pricesBySecurity.get(it.security_id) ?? [])
-                  : [];
-                const points: PricePoint[] = prices.map((p) => ({
-                  date: p.snapshot_date,
-                  close: p.close,
-                }));
-                const currency =
-                  prices.find((p) => p.currency)?.currency ?? null;
                 const criteria = it.scoring_breakdown?.criteria ?? {};
                 const drop = parseVerdictDrop(it.verdict);
                 const partial = coverageOf(it) < 0.999;
@@ -594,15 +539,6 @@ export default async function ReportDetailPage({
                                 </div>
                               ))}
                           </div>
-                        </div>
-                      )}
-
-                      {points.length >= 2 && (
-                        <div className="mb-4">
-                          <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
-                            Price — trailing year
-                          </div>
-                          <PriceChart points={points} currency={currency} />
                         </div>
                       )}
 

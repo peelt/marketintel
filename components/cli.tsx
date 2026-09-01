@@ -12,14 +12,25 @@ import { classificationLabel } from "@/lib/format";
  * logical (deep navy #08325a). Sized by height, w-auto — never squashed
  * (family rule). `size` is the rendered height class.
  */
-export function Wordmark({ size = "h-8" }: { size?: string }) {
+export function Wordmark({
+  size = "h-8",
+  priority = false,
+}: {
+  size?: string;
+  /** Only where the mark is the page's largest above-the-fold element. */
+  priority?: boolean;
+}) {
   return (
     <Image
       src="/brand/investorlogical-logo@2x.png"
       alt="investorlogical"
-      width={3200}
-      height={711}
-      priority
+      // Declared at ~2x the largest rendered size (h-20 ≈ 405px wide), not the
+      // source file's 3200px: with the true dimensions Next generated srcset
+      // candidates up to 3840w for a mark rendered ~144px wide in the nav.
+      // Aspect is preserved exactly (4.5:1), so this is byte-count only.
+      width={440}
+      height={98}
+      priority={priority}
       className={`${size} w-auto`}
     />
   );

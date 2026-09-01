@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeDeskDelta, type DeskDelta } from "./desk-deltas";
+import { loadRecentDeskReports } from "./desk-reports";
 
 /**
  * Desk-card data for the dashboard, in as few round-trips as possible and
@@ -72,17 +73,10 @@ export async function loadDeskCards(
   // [1] is the baseline for the delta.
   const perDesk = await Promise.all(
     agentNames.map(async (name) => {
-      const { data } = await supabase
-        .from("reports")
-        .select(
-          "id, agent_name, generated_at, summary_markdown, agent_runs!inner(status)",
-        )
-        .eq("agent_name", name)
-        .eq("agent_runs.status", "succeeded")
-        .order("generated_at", { ascending: false })
-        .limit(2)
-        .returns<ReportRow[]>();
-      return { name, reports: data ?? [] };
+      // Shared newest-first read (lib/reports/desk-reports.ts) — the 48h feed
+      // needs the same rows, so this is one round-trip between them.
+      const recent = await loadRecentDeskReports(supabase, name);
+      return { name, reports: recent.slice(0, 2) as ReportRow[] };
     }),
   );
 
@@ -92,6 +86,8 @@ export async function loadDeskCards(
     const { data } = await supabase
       .from("report_items")
       .select(
+        // scoring_breakdown stays: the card's composite honours missing ≠ zero
+        // (compositeDisplay needs coverage to render "—" rather than a score).
         "report_id, security_id, rank, composite_score, classification, scoring_breakdown, security:securities(ticker, name)",
       )
       .in("report_id", allIds)
