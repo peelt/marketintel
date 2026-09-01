@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { getErrorMessage } from "@/lib/errors";
@@ -28,7 +29,7 @@ export interface PortfolioRow {
   base_currency: string;
 }
 
-interface HoldingBase {
+export interface HoldingBase {
   id: string;
   security_id: string;
   quantity: number;
@@ -76,7 +77,7 @@ interface PriceRow {
   currency: string | null;
 }
 
-interface VerdictRow {
+export interface HeldVerdictRow {
   security_id: string | null;
   classification: string | null;
   composite_score: number;
@@ -88,6 +89,78 @@ interface VerdictRow {
     agent_runs: { status: string } | null;
   } | null;
 }
+
+/**
+ * The portfolio's holding rows, resolved ONCE per request.
+ *
+ * Both /dashboard and /portfolio need these twice per render — the valuation
+ * (loadHeldNames) and the intel lens (loadPortfolioIntel) each used to issue
+ * their own identical `holdings` query. React's cache() keyed on the same
+ * client + portfolio id collapses them into one round-trip.
+ */
+export const loadHoldingRows = cache(
+  async (
+    supabase: SupabaseClient,
+    portfolioId: string,
+  ): Promise<HoldingBase[]> => {
+    const { data, error } = await supabase
+      .from("holdings")
+      .select(
+        "id, security_id, quantity, purchase_price, purchase_currency, purchase_date, notes, security:securities(id, ticker, exchange, name, currency)",
+      )
+      .eq("portfolio_id", portfolioId)
+      .order("created_at", { ascending: true })
+      .returns<HoldingBase[]>();
+    // A read error here must NOT render as an empty portfolio (a user seeing
+    // £0 and no holdings would think their positions vanished). Surface it.
+    if (error) {
+      throw new Error(`loadHoldingRows: ${getErrorMessage(error)}`);
+    }
+    return data ?? [];
+  },
+);
+
+/**
+ * Recent succeeded verdicts for every held name, over the WIDEST window any
+ * caller needs. The valuation wants 120 days and the intel lens 90, and they
+ * were paginating the same table separately; fetching the superset once and
+ * narrowing in memory makes the second read free.
+ *
+ * Date-bounded AND paginated: report_items accumulate one row per name per run
+ * indefinitely, so an unbounded read silently truncates at 1,000 rows once a
+ * portfolio has run long enough, dropping whichever securities sort last.
+ * Deterministic total order (security_id, then id) makes pagination safe.
+ */
+export const loadHeldVerdictRows = cache(
+  async (
+    supabase: SupabaseClient,
+    portfolioId: string,
+  ): Promise<HeldVerdictRow[]> => {
+    const rows = await loadHoldingRows(supabase, portfolioId);
+    const securityIds = [...new Set(rows.map((h) => h.security_id))];
+    if (securityIds.length === 0) return [];
+
+    const sinceIso = new Date(
+      Date.now() - VERDICT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    return fetchAllRows<HeldVerdictRow>(
+      (from, to) =>
+        supabase
+          .from("report_items")
+          .select(
+            "id, security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
+          )
+          .in("security_id", securityIds)
+          .eq("report.agent_runs.status", "succeeded")
+          .gte("report.generated_at", sinceIso)
+          .order("security_id", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)
+          .returns<HeldVerdictRow[]>(),
+      "held verdicts",
+    );
+  },
+);
 
 /** The user's default portfolio, if one exists yet. */
 export async function loadDefaultPortfolio(
@@ -112,21 +185,7 @@ export async function loadHeldNames(
   supabase: SupabaseClient,
   portfolioId: string,
 ): Promise<HeldName[]> {
-  const { data: holdings, error: holdingsErr } = await supabase
-    .from("holdings")
-    .select(
-      "id, security_id, quantity, purchase_price, purchase_currency, purchase_date, notes, security:securities(id, ticker, exchange, name, currency)",
-    )
-    .eq("portfolio_id", portfolioId)
-    .order("created_at", { ascending: true })
-    .returns<HoldingBase[]>();
-  // A read error here must NOT render as an empty portfolio (a user seeing
-  // £0 and no holdings would think their positions vanished). Surface it.
-  if (holdingsErr) {
-    throw new Error(`loadHeldNames holdings: ${getErrorMessage(holdingsErr)}`);
-  }
-
-  const rows = holdings ?? [];
+  const rows = await loadHoldingRows(supabase, portfolioId);
   if (rows.length === 0) return [];
 
   const securityIds = [...new Set(rows.map((h) => h.security_id))];
@@ -158,33 +217,10 @@ export async function loadHeldNames(
     else if (!previous.has(p.security_id)) previous.set(p.security_id, p);
   }
 
-  // Latest succeeded verdict per held security. Date-bounded AND paginated:
-  // report_items accumulate one row per name per weekly run indefinitely, so
-  // an unbounded read silently truncates at 1,000 rows once a portfolio has
-  // run long enough, dropping whichever securities sort last. Deterministic
-  // total order (security_id, then id) makes pagination safe; the latest is
-  // still picked by generated_at in memory.
-  const verdictSinceIso = new Date(
-    Date.now() - VERDICT_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-  ).toISOString();
-  const verdictData = await fetchAllRows<VerdictRow>(
-    (from, to) =>
-      supabase
-        .from("report_items")
-        .select(
-          "id, security_id, classification, composite_score, scoring_breakdown, report:reports!inner(id, agent_name, generated_at, agent_runs!inner(status))",
-        )
-        .in("security_id", securityIds)
-        .eq("report.agent_runs.status", "succeeded")
-        .gte("report.generated_at", verdictSinceIso)
-        .order("security_id", { ascending: true })
-        .order("id", { ascending: true })
-        .range(from, to)
-        .returns<VerdictRow[]>(),
-    "held verdicts",
-  );
+  // Latest succeeded verdict per held security (shared fetch — see above).
+  const verdictData = await loadHeldVerdictRows(supabase, portfolioId);
 
-  const latestVerdict = new Map<string, VerdictRow>();
+  const latestVerdict = new Map<string, HeldVerdictRow>();
   for (const v of verdictData ?? []) {
     if (!v.security_id || !v.report) continue;
     const existing = latestVerdict.get(v.security_id);

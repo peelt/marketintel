@@ -102,13 +102,19 @@ export default async function DashboardPage() {
             : new Map<string, number>();
         return { held, intel, base, rates };
       })(),
-      supabase
-        .from("price_snapshots")
-        .select("snapshot_date")
-        .order("snapshot_date", { ascending: false })
-        .limit(1)
-        .maybeSingle<{ snapshot_date: string }>(),
-      supabase.from("securities").select("*", { count: "exact", head: true }),
+      // Engine telemetry — rendered for the owner only (see the status line
+      // below), so an everyday reader shouldn't pay for it either.
+      isOwner
+        ? supabase
+            .from("price_snapshots")
+            .select("snapshot_date")
+            .order("snapshot_date", { ascending: false })
+            .limit(1)
+            .maybeSingle<{ snapshot_date: string }>()
+        : Promise.resolve({ data: null }),
+      isOwner
+        ? supabase.from("securities").select("*", { count: "exact", head: true })
+        : Promise.resolve({ count: null }),
     ]);
 
   const { held, intel, base, rates } = portfolioBundle;

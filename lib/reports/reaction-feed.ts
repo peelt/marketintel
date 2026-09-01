@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { severityOf } from "@/lib/holdings/deltas";
 import { getErrorMessage } from "@/lib/errors";
+import { loadRecentDeskReports } from "./desk-reports";
 
 /**
  * The Reaction Analyser is the one PERISHABLE desk — a sharp drop is a dated
@@ -79,31 +80,18 @@ export async function loadReactionFeed(
   supabase: SupabaseClient,
   now: number = Date.now(),
 ): Promise<ReactionFeed> {
-  // The most recent Reaction run overall, for the "last screened" line — shown
-  // even when it's older than the window (that's the honest "gone quiet" state).
-  const { data: latest, error: latestErr } = await supabase
-    .from("reports")
-    .select("generated_at, agent_runs!inner(status)")
-    .eq("agent_name", "reaction")
-    .eq("agent_runs.status", "succeeded")
-    .order("generated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ generated_at: string }>();
-  if (latestErr) throw new Error(`reaction feed latest: ${getErrorMessage(latestErr)}`);
-  const lastScreenedAt = latest?.generated_at ?? null;
+  // One newest-first read serves both facts this feed needs: the most recent
+  // run overall (the "last screened" line, shown even when it predates the
+  // window — that's the honest "gone quiet" state) and every edition inside
+  // the window. Shared with the desk card, which wants the same rows.
+  const recent = await loadRecentDeskReports(supabase, "reaction");
+  const lastScreenedAt = recent[0]?.generated_at ?? null;
 
   const sinceIso = new Date(now - WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: reports, error: repErr } = await supabase
-    .from("reports")
-    .select("id, generated_at, agent_runs!inner(status)")
-    .eq("agent_name", "reaction")
-    .eq("agent_runs.status", "succeeded")
-    .gte("generated_at", sinceIso)
-    .returns<{ id: string; generated_at: string }[]>();
-  if (repErr) throw new Error(`reaction feed reports: ${getErrorMessage(repErr)}`);
+  const reports = recent.filter((r) => r.generated_at >= sinceIso);
 
   const reportTimes = new Map<string, string>();
-  for (const r of reports ?? []) reportTimes.set(r.id, r.generated_at);
+  for (const r of reports) reportTimes.set(r.id, r.generated_at);
   if (reportTimes.size === 0) {
     return { drops: [], lastScreenedAt, windowHours: WINDOW_HOURS };
   }
