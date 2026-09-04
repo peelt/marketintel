@@ -240,6 +240,19 @@ routes resolution through Inngest.
   redeploy, no SQL, no manual Supabase user creation.
 - **Manual Supabase steps that pair with migration 0003:** disable public
   signups (Authentication settings) and seed the owner row in `app_users`.
+- **Auth email is NOT sent by our Postmark code.** The magic link is composed
+  and sent by Supabase (`signInWithOtp`); Postmark is only the SMTP transport,
+  configured in Supabase → Authentication → SMTP Settings
+  (`smtp.postmarkapp.com:587`, sender `info@investorlogical.com`). Our own
+  `sendEmail` calls (access-request notice, approval welcome, holding alerts)
+  are separate. Consequences: the send rate is capped by SUPABASE's auth rate
+  limits, not Postmark's — a per-user minimum interval (60s) plus a project
+  hourly cap (Authentication → Rate Limits; custom SMTP starts at 30/hour) —
+  and the magic-link email is styled in the Supabase dashboard, NOT by
+  deploying: paste the generated files in `supabase/email-templates/` (see its
+  README). Both "Confirm signup" AND "Magic Link" need it — `shouldCreateUser:
+  true` means a first-time address gets Confirm signup, so styling only Magic
+  Link leaves an invited user's very first email unbranded.
 - Public request-access form (login page) writes `access_requests` under the
   ANON role — the table is insert-only by RLS (migration 0014). Honeypot +
   DB-level shape checks; owner notified via Postmark; the owner approves each
