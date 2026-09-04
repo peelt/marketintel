@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOwnerEmail } from "@/lib/auth/allowlist";
 import { verifyUser } from "@/lib/auth/verify";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { getErrorMessage } from "@/lib/errors";
 import { CliTitleBar, Wordmark } from "@/components/cli";
 
 export default async function LoginPage({
@@ -159,6 +160,17 @@ async function sendMagicLink(formData: FormData) {
   if (!(await isEntitledEmail(email))) {
     await sleep(350 + Math.random() * 900);
     redirect("/login?sent=1");
+  }
+
+  // The address is entitled but may predate approval-time provisioning, or be
+  // an owner who has never signed in. Signups are disabled on the project, so
+  // signInWithOtp cannot create the account itself — it fails with "Signups
+  // not allowed for this instance". Make sure the account exists first.
+  const { ensureAuthAccount } = await import("@/lib/auth/access-admin");
+  try {
+    await ensureAuthAccount(email);
+  } catch (err) {
+    console.error(`sendMagicLink: ${getErrorMessage(err)}`);
   }
 
   const supabase = await createClient();
