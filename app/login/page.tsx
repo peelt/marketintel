@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOwnerEmail } from "@/lib/auth/allowlist";
 import { verifyUser } from "@/lib/auth/verify";
 import { isEntitledEmail } from "@/lib/auth/entitlement";
+import { getErrorMessage } from "@/lib/errors";
 import { CliTitleBar, Wordmark } from "@/components/cli";
 
 export default async function LoginPage({
@@ -62,8 +63,8 @@ export default async function LoginPage({
 
           {sent && (
             <p className="mt-4 font-mono-cli text-sm text-il-navy">
-              ~ if that email is allowed, a link is on its way. Check spam; the
-              sender throttles to a few emails per hour.
+              ~ if that email is allowed, a link is on its way. Links are
+              single-use and expire; request a fresh one any time.
             </p>
           )}
           {error && (
@@ -161,6 +162,17 @@ async function sendMagicLink(formData: FormData) {
     redirect("/login?sent=1");
   }
 
+  // The address is entitled but may predate approval-time provisioning, or be
+  // an owner who has never signed in. Signups are disabled on the project, so
+  // signInWithOtp cannot create the account itself — it fails with "Signups
+  // not allowed for this instance". Make sure the account exists first.
+  const { ensureAuthAccount } = await import("@/lib/auth/access-admin");
+  try {
+    await ensureAuthAccount(email);
+  } catch (err) {
+    console.error(`sendMagicLink: ${getErrorMessage(err)}`);
+  }
+
   const supabase = await createClient();
   const origin =
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -178,7 +190,8 @@ async function sendMagicLink(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    const { loginErrorMessage } = await import("@/lib/auth/login-messages");
+    redirect(`/login?error=${encodeURIComponent(loginErrorMessage(error.message))}`);
   }
   redirect("/login?sent=1");
 }
