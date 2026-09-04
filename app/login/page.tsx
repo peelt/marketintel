@@ -62,8 +62,9 @@ export default async function LoginPage({
 
           {sent && (
             <p className="mt-4 font-mono-cli text-sm text-il-navy">
-              ~ if that email is allowed, a link is on its way. Check spam; the
-              sender throttles to a few emails per hour.
+              ~ if that email is allowed, a link is on its way — check spam if
+              it hasn&apos;t arrived in a minute. Links are single-use and
+              expire; request a fresh one any time.
             </p>
           )}
           {error && (
@@ -178,7 +179,8 @@ async function sendMagicLink(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    const { loginErrorMessage } = await import("@/lib/auth/login-messages");
+    redirect(`/login?error=${encodeURIComponent(loginErrorMessage(error.message))}`);
   }
   redirect("/login?sent=1");
 }
