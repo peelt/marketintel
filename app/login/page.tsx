@@ -62,9 +62,8 @@ export default async function LoginPage({
 
           {sent && (
             <p className="mt-4 font-mono-cli text-sm text-il-navy">
-              ~ if that email is allowed, a link is on its way — check spam if
-              it hasn&apos;t arrived in a minute. Links are single-use and
-              expire; request a fresh one any time.
+              ~ if that email is allowed, a link is on its way. Links are
+              single-use and expire; request a fresh one any time.
             </p>
           )}
           {error && (

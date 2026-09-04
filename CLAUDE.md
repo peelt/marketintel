@@ -248,7 +248,11 @@ routes resolution through Inngest.
   are separate. Consequences: the send rate is capped by SUPABASE's auth rate
   limits, not Postmark's — a per-user minimum interval (60s) plus a project
   hourly cap (Authentication → Rate Limits; custom SMTP starts at 30/hour) —
-  and the magic-link email uses Supabase's template, not the house style.
+  and the magic-link email is styled in the Supabase dashboard, NOT by
+  deploying: paste the generated files in `supabase/email-templates/` (see its
+  README). Both "Confirm signup" AND "Magic Link" need it — `shouldCreateUser:
+  true` means a first-time address gets Confirm signup, so styling only Magic
+  Link leaves an invited user's very first email unbranded.
 - Public request-access form (login page) writes `access_requests` under the
   ANON role — the table is insert-only by RLS (migration 0014). Honeypot +
   DB-level shape checks; owner notified via Postmark; the owner approves each
