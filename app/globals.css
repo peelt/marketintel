@@ -120,6 +120,15 @@ body {
   background: #f6881c;
   border-color: #f6881c;
 }
+/* Browsers give <a> a pointer but not <button> or <summary>. Anything the
+   reader can actually click should say so — the sign-out control and every
+   expandable row were showing a plain arrow. */
+button:not(:disabled),
+summary,
+[role="option"] {
+  cursor: pointer;
+}
+
 .btn-cli:disabled {
   opacity: 0.5;
   cursor: not-allowed;

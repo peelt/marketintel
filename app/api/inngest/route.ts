@@ -9,6 +9,7 @@ import {
   reactionScheduled,
 } from "@/lib/inngest/functions/reaction";
 import { verdictScorecard } from "@/lib/inngest/functions/scorecard";
+import { universeRefresh } from "@/lib/inngest/functions/universe";
 
 // Agent runs fan out to data providers and the LLM. A Reaction run's news
 // research (~a dozen web-search grades at bounded concurrency) is the long
@@ -43,6 +44,7 @@ const handler = serve({
     latePriceCatchup,
     holdingAlerts,
     verdictScorecard,
+    universeRefresh,
   ],
   // Pin the public custom domain as the serve host on PRODUCTION deploys only.
   // Vercel's per-deployment URL (investorlogical-<hash>-mxmg-projects.vercel.app)

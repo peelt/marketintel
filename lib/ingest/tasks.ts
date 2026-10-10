@@ -141,8 +141,12 @@ export async function runIngestTask(task: IngestTaskName): Promise<unknown> {
       return seedUniverse();
     }
     case "seed-broad-universe": {
-      const { seedBroadUniverse } = await import("./seed-broad-universe");
-      return seedBroadUniverse();
+      const { seedBroadUniverse, requestBackfillForAdded } = await import(
+        "./seed-broad-universe"
+      );
+      const result = await seedBroadUniverse();
+      const backfillRequested = await requestBackfillForAdded(result.added);
+      return { ...result, backfillRequested };
     }
     case "prices": {
       return refreshSeed("prices", 365);

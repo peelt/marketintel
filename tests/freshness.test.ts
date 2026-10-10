@@ -62,6 +62,12 @@ describe("dailyPriceUniverse", () => {
     // No duplicate keys at all.
     expect(new Set(keys).size).toBe(keys.length);
   });
+  it("keeps a held name priced after it leaves every index", () => {
+    // GBG was relegated from the FTSE 250 in the September 2026 review. If a
+    // user held it, their portfolio would still need its price.
+    const out = dailyPriceUniverse([], [{ ticker: "GBG", exchange: "LSE" }]);
+    expect(out.map((s) => `${s.ticker}::${s.exchange}`)).toContain("GBG::LSE");
+  });
   it("covers desk names even before the broad market is seeded", () => {
     const out = dailyPriceUniverse([]);
     expect(out.length).toBe(allSeedSecurities().length);

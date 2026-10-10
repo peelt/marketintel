@@ -1,16 +1,20 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { chunk } from "@/lib/concurrency";
+import { fetchBroadMarketConstituents } from "@/lib/data-sources/index-constituents";
 import {
-  fetchBroadMarketConstituents,
-  type IndexConstituent,
-} from "@/lib/data-sources/index-constituents";
+  MAX_PRUNE_SHARE,
+  planUniverseRefresh,
+  type ExistingSecurity,
+} from "./universe-plan";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
- * Seed/refresh the broad-market screening universe (S&P 500 + FTSE 350) for
- * the Reaction Analyser. Idempotent; tags rows with 'broad_market' plus the
- * index name.
+ * Refresh the broad-market screening universe (S&P 500 + FTSE 350) so it
+ * tracks the live indices in BOTH directions: promoted names are added,
+ * relegated names lose their index tags (the row stays — history references
+ * it), and names that move between indices are retagged. Idempotent. The
+ * decisions are made by the pure planUniverseRefresh (./universe-plan.ts).
  *
  * Exchange reconciliation: the S&P source doesn't say NYSE vs NASDAQ, so new
  * US rows land with exchange "US" — but a ticker that ALREADY exists on a US
@@ -19,79 +23,56 @@ import { getErrorMessage } from "@/lib/errors";
  * LSE vs NYSE) stay distinct.
  */
 
-const US_EXCHANGES = new Set(["US", "NYSE", "NASDAQ", "AMEX"]);
-const LSE_EXCHANGES = new Set(["LSE", "LON"]);
-
-function sameExchangeClass(a: string, b: string): boolean {
-  const upperA = a.toUpperCase();
-  const upperB = b.toUpperCase();
-  if (US_EXCHANGES.has(upperA) && US_EXCHANGES.has(upperB)) return true;
-  if (LSE_EXCHANGES.has(upperA) && LSE_EXCHANGES.has(upperB)) return true;
-  return upperA === upperB;
-}
-
-export async function seedBroadUniverse(): Promise<{
+export interface UniverseRefreshResult {
   fetched: number;
   inserted: number;
-  tagged: number;
+  retagged: number;
+  pruned: string[];
+  pruneRefused: boolean;
+  /** Newly-added names — they have no price history yet. */
+  added: { ticker: string; exchange: string }[];
   errors: { ticker: string; message: string }[];
-}> {
+}
+
+export async function seedBroadUniverse(): Promise<UniverseRefreshResult> {
+  // Throws (SchemaChangedError) when any list parses to an implausible size,
+  // so a broken page can never reach the prune below.
   const constituents = await fetchBroadMarketConstituents();
   const supabase = createServiceClient();
   const errors: { ticker: string; message: string }[] = [];
 
-  const existing = await fetchAllRows<{
-    id: string;
-    ticker: string;
-    exchange: string;
-    tags: string[];
-  }>(
+  const existing = await fetchAllRows<ExistingSecurity>(
     (from, to) =>
       supabase
         .from("securities")
         .select("id, ticker, exchange, tags")
+        .is("delisted_at", null)
         .order("id", { ascending: true })
         .range(from, to),
     "broad-universe existing securities",
   );
 
-  const byTicker = new Map<string, typeof existing>();
-  for (const row of existing) {
-    const arr = byTicker.get(row.ticker) ?? [];
-    arr.push(row);
-    byTicker.set(row.ticker, arr);
+  const plan = planUniverseRefresh(existing, constituents);
+  if (plan.pruneRefused) {
+    console.error(
+      "seedBroadUniverse: prune refused — the live index would remove more than " +
+        `${Math.round(MAX_PRUNE_SHARE * 100)}% of the universe; adds and retags still applied`,
+    );
+  }
+
+  let retagged = 0;
+  for (const u of plan.updates) {
+    const { error } = await supabase
+      .from("securities")
+      .update({ tags: u.tags })
+      .eq("id", u.id);
+    if (error) errors.push({ ticker: u.ticker, message: getErrorMessage(error) });
+    else retagged++;
   }
 
   let inserted = 0;
-  let tagged = 0;
-  const toInsert: IndexConstituent[] = [];
-
-  for (const c of constituents) {
-    const match = (byTicker.get(c.ticker) ?? []).find((row) =>
-      sameExchangeClass(row.exchange, c.exchange),
-    );
-    if (match) {
-      const tags = new Set(match.tags ?? []);
-      const before = tags.size;
-      tags.add("broad_market");
-      tags.add(c.index);
-      if (tags.size !== before) {
-        const { error } = await supabase
-          .from("securities")
-          .update({ tags: [...tags] })
-          .eq("id", match.id);
-        if (error) {
-          errors.push({ ticker: c.ticker, message: getErrorMessage(error) });
-          continue;
-        }
-      }
-      tagged++;
-    } else {
-      toInsert.push(c);
-    }
-  }
-
-  for (const batch of chunk(toInsert, 200)) {
+  const added: { ticker: string; exchange: string }[] = [];
+  for (const batch of chunk(plan.inserts, 200)) {
     const { error } = await supabase.from("securities").insert(
       batch.map((c) => ({
         ticker: c.ticker,
@@ -111,7 +92,40 @@ export async function seedBroadUniverse(): Promise<{
       continue;
     }
     inserted += batch.length;
+    added.push(...batch.map((c) => ({ ticker: c.ticker, exchange: c.exchange })));
   }
 
-  return { fetched: constituents.length, inserted, tagged, errors };
+  return {
+    fetched: constituents.length,
+    inserted,
+    retagged,
+    pruned: plan.pruned,
+    pruneRefused: plan.pruneRefused,
+    added,
+    errors,
+  };
+}
+
+/**
+ * Request a year of price history for names the refresh just added. Without
+ * it a new name has nothing to screen against: the daily passes fetch only a
+ * few days, while the drop screen needs a 5-session window and the repricing
+ * signal a trailing-year high. Silent, so it never wakes the desk. Fail-soft:
+ * the next daily pass still fills recent closes.
+ */
+export async function requestBackfillForAdded(
+  added: { ticker: string; exchange: string }[],
+): Promise<boolean> {
+  if (added.length === 0) return false;
+  try {
+    const { inngest } = await import("@/lib/inngest/client");
+    await inngest.send({
+      name: "ingest/refresh.requested",
+      data: { feed: "prices", lookbackDays: 400, tickers: added, silent: true },
+    });
+    return true;
+  } catch (err) {
+    console.error(`requestBackfillForAdded: ${getErrorMessage(err)}`);
+    return false;
+  }
 }
