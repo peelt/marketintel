@@ -32,6 +32,15 @@ describe("auth email templates", () => {
     ]);
   });
 
+  it("always prints the link, not just a button", () => {
+    // A button alone is not a reliable delivery mechanism: if a client eats it
+    // the reader has nothing to copy and cannot sign in at all.
+    for (const t of authEmailTemplates()) {
+      expect(t.html.split("{{ .ConfirmationURL }}").length - 1).toBeGreaterThanOrEqual(2);
+      expect(t.html).toContain("paste this into your browser");
+    }
+  });
+
   it("renders in the house style", () => {
     for (const t of authEmailTemplates()) {
       expect(t.html).toContain("investor"); // two-tone text wordmark

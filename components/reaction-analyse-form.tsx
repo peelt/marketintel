@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
+  findOnDemandReport,
   loadReactionUniverse,
   requestDropAnalysis,
   type DropAnalysisState,
@@ -22,6 +23,9 @@ import {
 
 const INITIAL: DropAnalysisState = { status: "idle", message: "" };
 const MAX_OPTIONS = 8;
+/** Poll cadence and ceiling for the queued report: 4s apart, ~3 minutes. */
+const POLL_MS = 4000;
+const POLL_LIMIT = 45;
 
 interface ListRect {
   top: number;
@@ -66,6 +70,45 @@ export function ReactionAnalyseForm() {
   // closed there anyway.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // A queued run has no report yet, so the action can't link one. Watch for it
+  // and swap the link in when it lands, rather than telling the reader a
+  // report exists somewhere and leaving them to hunt for it.
+  const [filedReportId, setFiledReportId] = useState<string | null>(null);
+  const [gaveUp, setGaveUp] = useState(false);
+  const queuedTicker = state.status === "started" ? state.ticker : undefined;
+  const queuedAt = state.status === "started" ? state.queuedAt : undefined;
+
+  useEffect(() => {
+    if (!queuedTicker || !queuedAt) return;
+    setFiledReportId(null);
+    setGaveUp(false);
+    let cancelled = false;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const check = async () => {
+      if (cancelled) return;
+      tries += 1;
+      const res = await findOnDemandReport(queuedTicker, queuedAt);
+      if (cancelled) return;
+      if (res.reportId) {
+        setFiledReportId(res.reportId);
+        return;
+      }
+      if (tries >= POLL_LIMIT) {
+        setGaveUp(true);
+        return;
+      }
+      timer = setTimeout(check, POLL_MS);
+    };
+
+    timer = setTimeout(check, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [queuedTicker, queuedAt]);
 
   // Fetch the universe the first time the box is focused — never on page load.
   async function ensureUniverse() {
@@ -252,20 +295,34 @@ export function ReactionAnalyseForm() {
           style={{ color: state.status === "error" ? "#ee1d23" : undefined }}
           role="status"
         >
-          {state.message}
-          {state.reportId && (
+          {filedReportId
+            ? `${queuedTicker ?? "The name"} has been screened — its report is filed.`
+            : state.message}
+          {(state.reportId || filedReportId) && (
             <>
               {" "}
               <Link
-                href={`/reports/${state.reportId}`}
+                href={`/reports/${filedReportId ?? state.reportId}`}
                 className="text-il-accent"
               >
                 open report →
               </Link>
             </>
           )}
+          {state.status === "started" && !filedReportId && !gaveUp && (
+            <span className="text-muted-foreground"> ~ watching for it…</span>
+          )}
+          {gaveUp && (
+            <>
+              {" "}
+              <Link href="/reports" className="text-il-accent">
+                check reports →
+              </Link>
+            </>
+          )}
         </p>
       )}
+
       <p className="mt-3 font-mono-cli text-sm text-muted-foreground">
         ~ screens the latest closes — a fall happening mid-session files after
         tonight&apos;s close

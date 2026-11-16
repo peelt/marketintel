@@ -33,6 +33,24 @@ export function emailButton(href: string, label: string): string {
   </table>`;
 }
 
+/**
+ * The same destination as the button, spelled out.
+ *
+ * A button is not a reliable way to deliver a link: Outlook, plain-text views
+ * and stripped-down clients can all swallow it, and then the reader has
+ * nothing to copy and simply cannot get in. For a SIGN-IN email that is the
+ * difference between working and not, so the URL is always printed too.
+ *
+ * `href` is a trusted template placeholder or an app URL, never user input —
+ * escaping it would corrupt the value the mail provider substitutes.
+ */
+export function emailLinkFallback(href: string, lead: string): string {
+  return `<p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:${MUTED};">
+      ${escapeHtml(lead)}<br>
+      <span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:${DEEP};word-break:break-all;">${href}</span>
+    </p>`;
+}
+
 export interface BrandedEmail {
   /** Inner content HTML (already trusted/escaped by the caller). */
   contentHtml: string;

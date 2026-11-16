@@ -59,6 +59,32 @@ export async function loadBroadUniverse(): Promise<ReactionSecurity[]> {
 }
 
 /**
+ * Every security someone holds. A name relegated from its index drops out of
+ * the broad universe, but a holder's portfolio still values it — so the daily
+ * price refresh must keep covering it. Service-role (Inngest context only).
+ */
+export async function loadHeldSecurities(): Promise<
+  { ticker: string; exchange: string }[]
+> {
+  const supabase = createServiceClient();
+  const held = await fetchAllRows<{
+    security: { ticker: string; exchange: string } | null;
+  }>(
+    (from, to) =>
+      supabase
+        .from("holdings")
+        .select("security:securities(ticker, exchange)")
+        .order("id", { ascending: true })
+        .range(from, to)
+        .returns<{ security: { ticker: string; exchange: string } | null }[]>(),
+    "held securities",
+  );
+  return held
+    .map((h) => h.security)
+    .filter((s): s is { ticker: string; exchange: string } => s !== null);
+}
+
+/**
  * Recent close/volume series for a set of securities. Paginated — at screen
  * scale this is tens of thousands of rows.
  */

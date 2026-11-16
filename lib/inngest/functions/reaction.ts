@@ -1,7 +1,10 @@
 import { inngest } from "../client";
 import { reactionAgent } from "@/lib/agents/reaction/agent";
 import { runAgent, hasSucceededReportToday } from "@/lib/agents/run";
-import { loadBroadUniverse } from "@/lib/agents/reaction/data";
+import {
+  loadBroadUniverse,
+  loadHeldSecurities,
+} from "@/lib/agents/reaction/data";
 import { allSeedSecurities } from "@/lib/data-sources/universes";
 
 /**
@@ -13,9 +16,12 @@ import { allSeedSecurities } from "@/lib/data-sources/universes";
  */
 export function dailyPriceUniverse(
   broad: { ticker: string; exchange: string }[],
+  held: { ticker: string; exchange: string }[] = [],
 ): { ticker: string; exchange: string }[] {
   const byKey = new Map<string, { ticker: string; exchange: string }>();
   for (const s of broad) byKey.set(`${s.ticker}::${s.exchange}`, s);
+  // Held names stay priced even after they leave every index.
+  for (const s of held) byKey.set(`${s.ticker}::${s.exchange}`, s);
   for (const s of allSeedSecurities()) {
     byKey.set(`${s.ticker}::${s.exchange}`, {
       ticker: s.ticker,
@@ -100,7 +106,7 @@ export const dailyPriceRefresh = inngest.createFunction(
       }));
       // Desk universes are seeded even before the broad market is, so the
       // refresh is useful (desk names + GLD) even when broad is empty.
-      return dailyPriceUniverse(broad);
+      return dailyPriceUniverse(broad, await loadHeldSecurities());
     });
     if (universe.length === 0) {
       return { skipped: "no securities seeded yet" };
@@ -145,7 +151,7 @@ export const latePriceCatchup = inngest.createFunction(
         ticker: r.ticker,
         exchange: r.exchange,
       }));
-      return dailyPriceUniverse(broad);
+      return dailyPriceUniverse(broad, await loadHeldSecurities());
     });
     if (universe.length === 0) {
       return { skipped: "no securities seeded yet" };

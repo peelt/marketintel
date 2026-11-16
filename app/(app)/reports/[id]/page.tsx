@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,9 +14,10 @@ import {
   MODULE_COLORS,
 } from "@/components/cli";
 import {
-  classificationLabel,
   compositeDisplay,
   confidenceWord,
+  criterionExplainer,
+  criterionLabel,
   dropDisplay,
   formatPriceDate,
   humanizeDateTime,
@@ -28,6 +30,17 @@ import { CriteriaRadar } from "@/components/criteria-radar";
 import { NewsEvidenceCard } from "@/components/news-evidence";
 import { MacroRead } from "@/components/macro-read";
 import { parseMacroMemo } from "@/lib/reports/macro-memo";
+import {
+  ReactionPricePanel,
+  ReactionPriceSkeleton,
+  ReactionPriceUnavailable,
+} from "@/components/reaction-price-panel";
+import {
+  buildReactionPriceContext,
+  loadReactionPriceRows,
+  type PriceRowInput,
+} from "@/lib/reports/reaction-price";
+import { resolveScreenedDate } from "@/lib/scorecard/screened-date";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +69,8 @@ interface ReportItemRow {
   scoring_breakdown: {
     /** 0–1 share of framework weight that had data behind it. */
     coverage?: number;
+    /** The close the verdict graded, pinned at report time (Reaction). */
+    screenedAt?: string | null;
     criteria?: Record<
       string,
       { score: number | null; signals: Record<string, number | null> }
@@ -63,7 +78,12 @@ interface ReportItemRow {
   };
   verdict: string | null;
   classification: string | null;
-  security: { ticker: string; exchange: string; name: string } | null;
+  security: {
+    ticker: string;
+    exchange: string;
+    name: string;
+    currency: string | null;
+  } | null;
   /** Embedded on the items query so the evidence isn't a second round-trip. */
   evidence: EvidenceRow[] | null;
 }
@@ -186,7 +206,7 @@ export default async function ReportDetailPage({
     supabase
       .from("report_items")
       .select(
-        "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name), evidence(id, report_item_id, evidence_type, source_table, source_text, weight, redistributable)",
+        "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name, currency), evidence(id, report_item_id, evidence_type, source_table, source_text, weight, redistributable)",
       )
       .eq("report_id", report.id)
       .order("rank", { ascending: true })
@@ -284,6 +304,29 @@ export default async function ReportDetailPage({
       i.classification !== "cause_unconfirmed" &&
       i.classification !== "corporate_action",
   );
+  // The price behind each ranked Reaction verdict. Started here and NOT
+  // awaited: each row's panel streams in through its own Suspense boundary,
+  // so the report paints exactly as fast as it did before prices were shown.
+  // One read per name (see loadReactionPriceRows), fail-soft per name.
+  const reportDate = report.generated_at.slice(0, 10);
+  const screenedDateOf = (it: ReportItemRow): string =>
+    resolveScreenedDate({
+      breakdown: it.scoring_breakdown ?? null,
+      verdict: it.verdict,
+      fallback: reportDate,
+    }).date ?? reportDate;
+  const pricesPromise: Promise<Map<string, PriceRowInput[] | null>> =
+    report.agent_name === "reaction"
+      ? loadReactionPriceRows(
+          supabase,
+          rankedItems.flatMap((it) =>
+            it.security_id
+              ? [{ securityId: it.security_id, screenedDate: screenedDateOf(it) }]
+              : [],
+          ),
+        )
+      : Promise.resolve(new Map());
+
   const excludedItems = allItems.filter(
     (i) => coverageOf(i) === 0 && i.classification !== "corporate_action",
   );
@@ -382,10 +425,15 @@ export default async function ReportDetailPage({
           <p className="mt-1 text-sm text-muted-foreground">
             open a row for the evidence behind its verdict
           </p>
-          <div className="card-cli mt-3 overflow-x-auto p-0">
-            <div className="min-w-[720px]">
+          {/* Below sm the table is NOT a 720px horizontal scroller: each
+              summary stacks onto two lines (name + fall, then verdict +
+              score, figures right-aligned) and an opened row gets the full
+              screen width — the price panel inside it is what a reader checks
+              against the broker app on their phone. */}
+          <div className="card-cli mt-3 p-0 sm:overflow-x-auto">
+            <div className="sm:min-w-[720px]">
               {/* Column header — shares the row grid so cells line up */}
-              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] items-center gap-3 border-b border-border bg-il-tint px-4 py-2.5 font-mono-cli text-sm text-il-navy">
+              <div className="hidden grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] items-center gap-3 border-b border-border bg-il-tint px-4 py-2.5 font-mono-cli text-sm text-il-navy sm:grid">
                 <span>#</span>
                 <span>Name</span>
                 <span className="text-right">
@@ -419,11 +467,11 @@ export default async function ReportDetailPage({
                     key={it.id}
                     className="group border-t border-border first:border-t-0"
                   >
-                    <summary className="grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] items-center gap-3 px-4 py-2.5 text-base marker:content-none hover:bg-il-tint/60">
-                      <span className="font-mono-cli text-sm text-muted-foreground">
+                    <summary className="grid cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)_auto_1.25rem] items-center gap-x-3 gap-y-1.5 px-4 py-2.5 text-base marker:content-none hover:bg-il-tint/60 sm:grid-cols-[1.75rem_minmax(0,1fr)_7rem_5rem_9rem_1.25rem] sm:gap-y-0">
+                      <span className="col-start-1 row-start-1 font-mono-cli text-sm text-muted-foreground sm:col-auto sm:row-auto">
                         {it.rank}
                       </span>
-                      <span className="min-w-0 truncate">
+                      <span className="col-start-2 row-start-1 min-w-0 truncate sm:col-auto sm:row-auto">
                         <span className="font-mono-cli font-bold text-il-navy">
                           {it.security ? securityDisplayLabel(it.security) : "—"}
                         </span>
@@ -434,7 +482,7 @@ export default async function ReportDetailPage({
                       {/* The fall itself — small red figure per the family
                           spec (alert colours are glyph-scale only). "—" when
                           the verdict quotes no move; never a made-up number. */}
-                      <span className="text-right font-mono-cli text-sm">
+                      <span className="col-start-3 row-start-1 text-right font-mono-cli text-sm sm:col-auto sm:row-auto">
                         {drop ? (
                           <span style={{ color: drop.pct < 0 ? "#EE1D23" : undefined }}>
                             {dropDisplay(drop)}
@@ -443,8 +491,12 @@ export default async function ReportDetailPage({
                           <span className="text-muted-foreground">—</span>
                         )}
                       </span>
-                      <span className="text-right font-mono-cli">
+                      <span className="col-start-3 row-start-2 text-right font-mono-cli sm:col-auto sm:row-auto">
                         {displayComposite(it)}
+                        {/* No column header on a phone: carry the scale. */}
+                        <span className="ml-0.5 text-sm text-muted-foreground sm:hidden">
+                          /100
+                        </span>
                         {/* Coverage is near-always full now; a partial scores
                             from less data, and says so in the open row. */}
                         {partial && (
@@ -456,7 +508,7 @@ export default async function ReportDetailPage({
                           </span>
                         )}
                       </span>
-                      <span>
+                      <span className="col-start-2 row-start-2 min-w-0 sm:col-auto sm:row-auto">
                         {it.classification ? (
                           <ClassificationChip classification={it.classification} />
                         ) : (
@@ -465,7 +517,7 @@ export default async function ReportDetailPage({
                       </span>
                       <span
                         aria-hidden
-                        className="justify-self-end font-mono-cli text-muted-foreground transition-transform group-open:rotate-90"
+                        className="col-start-4 row-start-1 justify-self-end font-mono-cli text-muted-foreground transition-transform group-open:rotate-90 sm:col-auto sm:row-auto"
                       >
                         ›
                       </span>
@@ -476,6 +528,21 @@ export default async function ReportDetailPage({
                         <p className="mb-4 text-base leading-relaxed">
                           {it.verdict}
                         </p>
+                      )}
+
+                      {report.agent_name === "reaction" && it.security_id && (
+                        <div className="mb-4">
+                          <Suspense fallback={<ReactionPriceSkeleton />}>
+                            <ReactionPriceSlot
+                              rows={pricesPromise}
+                              securityId={it.security_id}
+                              screenedDate={screenedDateOf(it)}
+                              sessions={drop?.sessions ?? null}
+                              ticker={it.security ? securityDisplayLabel(it.security) : "This name"}
+                              fallbackCurrency={it.security?.currency ?? null}
+                            />
+                          </Suspense>
+                        </div>
                       )}
 
                       {partial && (
@@ -495,50 +562,57 @@ export default async function ReportDetailPage({
                               ([key, c]) => ({ key, score: c.score }),
                             )}
                           />
-                          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+                          {/* One row per criterion, read as the radar's key:
+                              what it is, what it measures, its score. */}
+                          <ul className="min-w-[16rem] flex-1 space-y-2">
                             {[...Object.entries(criteria)]
                               .sort(
                                 ([, a], [, b]) =>
                                   (a.score === null ? 1 : 0) -
                                   (b.score === null ? 1 : 0),
                               )
-                              .map(([key, c]) => (
-                                <div
-                                  key={key}
-                                  className={`rounded border px-3 py-2 ${
-                                    c.score === null
-                                      ? "border-dashed border-border/70 opacity-70"
-                                      : "border-border"
-                                  }`}
-                                >
-                                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                                    {classificationLabel(key)}
-                                  </div>
-                                  <div className="mt-1 font-mono-cli text-base">
-                                    {c.score === null ? (
-                                      <span className="text-muted-foreground">
-                                        no data
-                                      </span>
-                                    ) : (
-                                      <>
-                                        {c.score.toFixed(1)}
-                                        <span className="ml-0.5 text-sm text-muted-foreground">
-                                          /100
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                  {c.score === null && (
-                                    <div className="mt-1 text-sm leading-snug text-muted-foreground">
-                                      {noDataReason(
-                                        key,
-                                        it.security?.exchange ?? null,
+                              .map(([key, c]) => {
+                                const explainer =
+                                  c.score === null
+                                    ? noDataReason(key, it.security?.exchange ?? null)
+                                    : criterionExplainer(key, c.signals);
+                                return (
+                                  <li
+                                    key={key}
+                                    className={`flex items-start justify-between gap-4 rounded border px-3 py-2 ${
+                                      c.score === null
+                                        ? "border-dashed border-border/70 opacity-70"
+                                        : "border-border bg-white"
+                                    }`}
+                                  >
+                                    <div className="min-w-0">
+                                      <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                                        {criterionLabel(key)}
+                                      </div>
+                                      {explainer && (
+                                        <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                                          {explainer}
+                                        </p>
                                       )}
                                     </div>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
+                                    <div className="shrink-0 whitespace-nowrap font-mono-cli text-base text-il-navy">
+                                      {c.score === null ? (
+                                        <span className="text-muted-foreground">
+                                          no data
+                                        </span>
+                                      ) : (
+                                        <>
+                                          {c.score.toFixed(1)}
+                                          <span className="ml-0.5 text-sm text-muted-foreground">
+                                            /100
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                          </ul>
                         </div>
                       )}
 
@@ -737,4 +811,43 @@ export default async function ReportDetailPage({
     </main>
     </>
   );
+}
+
+/**
+ * One row's price panel. Awaits the edition-wide price read (shared by every
+ * row; started, never awaited, by the page) inside the row's own Suspense
+ * boundary. Every failure mode renders a one-line reason, never a blank.
+ */
+async function ReactionPriceSlot({
+  rows,
+  securityId,
+  screenedDate,
+  sessions,
+  ticker,
+  fallbackCurrency,
+}: {
+  rows: Promise<Map<string, PriceRowInput[] | null>>;
+  securityId: string;
+  screenedDate: string;
+  sessions: number | null;
+  ticker: string;
+  fallbackCurrency: string | null;
+}) {
+  const series = (await rows).get(securityId);
+  if (series === null) {
+    return (
+      <ReactionPriceUnavailable reason="Price history couldn't be loaded just now. The move above is the figure the desk filed." />
+    );
+  }
+  const ctx = series
+    ? buildReactionPriceContext(series, { screenedDate, sessions, fallbackCurrency })
+    : null;
+  if (!ctx) {
+    return (
+      <ReactionPriceUnavailable
+        reason={`No stored close around ${formatPriceDate(screenedDate)}, so the move can't be charted. The figure above is the one the desk filed.`}
+      />
+    );
+  }
+  return <ReactionPricePanel ctx={ctx} sessions={sessions} ticker={ticker} />;
 }

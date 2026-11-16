@@ -23,6 +23,10 @@ export interface DropAnalysisState {
   message: string;
   /** Set when the answer already exists — link straight to it. */
   reportId?: string;
+  /** The canonical ticker that was queued, for the client to poll on. */
+  ticker?: string;
+  /** When it was queued; the poll only looks at reports filed after this. */
+  queuedAt?: string;
 }
 
 const TICKER_RE = /^[A-Za-z0-9.\-]{1,12}$/;
@@ -69,6 +73,59 @@ export async function loadReactionUniverse(): Promise<
     return { ok: true, data: rows };
   } catch (err) {
     return { ok: false, error: getErrorMessage(err) };
+  }
+}
+
+/**
+ * Has the on-demand run for `ticker` filed its report yet?
+ *
+ * The queued message used to promise a report and then leave the reader with
+ * nowhere to go: the report doesn't exist when the action returns, so it can't
+ * be linked. The form polls this instead and swaps in a link when it lands.
+ *
+ * Matched on the RUN, not on a report item: a name that turns out not to clear
+ * the screen still gets a report saying so, and would have no scored row to
+ * find. `input_params.tickers` is what the queue wrote, so it identifies the
+ * run precisely; the time bound keeps an older run for the same name out.
+ */
+export async function findOnDemandReport(
+  ticker: string,
+  sinceIso: string,
+): Promise<{ reportId: string | null }> {
+  try {
+    const supabase = await entitledClient();
+    if (!supabase) return { reportId: null };
+    const wanted = ticker.trim().toUpperCase();
+    if (!wanted || Number.isNaN(Date.parse(sinceIso))) return { reportId: null };
+
+    const { data, error } = await supabase
+      .from("reports")
+      .select("id, generated_at, agent_runs!inner(status, input_params)")
+      .eq("agent_name", "reaction")
+      .eq("agent_runs.status", "succeeded")
+      .gte("generated_at", sinceIso)
+      .order("generated_at", { ascending: false })
+      .limit(10)
+      .returns<
+        {
+          id: string;
+          generated_at: string;
+          agent_runs: { status: string; input_params: { tickers?: string[] } | null };
+        }[]
+      >();
+    if (error) throw new Error(getErrorMessage(error));
+
+    const hit = (data ?? []).find((r) =>
+      (r.agent_runs?.input_params?.tickers ?? []).some(
+        (t) => String(t).trim().toUpperCase() === wanted,
+      ),
+    );
+    return { reportId: hit?.id ?? null };
+  } catch (err) {
+    // Polling must never surface an error into the form; the reader still has
+    // the reports list.
+    console.error(`findOnDemandReport: ${getErrorMessage(err)}`);
+    return { reportId: null };
   }
 }
 
@@ -146,6 +203,8 @@ export async function requestDropAnalysis(
     return {
       status: "started",
       message: `${ticker} queued — the desk screens it against the latest closes and files a report in a few minutes.`,
+      ticker,
+      queuedAt: new Date().toISOString(),
     };
   } catch (err) {
     return { status: "error", message: getErrorMessage(err) };

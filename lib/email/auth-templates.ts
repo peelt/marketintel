@@ -1,4 +1,4 @@
-import { renderBrandedEmail, emailButton } from "./layout";
+import { renderBrandedEmail, emailButton, emailLinkFallback } from "./layout";
 
 /**
  * Supabase auth email templates, in the house style.
@@ -36,9 +36,10 @@ export interface AuthEmailTemplate {
 export function magicLinkTemplate(): AuthEmailTemplate {
   const contentHtml = `
     <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#034566;">Your sign-in link</p>
-    <p style="margin:0 0 4px;">Click below to sign in to Investorlogical. The link works once and expires shortly; if it does, just request another from the sign-in page.</p>
+    <p style="margin:0 0 4px;">Click below to sign in to Investorlogical. The link works once. If it has expired, request another from the sign-in page.</p>
     ${emailButton(CONFIRMATION_URL, "Sign in")}
-    <p style="margin:8px 0 0;color:#6b7280;font-size:13px;">If you didn't request this, you can ignore it — nobody can sign in without the link.</p>`;
+    ${emailLinkFallback(CONFIRMATION_URL, "If the button doesn't work, paste this into your browser:")}
+    <p style="margin:14px 0 0;color:#6b7280;font-size:13px;">If you didn't request this, you can ignore it — nobody can sign in without the link.</p>`;
 
   return {
     target: "Magic Link",
@@ -56,7 +57,8 @@ export function confirmSignupTemplate(): AuthEmailTemplate {
     <p style="margin:0 0 8px;font-size:17px;font-weight:600;color:#034566;">Confirm your email to sign in</p>
     <p style="margin:0 0 4px;">Welcome to Investorlogical. Confirm this address to finish signing in — after this, signing in is just a one-time link, no password.</p>
     ${emailButton(CONFIRMATION_URL, "Confirm and sign in")}
-    <p style="margin:8px 0 0;color:#6b7280;font-size:13px;">If you didn't request this, you can ignore it — nobody can sign in without the link.</p>`;
+    ${emailLinkFallback(CONFIRMATION_URL, "If the button doesn't work, paste this into your browser:")}
+    <p style="margin:14px 0 0;color:#6b7280;font-size:13px;">If you didn't request this, you can ignore it — nobody can sign in without the link.</p>`;
 
   return {
     target: "Confirm signup",
