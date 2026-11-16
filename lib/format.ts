@@ -347,7 +347,9 @@ const CRITERION_SHORT_LABELS: Record<string, string> = {
   track_record: "track",
   cut_risk_signals: "cut risk",
   excess_decline: "decline",
-  earned_damage: "damage",
+  // Reads as the score does: high = the news did LITTLE damage. "damage" sat
+  // at 62 on a name whose news was graded 38/100 damage — the opposite word.
+  earned_damage: "light news",
   repricing_depth: "repricing",
   business_quality: "biz",
   growth_prospects: "growth",
@@ -361,6 +363,78 @@ const CRITERION_SHORT_LABELS: Record<string, string> = {
 
 export function criterionShortLabel(key: string): string {
   return CRITERION_SHORT_LABELS[key] ?? key.split("_")[0];
+}
+
+/**
+ * Reader-facing names for criteria whose key misleads when merely de-snaked.
+ * Reaction's criteria all score HIGH = MORE overshoot; "earned damage" at 62
+ * beside a news card graded 38/100 damage read as a contradiction — the
+ * criterion is that grade inverted. Keys are framework data and never change;
+ * only the label does.
+ */
+const CRITERION_LABELS: Record<string, string> = {
+  excess_decline: "Excess decline",
+  earned_damage: "Light news damage",
+  repricing_depth: "Repricing depth",
+};
+
+export function criterionLabel(key: string): string {
+  return CRITERION_LABELS[key] ?? classificationLabel(key);
+}
+
+/**
+ * One line on what a criterion measures, in the reader's terms — the tile's
+ * number alone ("62.0/100") explains nothing. `signals` are the persisted
+ * sub-signal scores, used only where a figure makes the line concrete.
+ * Null for criteria with no explainer (retired desks' archived editions).
+ */
+export function criterionExplainer(
+  key: string,
+  signals: Record<string, number | null> | undefined,
+): string | null {
+  switch (key) {
+    case "excess_decline":
+      return "How far it fell beyond the market's median move, with trading volume — ranked against this edition's other drops.";
+    case "earned_damage": {
+      // news_damage_severity is absolute-normalised, lower_better: the score
+      // IS 100 − the grade, so the grade can be stated exactly.
+      const s = signals?.news_damage_severity;
+      return typeof s === "number"
+        ? `The news-damage grade (${Math.round(100 - s)}/100) inverted: the less the news hurt the business, the higher this scores.`
+        : "The news-damage grade inverted: the less the news hurt the business, the higher this scores.";
+    }
+    case "repricing_depth":
+      return "Half how far below its 52-week high it closed (ranked), half the graded gap between the fall and the news.";
+    default:
+      return null;
+  }
+}
+
+/**
+ * A share price in its currency — always two decimals (a price is not a sum:
+ * $1,204 hides the cents a broker shows) and the narrow symbol, so USD reads
+ * "$308.88" as on the reader's own broker screen, not "US$308.88". An unknown
+ * code falls back to "308.88 XYZ" rather than throwing mid-render.
+ */
+export function formatPrice(value: number | null, currency: string): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  try {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency,
+      currencyDisplay: "narrowSymbol",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency}`;
+  }
+}
+
+/** "4 Nov" — a price date without its year, for dense figure captions. */
+export function formatShortDate(iso: string): string {
+  const full = formatPriceDate(iso);
+  return full.replace(/ \d{4}$/, "");
 }
 
 /**
