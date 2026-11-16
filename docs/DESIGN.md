@@ -61,6 +61,16 @@ sibling sites come only from the brand variables below.
   partials stay ranked at the bottom with coverage attached.
 - **Type floor:** no informational text below 14px. Standard mono line is
   15–16px; tags/labels 14px; raw-JSON disclosures are the only exception.
+- **Show the price, not just the percent** (16 Nov 2026). An opened Reaction
+  row leads with a price panel (`components/reaction-price-panel.tsx`, pure
+  logic in `lib/reports/reaction-price.ts`): ~3 months of closes, the graded
+  window shaded, the graded close dotted with its level carried forward, and a
+  figure strip (before the fall · graded close · 52-week high · latest close).
+  Prices are written as the market quotes them: LSE in pence ("53.40p"), never
+  "£0.53". The 52-week high is measured to the GRADED close, so it matches what
+  repricing scored. Criterion tiles carry a one-line explainer;
+  `earned_damage` reads "Light news damage" (it is the news grade inverted).
+  Below `sm` the ranked table stacks rather than scrolling sideways.
 - **No machine-speak:** crons render via `humanizeSchedule`/`nextRunLabel`
   (lib/format.ts); classifications via `ClassificationChip`; coverage via
   `CoverageBar` (both in components/cli.tsx). List summaries strip markdown
