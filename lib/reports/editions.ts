@@ -25,6 +25,12 @@ export interface EditionRowInput {
   trigger: string | null;
   /** agent_runs.input_params — jsonb, shape varies by era (see onDemandTickers). */
   input_params: unknown;
+  /**
+   * How many of the report's items were classified strong_overshoot, read
+   * from report_items (the summary only states the total). Null/absent when
+   * that read wasn't available — never assumed to be 0.
+   */
+  strong_overshoots?: number | null;
 }
 
 /** A daily edition, compact enough to ship to the client by the hundred. */
@@ -38,6 +44,8 @@ export interface Edition {
   overshoots: number | null;
   /** The flagged names the summary lists — the TOP THREE only, not all. */
   flagged: string[];
+  /** How many of `overshoots` were STRONG; null when not known. */
+  strong: number | null;
 }
 
 /** A report that is not its date's daily edition. */
@@ -193,7 +201,14 @@ export function buildEditionIndex(rows: EditionRowInput[]): EditionIndex {
       const sb = b.row.trigger === "scheduled" ? 1 : 0;
       return sb - sa || b.at - a.at;
     })[0];
-    editions.push({ id: best.row.id, date, ...parseEditionSummary(best.row.summary_markdown) });
+    const parsed = parseEditionSummary(best.row.summary_markdown);
+    editions.push({
+      id: best.row.id,
+      date,
+      ...parsed,
+      // No overshoot at all is a known zero strong, whatever the item read did.
+      strong: parsed.overshoots === 0 ? 0 : (best.row.strong_overshoots ?? null),
+    });
     for (const other of list) {
       if (other === best) continue;
       extras.push({
@@ -388,6 +403,18 @@ export function overshootLevel(overshoots: number | null): 0 | 1 | 2 | 3 {
 }
 
 /**
+ * The strongest overshoot band an edition contains — what its calendar dots
+ * are coloured by, so they speak the same colours as the classification
+ * chips: red when it includes a STRONG overshoot, orange when every flag is
+ * mild. Null when there is no overshoot, or when the split isn't known (the
+ * dots then stay neutral rather than claim a band).
+ */
+export function overshootTone(e: Edition): "strong" | "mild" | null {
+  if (!e.overshoots || e.strong === null) return null;
+  return e.strong > 0 ? "strong" : "mild";
+}
+
+/**
  * What an edition found, in a phrase — the calendar's preview line and each
  * day link's accessible name share it, so a screen-reader user hears exactly
  * what the dots and the hover show. `flagged` is the summary's top three, so
@@ -405,7 +432,16 @@ export function editionFindings(e: Edition): string {
       e.flagged.length > 0
         ? `: ${e.flagged.join(", ")}${more > 0 ? ` +${more} more` : ""}`
         : "";
-    parts.push(`${e.overshoots} overshoot${e.overshoots === 1 ? "" : "s"}${names}`);
+    const s = e.overshoots === 1 ? "" : "s";
+    const what =
+      e.strong === null
+        ? `${e.overshoots} overshoot${s}`
+        : e.strong === 0
+          ? `${e.overshoots} mild overshoot${s}`
+          : e.strong >= e.overshoots
+            ? `${e.overshoots} strong overshoot${s}`
+            : `${e.overshoots} overshoot${s} (${e.strong} strong)`;
+    parts.push(`${what}${names}`);
   }
   return parts.join(" · ");
 }

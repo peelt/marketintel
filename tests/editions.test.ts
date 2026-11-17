@@ -5,6 +5,7 @@ import {
   calendarWeeks,
   deskOfReport,
   editionFindings,
+  overshootTone,
   latestEdition,
   locateEdition,
   monthKey,
@@ -312,7 +313,8 @@ describe("overshootLevel — tercile bins", () => {
 });
 
 describe("editionFindings", () => {
-  const e = { id: "x", date: "2026-11-14" };
+  // strong: null = split unknown — the phrase then claims no band.
+  const e = { id: "x", date: "2026-11-14", strong: null };
   it("states the counts and names, and how many names it isn't showing", () => {
     expect(editionFindings({ ...e, cleared: 5, overshoots: 2, flagged: ["FSLR", "DOCS"] })).toBe(
       "5 cleared the screen · 2 overshoots: FSLR, DOCS",
@@ -334,6 +336,55 @@ describe("editionFindings", () => {
     expect(editionFindings({ ...e, cleared: null, overshoots: null, flagged: [] })).toBe(
       "edition filed",
     );
+  });
+});
+
+describe("strong vs mild — the calendar speaks the chips' colours", () => {
+  const base = { id: "x", date: "2026-11-17", cleared: 12, flagged: ["MRNA", "FSLR", "SNDK"] };
+
+  it("17 Nov: four overshoots, none strong, reads mild — not red", () => {
+    const e = { ...base, overshoots: 4, strong: 0 };
+    expect(overshootTone(e)).toBe("mild");
+    expect(editionFindings(e)).toBe(
+      "12 cleared the screen · 4 mild overshoots: MRNA, FSLR, SNDK +1 more",
+    );
+  });
+
+  it("any strong overshoot makes the day strong, and says how many", () => {
+    const e = { ...base, overshoots: 3, strong: 1 };
+    expect(overshootTone(e)).toBe("strong");
+    expect(editionFindings(e)).toBe(
+      "12 cleared the screen · 3 overshoots (1 strong): MRNA, FSLR, SNDK",
+    );
+    expect(editionFindings({ ...base, overshoots: 1, strong: 1, flagged: ["AXON"] })).toBe(
+      "12 cleared the screen · 1 strong overshoot: AXON",
+    );
+  });
+
+  it("an unknown split claims no band", () => {
+    expect(overshootTone({ ...base, overshoots: 4, strong: null })).toBeNull();
+    expect(overshootTone({ ...base, overshoots: 0, strong: 0 })).toBeNull();
+    expect(overshootTone({ ...base, overshoots: null, strong: null })).toBeNull();
+  });
+
+  it("the index carries the item-level strong count onto the day's edition", () => {
+    const idx = buildEditionIndex([
+      row("a", "2026-11-14T00:40:00Z", { strong_overshoots: 1 }),
+      row("b", "2026-11-17T00:41:00Z", { strong_overshoots: 0 }),
+      row("c", "2026-11-18T00:41:00Z", { strong_overshoots: null }),
+      row("d", "2026-11-19T00:41:00Z", {
+        strong_overshoots: null,
+        summary_markdown:
+          "853 names screened; 3 cleared the drop threshold. No screened move graded as overshoot — declines look earned or worse.",
+      }),
+    ]);
+    expect(idx.editions.map((e) => [e.id, e.strong, overshootTone(e)])).toEqual([
+      ["a", 1, "strong"],
+      ["b", 0, "mild"],
+      ["c", null, null],
+      // No overshoot at all is a known zero, even without the item read.
+      ["d", 0, null],
+    ]);
   });
 });
 

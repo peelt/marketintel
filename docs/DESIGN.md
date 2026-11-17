@@ -77,8 +77,12 @@ sibling sites come only from the brand variables below.
     the header states the close the edition grades when the desk pinned it
     (never inferred). Filed just after midnight UTC, they land Tue–Sat.
   - Calendar dots bin overshoots flagged at 1–3 / 4–8 / 9+ (terciles of the
-    editions on file); exact figures are in the hover line and each day's
-    accessible name. An empty day is explained in the legend.
+    editions on file) and take the CHIPS' colours: red when the edition
+    includes a strong overshoot, orange when every flag is mild, navy when
+    the split couldn't be read (never guessed). Red for every day read as
+    "strong" on mild-only editions. Exact figures ("4 overshoots (1 strong)")
+    are in the hover line and each day's accessible name. An empty day is
+    explained in the legend.
   - Nothing above the calendar may change height between editions: a line
     that appeared only on older editions moved the grid under the pointer.
   - An older edition, an on-demand run or an unknown id always says so and
