@@ -3,7 +3,6 @@
 import Link, { useLinkStatus } from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { DotList } from "@/components/dot-list";
 import { Skeleton } from "@/components/skeleton";
 import { formatEditionDate, formatMonthLabel } from "@/lib/format";
 import {
@@ -183,10 +182,9 @@ export function EditionNav({
         </button>
         {/* …at xl the calendar is always on show, so it is just the date. */}
         <div
-          className={`${BOX} hidden min-h-11 min-w-0 flex-1 flex-col items-center justify-center px-2 py-1 text-center font-mono-cli text-il-navy xl:flex`}
+          className={`${BOX} hidden h-11 min-w-0 flex-1 items-center justify-center px-2 text-center font-mono-cli text-base text-il-navy xl:flex`}
         >
-          <span className="text-base">{loc ? dateLabel : "—"}</span>
-          {tag && <span className="text-sm text-muted-foreground">{tag === "latest" ? "latest edition" : tag}</span>}
+          {loc ? dateLabel : "—"}
         </div>
 
         <Step
@@ -197,9 +195,7 @@ export function EditionNav({
         />
       </div>
 
-      {/* Orientation: an older edition, an on-demand run, or an unknown id
-          must never read as today's edition. Silent on the latest. */}
-      <Orientation loc={loc} latest={latest} hrefOf={hrefOf} />
+      <Orientation loc={loc} latest={latest} />
 
       {/* Calendar */}
       <div id={panelId} className={`${open ? "block" : "hidden"} mt-3 xl:block`}>
@@ -366,42 +362,59 @@ function useToday(): string | null {
 }
 const subscribeNever = () => () => {};
 
+/**
+ * What you're looking at, and the way back to the latest: an older edition,
+ * an on-demand run or an unknown id must never read as today's edition.
+ *
+ * ONE fixed-height row. It used to be a wrapping line that appeared only off
+ * the latest edition — which pushed the calendar down a row the moment you
+ * picked a day, leaving the pointer over the week ABOVE the one just clicked.
+ * At xl (calendar always visible) the row is therefore always present, on the
+ * latest edition too; below xl the calendar closes on navigation, so the row
+ * can stay away when there is nothing to say.
+ */
 function Orientation({
   loc,
   latest,
-  hrefOf,
 }: {
   loc: ReturnType<typeof locateEdition>;
   latest: Edition;
-  hrefOf: (e: Edition) => string;
 }) {
-  if (loc?.kind === "edition" && loc.isLatest) return null;
-  const toLatest = (
-    <Link href="/reports" className={`${FOCUS} rounded text-il-navy underline-offset-4 hover:text-il-orange hover:underline`}>
-      latest: {formatEditionDate(latest.date, { year: false })} →
-    </Link>
-  );
-  let lead: React.ReactNode;
-  if (!loc) {
-    lead = "this report isn't in the edition index";
-  } else if (loc.kind === "edition") {
-    lead = "you're reading an earlier edition";
-  } else if (loc.extra.kind === "on_demand") {
-    lead = `on-demand analysis of ${loc.extra.tickers.join(", ")}, not a daily edition`;
-  } else {
-    lead = "an earlier run from this date";
-  }
-  const day = loc?.kind === "extra" ? loc.dayEdition : null;
+  const onLatest = loc?.kind === "edition" && loc.isLatest;
+  const state = !loc
+    ? "not in the edition index"
+    : loc.kind === "edition"
+      ? loc.isLatest
+        ? "latest edition"
+        : "earlier edition"
+      : loc.extra.kind === "on_demand"
+        ? `on-demand: ${loc.extra.tickers.join(", ")}`
+        : "earlier run that day";
   return (
-    <DotList className="mt-2 font-mono-cli text-sm text-muted-foreground">
-      <span>~ {lead}</span>
-      {day && (
-        <Link href={hrefOf(day)} className={`${FOCUS} rounded text-il-navy underline-offset-4 hover:text-il-orange hover:underline`}>
-          that day&apos;s edition →
+    <div
+      className={`mt-2 h-6 items-center justify-between gap-3 font-mono-cli text-sm ${
+        onLatest ? "hidden xl:flex" : "flex"
+      }`}
+    >
+      <span className="min-w-0 truncate text-muted-foreground" title={state}>
+        ~ {state}
+      </span>
+      {!onLatest && (
+        <Link
+          href="/reports"
+          className={`${FOCUS} shrink-0 rounded text-il-navy underline-offset-4 hover:text-il-orange hover:underline`}
+        >
+          {/* The rail has room for the short form only. */}
+          <span className="xl:hidden">latest: {formatEditionDate(latest.date, { year: false })} →</span>
+          <span className="hidden xl:inline" aria-hidden>
+            latest →
+          </span>
+          <span className="sr-only hidden xl:inline">
+            Latest edition: {formatEditionDate(latest.date, { long: true })}
+          </span>
         </Link>
       )}
-      {toLatest}
-    </DotList>
+    </div>
   );
 }
 
