@@ -114,8 +114,14 @@ const CLASSIFICATION_COLORS: Record<string, string> = {
  * appears (reports, dashboard, portfolio, feeds). The leading dot makes the
  * colour legible even at a glance or with impaired colour vision.
  */
+/** A classification's traffic-light colour — the chip's, for anything that
+ *  must speak the same colours (e.g. the reports calendar's dots). */
+export function classificationColor(classification: string): string {
+  return CLASSIFICATION_COLORS[classification] ?? "#6b7280";
+}
+
 export function ClassificationChip({ classification }: { classification: string }) {
-  const color = CLASSIFICATION_COLORS[classification] ?? "#6b7280";
+  const color = classificationColor(classification);
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-mono-cli text-sm"

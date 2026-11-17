@@ -50,6 +50,17 @@ export const loadEditionIndex = cache(async (): Promise<EditionIndexes> => {
     .list()
     .filter((a) => a.status === "live")
     .map((a) => a.name);
+  // The summary states how many overshoots an edition flagged but not how many
+  // were STRONG; the calendar colours by that, so read it from the items — in
+  // parallel, one row per strong verdict (~80 in four months). Fail-soft: if
+  // it fails the split is unknown (null), never "all mild".
+  const strongRead = supabase
+    .from("report_items")
+    .select("report_id, report:reports!inner(agent_name)")
+    .eq("classification", "strong_overshoot")
+    .in("report.agent_name", liveNames)
+    .limit(INDEX_CEILING * 4)
+    .returns<{ report_id: string }[]>();
   const { data, error } = await supabase
     .from("reports")
     .select(
@@ -62,6 +73,17 @@ export const loadEditionIndex = cache(async (): Promise<EditionIndexes> => {
     .returns<IndexRow[]>();
   if (error) throw new Error(`loadEditionIndex: ${getErrorMessage(error)}`);
 
+  const { data: strongRows, error: strongErr } = await strongRead;
+  let strongByReport: Map<string, number> | null = null;
+  if (strongErr) {
+    console.error(`loadEditionIndex strong split: ${getErrorMessage(strongErr)}`);
+  } else {
+    strongByReport = new Map();
+    for (const r of strongRows ?? []) {
+      strongByReport.set(r.report_id, (strongByReport.get(r.report_id) ?? 0) + 1);
+    }
+  }
+
   const rows: EditionRowInput[] = (data ?? []).map((r) => ({
     id: r.id,
     agent_name: r.agent_name,
@@ -71,6 +93,7 @@ export const loadEditionIndex = cache(async (): Promise<EditionIndexes> => {
     // Only the tickers are ever derived from this (see onDemandTickers); the
     // free-text `reason` beside them never leaves the server.
     input_params: r.agent_runs?.input_params ?? null,
+    strong_overshoots: strongByReport ? (strongByReport.get(r.id) ?? 0) : null,
   }));
   const indexes = buildEditionIndexes(rows);
 

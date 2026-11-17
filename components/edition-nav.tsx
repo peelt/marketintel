@@ -3,6 +3,7 @@
 import Link, { useLinkStatus } from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { classificationColor } from "@/components/cli";
 import { Skeleton } from "@/components/skeleton";
 import { formatEditionDate, formatMonthLabel } from "@/lib/format";
 import {
@@ -15,6 +16,7 @@ import {
   locateEdition,
   monthKey,
   overshootLevel,
+  overshootTone,
   shiftMonth,
   type Edition,
   type EditionIndex,
@@ -45,8 +47,15 @@ import {
  */
 
 const NAVY = "#034566";
-/** Reaction's module accent — glyph-scale only, per the family spec. */
-const DOT = "#E2282C";
+/**
+ * Dot colours are the classification chips' own (components/cli.tsx), so a
+ * red dot means what a red chip means. Neutral navy when the split is unknown.
+ */
+const TONE_COLOR = {
+  strong: classificationColor("strong_overshoot"),
+  mild: classificationColor("mild_overshoot"),
+  unknown: NAVY,
+} as const;
 /** Navy outline (3:1 against white) with a cyan halo; cyan alone is ~2.4:1. */
 const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#034566] focus-visible:ring-4 focus-visible:ring-[#00b5e2]/30";
@@ -292,9 +301,13 @@ export function EditionNav({
               <div>
                 <div>Dots: overshoots flagged</div>
                 <div className="mt-0.5 flex items-center gap-x-4">
-                  <KeyDots level={1} label={`${OVERSHOOT_BINS.one}–${OVERSHOOT_BINS.two - 1}`} />
-                  <KeyDots level={2} label={`${OVERSHOOT_BINS.two}–${OVERSHOOT_BINS.three - 1}`} />
-                  <KeyDots level={3} label={`${OVERSHOOT_BINS.three}+`} />
+                  <KeyDots level={1} color={NAVY} label={`${OVERSHOOT_BINS.one}–${OVERSHOOT_BINS.two - 1}`} />
+                  <KeyDots level={2} color={NAVY} label={`${OVERSHOOT_BINS.two}–${OVERSHOOT_BINS.three - 1}`} />
+                  <KeyDots level={3} color={NAVY} label={`${OVERSHOOT_BINS.three}+`} />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                  <KeyDots level={1} color={TONE_COLOR.strong} label="at least one strong" />
+                  <KeyDots level={1} color={TONE_COLOR.mild} label="all mild" />
                 </div>
               </div>
               <p>
@@ -488,6 +501,7 @@ function DayLink({
   onPreview: (e: Edition | null) => void;
 }) {
   const level = overshootLevel(edition.overshoots);
+  const tone = overshootTone(edition);
   return (
     <Link
       href={href}
@@ -508,7 +522,9 @@ function DayLink({
       }`}
     >
       <DayNumber day={Number(edition.date.slice(8, 10))} />
-      <Dots level={level} color={current ? "#ffffff" : DOT} />
+      {/* On the open edition (navy fill) the dots go white — its chips are
+          on screen beside it. */}
+      <Dots level={level} color={current ? "#ffffff" : TONE_COLOR[tone ?? "unknown"]} />
     </Link>
   );
 }
@@ -540,10 +556,10 @@ function Dots({ level, color }: { level: 0 | 1 | 2 | 3; color: string }) {
   );
 }
 
-function KeyDots({ level, label }: { level: 1 | 2 | 3; label: string }) {
+function KeyDots({ level, color, label }: { level: 1 | 2 | 3; color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <Dots level={level} color={DOT} />
+      <Dots level={level} color={color} />
       <span className="font-mono-cli">{label}</span>
     </span>
   );
