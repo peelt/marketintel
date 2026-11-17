@@ -161,13 +161,47 @@ export function formatPriceDate(iso: string): string {
   return `${Number(d)} ${month} ${y}`;
 }
 
+const LONG_DAY_NAMES = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+] as const;
+const LONG_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
 /**
- * First non-empty line of a (markdown-stripped) summary, capped for list and
- * standfirst use. Pure; shared by the reports list and detail pages.
+ * An edition's date WITH its weekday — "Tue 17 Nov 2026". Editions are filed
+ * just after midnight UTC and grade the session before, so they land Tue–Sat;
+ * the weekday is what makes "Saturday's edition covers Friday" legible.
+ *
+ * Built from the string's own parts and Date.UTC — never `toLocale*`, whose
+ * month abbreviations differ between ICU versions ("Sep" vs "Sept") and would
+ * make a client component render differently from the server.
+ *
+ * `year: false` drops the year ("Tue 17 Nov"); `long: true` spells everything
+ * out for accessible names ("Tuesday 17 November 2026"). Falls back to the
+ * raw string if it isn't a plain date.
  */
-export function firstSentences(text: string, max = 220): string {
-  const flat = text.split("\n").filter((l) => l.trim().length > 0)[0] ?? "";
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+export function formatEditionDate(
+  iso: string,
+  opts: { year?: boolean; long?: boolean } = {},
+): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  const day = opts.long ? LONG_DAY_NAMES[dow] : DAY_NAMES[dow];
+  const month = (opts.long ? LONG_MONTHS : SHORT_MONTHS)[mo - 1] ?? m[2];
+  return `${day} ${d} ${month}${opts.year === false ? "" : ` ${y}`}`;
+}
+
+/** "November 2026" from "2026-11" (or any YYYY-MM… string). */
+export function formatMonthLabel(key: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(key);
+  if (!m) return key;
+  return `${LONG_MONTHS[Number(m[2]) - 1] ?? m[2]} ${m[1]}`;
 }
 
 /**
@@ -206,15 +240,6 @@ export function pluralizeCounts(text: string): string {
     (_, num: string, mid: string, word: string) =>
       `${num}${mid} ${Number(num) === 1 ? word : `${word}s`}`,
   );
-}
-
-/**
- * An edition's line in the archive list. Every reaction summary opens with the
- * same "NNN names screened; " — identical on every row, so the list drops it
- * and each row leads with what that run actually found.
- */
-export function editionListLine(summary: string): string {
-  return pluralizeCounts(summary).replace(/^\d[\d,]* names screened; /, "");
 }
 
 /**
