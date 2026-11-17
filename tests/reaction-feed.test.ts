@@ -56,3 +56,40 @@ describe("dedupRecentDrops", () => {
     expect(drops).toEqual([]);
   });
 });
+
+describe("dedupRecentDrops — on-demand runs count only for the names asked about", () => {
+  // 17 Nov: the 00:41 edition flagged AAA and BBB. At 12:10 someone asked for
+  // BBB; it qualified, so that run re-graded the whole cohort (AAA included).
+  const times = new Map([
+    ["edition", "2026-11-17T00:41:00Z"],
+    ["on-demand", "2026-11-17T12:10:00Z"],
+  ]);
+  const rows = [
+    item("a", "AAA", "strong_overshoot", "edition"),
+    item("b", "BBB", "mild_overshoot", "edition"),
+    item("a", "AAA", "proportionate", "on-demand"),
+    item("b", "BBB", "strong_overshoot", "on-demand"),
+  ];
+
+  it("keeps the edition's verdict for names the on-demand run wasn't asked about", () => {
+    const drops = dedupRecentDrops(rows, times, new Map([["on-demand", new Set(["BBB"])]]));
+    const byTicker = Object.fromEntries(drops.map((d) => [d.ticker, d]));
+    expect(byTicker.AAA.reportId).toBe("edition");
+    expect(byTicker.AAA.classification).toBe("strong_overshoot");
+    // The requested name takes the fresher, requested verdict — which is also
+    // what the 24h "already screened" check needs to find.
+    expect(byTicker.BBB.reportId).toBe("on-demand");
+    expect(byTicker.BBB.classification).toBe("strong_overshoot");
+  });
+
+  it("matches the requested ticker case-insensitively", () => {
+    const drops = dedupRecentDrops(rows, times, new Map([["on-demand", new Set(["BBB"])]]));
+    expect(drops.find((d) => d.ticker === "BBB")?.reportId).toBe("on-demand");
+    const lower = dedupRecentDrops(
+      [item("c", "bt.a", "mild_overshoot", "on-demand")],
+      times,
+      new Map([["on-demand", new Set(["BT.A"])]]),
+    );
+    expect(lower).toHaveLength(1);
+  });
+});
