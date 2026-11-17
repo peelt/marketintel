@@ -258,18 +258,12 @@ export default async function DashboardPage() {
                   {nextRunLabel(reactionMeta.schedule) && (
                     <span>next {nextRunLabel(reactionMeta.schedule)} · </span>
                   )}
-                  {reactionReport ? (
-                    <Link
-                      href={`/reports/${reactionReport.id}`}
-                      className="text-il-accent"
-                    >
-                      open latest report →
-                    </Link>
-                  ) : (
-                    <Link href="/reports" className="text-il-accent">
-                      all reports →
-                    </Link>
-                  )}
+                  {/* /reports IS the latest daily edition. Linking the newest
+                      report row by id could open someone's on-demand
+                      single-name run instead. */}
+                  <Link href="/reports" className="text-il-accent">
+                    {reactionReport ? "open latest edition →" : "reports →"}
+                  </Link>
                 </div>
               </div>
 
@@ -558,8 +552,8 @@ export default async function DashboardPage() {
               <Star /> <span className="font-bold text-il-navy">reports</span>
             </div>
             <p className="mt-2 text-base text-muted-foreground">
-              Every filed report — rankings, verdicts and the evidence behind
-              them.
+              The latest edition, open — rankings, verdicts and the evidence
+              behind them. Every earlier edition is on its calendar.
             </p>
           </Link>
           <Link href="/portfolio" className="card-cli block p-6">

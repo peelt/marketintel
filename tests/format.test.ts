@@ -5,8 +5,6 @@ import {
   confidenceWord,
   criterionShortLabel,
   dropDisplay,
-  editionListLine,
-  firstSentences,
   formatPriceDate,
   parseVerdictDrop,
   pluralizeCounts,
@@ -110,15 +108,7 @@ describe("parseVerdictDrop", () => {
   });
 });
 
-describe("firstSentences", () => {
-  it("takes the first non-empty line and caps long ones", () => {
-    expect(firstSentences("\n\nFirst line.\nSecond.")).toBe("First line.");
-    expect(firstSentences("x".repeat(300)).length).toBe(220);
-    expect(firstSentences("x".repeat(300)).endsWith("…")).toBe(true);
-  });
-});
-
-describe("pluralizeCounts / editionListLine", () => {
+describe("pluralizeCounts", () => {
   it("normalises printf plurals in already-filed summaries", () => {
     expect(pluralizeCounts("Framework flags 3 move(s) as overshoot.")).toBe(
       "Framework flags 3 moves as overshoot.",
@@ -131,20 +121,6 @@ describe("pluralizeCounts / editionListLine", () => {
     );
     expect(pluralizeCounts("1 screened fall(s) were corporate actions")).toBe(
       "1 screened fall were corporate actions",
-    );
-  });
-
-  it("drops the identical screened-count prefix for archive rows", () => {
-    expect(
-      editionListLine(
-        "853 names screened; 8 cleared the drop threshold. Framework flags 3 move(s) as overshoot: **COHR**.",
-      ),
-    ).toBe(
-      "8 cleared the drop threshold. Framework flags 3 moves as overshoot: **COHR**.",
-    );
-    // A summary without the prefix passes through untouched.
-    expect(editionListLine("No qualifying drops this run.")).toBe(
-      "No qualifying drops this run.",
     );
   });
 });

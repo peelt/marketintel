@@ -61,6 +61,28 @@ sibling sites come only from the brand variables below.
   partials stay ranked at the bottom with coverage attached.
 - **Type floor:** no informational text below 14px. Standard mono line is
   15–16px; tags/labels 14px; raw-JSON disclosures are the only exception.
+- **Reports open on the edition** (17 Nov 2026). `/reports` IS the latest
+  daily edition, rendered open — not an index with the edition a click
+  further in. `/reports/[id]` renders any other with the same view
+  (`app/(app)/reports/report-edition.tsx`). Moving between editions is one
+  navigator (`components/edition-nav.tsx`) mounted in the reports LAYOUT, so
+  it survives navigation: prev/next stepper + a month calendar of links. A
+  sticky right rail at `xl`; below that a bar whose date discloses the same
+  calendar inline (no floating popover). Rules that came out of the audit:
+  - One daily edition per date (`lib/reports/editions.ts`): the scheduled
+    run, else the latest. On-demand per-ticker runs and same-day re-runs file
+    report rows too but are NOT editions — they are listed separately and can
+    never become "the latest".
+  - Editions are named by filing date WITH the weekday ("Sat 14 Nov 2026");
+    the header states the close the edition grades when the desk pinned it
+    (never inferred). Filed just after midnight UTC, they land Tue–Sat.
+  - Calendar dots bin overshoots flagged at 1–3 / 4–8 / 9+ (terciles of the
+    editions on file); exact figures are in the hover line and each day's
+    accessible name. An empty day is explained in the legend.
+  - Nothing above the calendar may change height between editions: a line
+    that appeared only on older editions moved the grid under the pointer.
+  - An older edition, an on-demand run or an unknown id always says so and
+    links to the latest.
 - **Show the price, not just the percent** (16 Nov 2026). An opened Reaction
   row leads with a price panel (`components/reaction-price-panel.tsx`, pure
   logic in `lib/reports/reaction-price.ts`): ~3 months of closes, the graded
@@ -91,8 +113,9 @@ Adopted (all presentation-layer):
   one-line reason (and names the UK-fundamentals gap where that's the cause).
 - **You before telemetry**: dashboard order is portfolio → signals → status
   line (small, muted, bottom). Composite scores show their /100 scale.
-- **Reports group by desk**: latest edition prominent, prior editions
-  collapsed — successive runs are versions of one publication.
+- ~~Reports group by desk: latest edition prominent, prior editions
+  collapsed~~ — superseded 17 Nov 2026 by "Reports open on the edition"
+  (Information design, above).
 
 Considered and REJECTED (do not re-propose without new evidence):
 - Dropping the terminal/mono aesthetic → it is the family brand language

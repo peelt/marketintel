@@ -67,7 +67,7 @@ export function AppNav({
             <Wordmark size="h-12" />
           </Link>
         </div>
-        <nav className="flex items-center gap-5">
+        <nav className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <NavLink href="/dashboard" label="dashboard" />
           <NavLink href="/portfolio" label="portfolio" />
           <NavLink href="/reports" label="reports" />

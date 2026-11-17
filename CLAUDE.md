@@ -138,6 +138,21 @@ there the memo IS the report. Next step is an audit of filed editions (what
 share attribute, and do macro-driven names' disproportion grades actually
 separate) before any weighting follow-up.
 
+**Reports navigation (live, 17 Nov):** `/reports` renders the latest DAILY
+edition open; `/reports/[id]` any other, both via `ReportEdition`
+(`app/(app)/reports/report-edition.tsx`). The edition navigator
+(`components/edition-nav.tsx`, client) is mounted in `reports/layout.tsx` so
+it stays put across editions; it is fed by ONE cached read
+(`lib/reports/edition-index.ts`, zero-arg `cache()`) and the pure index in
+`lib/reports/editions.ts`. **A report row is not necessarily an edition:**
+on-demand per-ticker runs and same-day re-runs file rows too — the index
+keeps one edition per UTC date (scheduled run preferred) and sets the rest
+aside, so never treat "newest `reports` row" as "latest edition" (the
+dashboard's `loadRecentDeskReports` still does; its link now points at
+`/reports`). Counts on the calendar are parsed from `summary_markdown`, which
+OUR code composes — every shape ever filed must keep parsing, and an
+unrecognised one is null, never 0. See DESIGN.md "Reports open on the edition".
+
 **Intel lens (PR 6b, live):** pure delta engine in `lib/holdings/deltas.ts`
 (per-classification concern rank; `computeDelta` → new/worsened/improved/
 resolved/steady + `attention` on a fresh flag or worsening; `describeDelta`
