@@ -60,6 +60,8 @@ interface ReportRow {
   generated_at: string;
   summary_markdown: string;
   body_markdown: string;
+  /** The run that filed it (to-one embed). Null if it can't be read. */
+  run: RunRow | null;
 }
 
 interface ReportItemRow {
@@ -149,13 +151,32 @@ interface RunRow {
  */
 export async function ReportEdition({ reportId: id }: { reportId: string }) {
   const supabase = await createClient();
-  const { data: report, error: reportErr } = await supabase
-    .from("reports")
-    .select(
-      "id, agent_run_id, agent_name, generated_at, summary_markdown, body_markdown",
-    )
-    .eq("id", id)
-    .maybeSingle<ReportRow>();
+  // The whole edition in ONE wave: the report with its run embedded, and the
+  // items (evidence embedded) keyed straight off the report id. This was two
+  // serial hops — report, then run + items — because the run was looked up by
+  // the report's `agent_run_id`; nothing here actually needs the first answer
+  // to ask the second question. `/reports` already spends a hop finding which
+  // edition is the latest, so this keeps it at two rather than three.
+  // The gates below still apply: an unknown, retired or non-succeeded report
+  // simply discards the items it fetched rather than never fetching them.
+  const [{ data: report, error: reportErr }, { data: items, error: itemsErr }] =
+    await Promise.all([
+      supabase
+        .from("reports")
+        .select(
+          "id, agent_run_id, agent_name, generated_at, summary_markdown, body_markdown, run:agent_runs(framework_id, started_at, finished_at, status, input_params, framework:scoring_frameworks(version))",
+        )
+        .eq("id", id)
+        .maybeSingle<ReportRow>(),
+      supabase
+        .from("report_items")
+        .select(
+          "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name, currency), evidence(id, report_item_id, evidence_type, source_table, source_text, weight, redistributable)",
+        )
+        .eq("report_id", id)
+        .order("rank", { ascending: true })
+        .returns<ReportItemRow[]>(),
+    ]);
   // A read error must not masquerade as "not found" (404) — surface it.
   if (reportErr) throw new Error(`report load: ${reportErr.message}`);
   if (!report) notFound();
@@ -165,31 +186,7 @@ export async function ReportEdition({ reportId: id }: { reportId: string }) {
   if (agentRegistry.get(report.agent_name as AgentName)?.status === "retired") {
     notFound();
   }
-
-  // Everything else the page needs, in ONE parallel wave. These used to run as
-  // a serial chain (run -> items -> evidence), each hop paying a full network
-  // round-trip before the next could start; the evidence rows now ride along
-  // as an embedded select on their own items rather than a fourth hop.
-  // The run's status still gates rendering below — a non-succeeded run just
-  // means the fetched items are discarded rather than never fetched.
-  const [{ data: run, error: runErr }, { data: items, error: itemsErr }] = await Promise.all([
-    supabase
-      .from("agent_runs")
-      .select(
-        "framework_id, started_at, finished_at, status, input_params, framework:scoring_frameworks(version)",
-      )
-      .eq("id", report.agent_run_id)
-      .maybeSingle<RunRow>(),
-    supabase
-      .from("report_items")
-      .select(
-        "id, rank, security_id, composite_score, scoring_breakdown, verdict, classification, security:securities(ticker, exchange, name, currency), evidence(id, report_item_id, evidence_type, source_table, source_text, weight, redistributable)",
-      )
-      .eq("report_id", report.id)
-      .order("rank", { ascending: true })
-      .returns<ReportItemRow[]>(),
-  ]);
-  if (runErr) throw new Error(`report run load: ${runErr.message}`);
+  const run = report.run;
 
   // Invariant: a report whose run did not SUCCEED must never render its
   // ranked table, verdicts, or evidence — a half-persisted artefact would
