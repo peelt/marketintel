@@ -186,7 +186,12 @@ function ResultSummary({ task, result }: { task: string; result: unknown }) {
       <FailureList result={r} />
       {task === "run-reaction" && typeof r.reportId === "string" && (
         <p className="text-sm">
-          <Link href="/reports" className="font-mono-cli text-il-accent hover:text-il-orange">
+          {/* By id: /reports is the latest DAILY edition, and a run kicked
+              off from here is a manual one — it isn't that. */}
+          <Link
+            href={`/reports/${r.reportId}`}
+            className="font-mono-cli text-il-accent hover:text-il-orange"
+          >
             ~ open the report →
           </Link>
         </p>
