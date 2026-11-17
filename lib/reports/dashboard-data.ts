@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeDeskDelta, type DeskDelta } from "./desk-deltas";
-import { loadRecentDeskReports } from "./desk-reports";
+import { loadRecentDeskReports, splitDeskReports } from "./desk-reports";
 
 /**
  * Desk-card data for the dashboard, in as few round-trips as possible and
@@ -37,9 +37,6 @@ export interface DeskCard {
   delta: DeskDelta | null;
 }
 
-interface ReportRow extends DeskReport {
-  agent_runs: { status: string } | null;
-}
 interface ItemRow extends DeskClassifiedItem {
   report_id: string;
   security_id: string | null;
@@ -69,14 +66,15 @@ export async function loadDeskCards(
 ): Promise<DeskCard[]> {
   if (cache && now - cache.at < TTL_MS) return cache.cards;
 
-  // Latest two succeeded editions per desk (parallel). [0] drives the card,
-  // [1] is the baseline for the delta.
+  // Latest two DAILY editions per desk (parallel). [0] drives the card, [1]
+  // is the baseline for the delta. Not simply the two newest report rows: an
+  // on-demand or manual run files a row too (see splitDeskReports).
   const perDesk = await Promise.all(
     agentNames.map(async (name) => {
       // Shared newest-first read (lib/reports/desk-reports.ts) — the 48h feed
       // needs the same rows, so this is one round-trip between them.
       const recent = await loadRecentDeskReports(supabase, name);
-      return { name, reports: recent.slice(0, 2) as ReportRow[] };
+      return { name, reports: splitDeskReports(recent).editions.slice(0, 2) };
     }),
   );
 

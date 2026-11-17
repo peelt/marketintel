@@ -147,9 +147,13 @@ it stays put across editions; it is fed by ONE cached read
 `lib/reports/editions.ts`. **A report row is not necessarily an edition:**
 on-demand per-ticker runs and same-day re-runs file rows too — the index
 keeps one edition per UTC date (scheduled run preferred) and sets the rest
-aside, so never treat "newest `reports` row" as "latest edition" (the
-dashboard's `loadRecentDeskReports` still does; its link now points at
-`/reports`). Counts on the calendar are parsed from `summary_markdown`, which
+aside, so never treat "newest `reports` row" as "latest edition". The
+dashboard applies the same rule (`splitDeskReports` in
+`lib/reports/desk-reports.ts`): its desk card and "last screened" line use
+daily editions only, and the 48h feed takes an on-demand run's verdicts only
+for the names it was asked about — a qualifying on-demand run re-grades the
+WHOLE cohort for rank context, and its newer verdicts used to replace the
+morning edition's for every name. Counts on the calendar are parsed from `summary_markdown`, which
 OUR code composes — every shape ever filed must keep parsing, and an
 unrecognised one is null, never 0. See DESIGN.md "Reports open on the edition".
 
